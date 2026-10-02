@@ -6,7 +6,7 @@ import { Badge, Chip, Dialog, ghostButton, inputClass, primaryButton } from '../
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { useOnline, usePref } from '../lib/prefs';
 import { DIET_LABELS, householdDiets, type FoodPreferences } from '@huishouden/pwa-kit/food';
-import { MEAL_LABELS, groupMeals, kitchenInventory, mealIngredients, mealKey, pantryOf, plannedGroceries, type FavoriteMeal, type Meal, type MealContext, type Menu, type ValidatedMeals } from '../data/menus';
+import { MEAL_LABELS, groupMeals, heatLimit, kitchenInventory, mealIngredients, mealKey, pantryOf, plannedGroceries, type FavoriteMeal, type Meal, type MealContext, type Menu, type ValidatedMeals } from '../data/menus';
 import type { ListItem, ShoppingList } from '../data/model';
 import { PLAN_TYPES, firstFreeDay, type PlanType, type PlannedMeal } from '../data/mealPlan';
 import { WEEKDAYS, daysBetween, relativeDay, shortDate, toYmd, weekday, ymdToTime, type Ymd } from '@huishouden/pwa-kit/time';
@@ -47,6 +47,7 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
   const diets = householdDiets({ people });
   const strictDiets = diets.filter(isStrict);
   const gentleDiets = diets.filter((d) => GENTLE_DIETS.includes(d));
+  const heat = heatLimit({ people });
   const reflux = gentleDiets.includes('gerd');
   const [dropped, setDropped] = useState<ValidatedMeals['droppedDiet']>([]);
   const [usedUp, setUsedUp] = useState<Set<string>>(new Set());
@@ -139,6 +140,11 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
           {strictDiets.length > 0 && (
             <p className="mt-1 text-sm font-medium text-forest-700 dark:text-forest-300">
               Every idea fits {whoHas(people, (d) => isStrict(d)).join(', ')}
+            </p>
+          )}
+          {heat && heat.max < 3 && (
+            <p className="mt-1 text-sm font-medium text-forest-700 dark:text-forest-300">
+              {heat.max === 0 ? 'No spicy ideas' : heat.max === 1 ? 'Only a little heat' : 'At most medium heat'}, for {heat.who}
             </p>
           )}
           {gentleDiets.length > 0 && (

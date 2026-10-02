@@ -44,7 +44,7 @@ async function onlyHouseholdId(): Promise<string> {
   return id;
 }
 
-export async function seedFood(people: { id: string; name: string; diets: string[]; avoid: string[] }[]): Promise<void> {
+export async function seedFood(people: { id: string; name: string; diets: string[]; avoid: string[]; spice?: string }[]): Promise<void> {
   const headers = { ...ADMIN, 'Content-Type': 'application/json' };
   const household = await onlyHouseholdId();
   const str = (v: string) => ({ stringValue: v });
@@ -52,7 +52,7 @@ export async function seedFood(people: { id: string; name: string; diets: string
   const fields = {
     people: {
       arrayValue: {
-        values: people.map((p) => ({ mapValue: { fields: { id: str(p.id), name: str(p.name), diets: arr(p.diets), avoid: arr(p.avoid) } } })),
+        values: people.map((p) => ({ mapValue: { fields: { id: str(p.id), name: str(p.name), diets: arr(p.diets), avoid: arr(p.avoid), ...(p.spice ? { spice: str(p.spice) } : {}) } } })),
       },
     },
     pantryAssumed: arr(['salt', 'black pepper', 'common dried herbs and spices', 'cooking oil', 'cooking spray', 'butter']),
