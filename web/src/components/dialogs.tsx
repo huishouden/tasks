@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { CalendarPlus, Download, ListChecks, LogOut, Plus, Send, Trash2, UserPlus, X } from 'lucide-react';
+import { CalendarPlus, CalendarSearch, Download, ListChecks, Loader2, LogOut, MapPin, Plus, Send, Trash2, UserPlus, X } from 'lucide-react';
+import { findCalendarEvents, type CalendarMatch } from '../lib/calendar';
 import {
   ALL_CATEGORIES,
   ALL_URGENCIES,
   LIST_COLORS,
   moveInOrder,
+  formatDue,
   googleCalendarLink,
   newSubtask,
   splitIntoChecklist,
@@ -46,6 +48,30 @@ export function EditItemDialog({
   const [location, setLocation] = useState(item.location ?? '');
   const [link, setLink] = useState(item.link ?? '');
   const [steps, setSteps] = useState<Subtask[]>(item.subtasks ?? []);
+  const [searching, setSearching] = useState(false);
+  const [matches, setMatches] = useState<CalendarMatch[] | null>(null);
+  const [calendarError, setCalendarError] = useState<FriendlyError | null>(null);
+
+  async function searchCalendar() {
+    setSearching(true);
+    setCalendarError(null);
+    setMatches(null);
+    try {
+      setMatches(await findCalendarEvents(name));
+    } catch (e) {
+      setCalendarError(friendlyError(e, 'calendar'));
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function useMatch(m: CalendarMatch) {
+    setDate(toDateInput(m.start));
+    setTime(m.allDay ? '' : toTimeInput(m.start));
+    if (m.location) setLocation(m.location);
+    setLink(m.link);
+    setMatches(null);
+  }
   const [newStep, setNewStep] = useState('');
   const split = steps.length === 0 ? splitIntoChecklist(name) : null;
   const dueAt = date ? fromInputs(date, time) : null;
@@ -182,6 +208,34 @@ export function EditItemDialog({
         </fieldset>
         <fieldset className="grid gap-3 rounded-2xl border border-stone-200 p-3 dark:border-forest-700">
           <legend className="px-1 text-sm text-stone-500">Date or appointment</legend>
+          <button type="button" onClick={() => void searchCalendar()} disabled={searching || !name.trim()} className={`${ghostButton} justify-self-start bg-forest-50 text-forest-700 dark:bg-forest-700 dark:text-forest-100`}>
+            {searching ? <Loader2 size={18} className="animate-spin" /> : <CalendarSearch size={18} />} {searching ? 'Searching your calendars…' : 'Find in my calendar'}
+          </button>
+          {calendarError && <ErrorNotice error={calendarError} onRetry={() => void searchCalendar()} retrying={searching} />}
+          {matches && matches.length === 0 && (
+            <p className="text-sm text-stone-500" role="status">
+              No events matching "{name.trim()}" in your calendars from last week to a year ahead.
+            </p>
+          )}
+          {matches && matches.length > 0 && (
+            <ul className="grid gap-1.5" aria-label="Calendar matches">
+              {matches.map((m) => (
+                <li key={m.id}>
+                  <button type="button" onClick={() => useMatch(m)} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-left hover:border-forest-500 hover:bg-forest-50 dark:border-forest-600 dark:hover:bg-forest-700">
+                    <span className="block font-medium [overflow-wrap:anywhere]">{m.title}</span>
+                    <span className="block text-sm text-stone-500">
+                      {formatDue({ dueAt: m.start, allDay: m.allDay }, Date.now())} · {m.calendarName}
+                    </span>
+                    {m.location && (
+                      <span className="block text-sm text-stone-500 [overflow-wrap:anywhere]">
+                        <MapPin size={12} className="mr-0.5 inline" /> {m.location}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
             <label className="text-sm text-stone-500">
               Date

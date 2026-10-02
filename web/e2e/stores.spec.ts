@@ -83,3 +83,19 @@ test('lists can be reordered for everyone', async ({ page }) => {
   await page.reload();
   await expect(page.locator('nav[aria-label="Lists"] > button').first()).toHaveText(/Chores & Notes/);
 });
+
+test('the layout editor keeps section names readable on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Store' }).click();
+  await page.getByRole('button', { name: /Add store/ }).click();
+  await page.getByLabel('Store name').fill('Publix');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  const editor = page.getByRole('region', { name: 'Publix layout' });
+  // Regression: the aisle box took the whole row and wrapped names one word per line.
+  const name = editor.getByText('Pantry & Dry Goods', { exact: true });
+  const box = (await name.boundingBox())!;
+  expect(box.height).toBeLessThan(30);
+  const aisle = (await editor.getByLabel('Aisle for Pantry & Dry Goods').boundingBox())!;
+  expect(aisle.width).toBeLessThan(130);
+  await page.screenshot({ path: 'test-results/layout-editor-phone.png' });
+});
