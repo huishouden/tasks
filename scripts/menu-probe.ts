@@ -3,7 +3,7 @@
 // ~/.config/huishouden-tasks/appcheck-debug-token.
 //
 //   bun scripts/menu-probe.ts "eggs, mushrooms, steak" "zucchini, rice"     # have, then on the list
-//   DIETS=gerd,pregnant AVOID=olives bun scripts/menu-probe.ts "…" "…"      # an invented household's diets
+//   DIETS=vegetarian,low-sodium AVOID=olives bun scripts/menu-probe.ts "…" "…"   # diets to try (any from the kit)
 //   MODEL=gemini-3.5-flash-lite bun scripts/menu-probe.ts "…"               # try another model
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';

@@ -510,6 +510,12 @@ export class HouseholdRepo {
     return ref.id;
   }
 
+  /** Puts a deleted batch of ideas back under its old id (for Undo). */
+  async restoreMenu(menu: Menu): Promise<void> {
+    const { id, ...data } = menu;
+    await setDoc(doc(this.col('menus'), id), data);
+  }
+
   deleteMenu(id: string): void {
     const batch = writeBatch(this.db);
     batch.delete(doc(this.col('menus'), id));

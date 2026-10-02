@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { Candy, ChevronDown, Citrus, Droplet, Flame, Leaf, ListPlus, Loader2, Plus, Sparkles, Star, Trash2, X } from 'lucide-react';
 import { GENTLE_DIETS, dietTags, gentleOnReflux, isStrict, mealLevels, type MealLevels } from '../data/diet';
 import { ErrorNotice } from '../components/ErrorNotice';
-import { Chip, Dialog, ghostButton, inputClass, primaryButton } from '../components/ui';
+import { Badge, Chip, Dialog, ghostButton, inputClass, primaryButton } from '../components/ui';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { useOnline, usePref } from '../lib/prefs';
 import { DIET_LABELS, householdDiets, type FoodPreferences } from '@huishouden/pwa-kit/food';
@@ -141,13 +141,13 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
         {bought.length + extras.length > 0 && <h2 className="text-sm font-semibold text-stone-600 dark:text-stone-300">Have</h2>}
         <div className="flex flex-wrap gap-2" aria-label="Ingredients">
           {bought.map((name) => (
-            <Chip key={name} active={!usedUp.has(name)} onClick={() => toggle(name)}>
+            <Chip key={name} active={!usedUp.has(name)} pressed={!usedUp.has(name)} onClick={() => toggle(name)}>
               <span className={usedUp.has(name) ? 'line-through' : ''}>{name}</span>
             </Chip>
           ))}
           {extras.map((name) => (
-            <Chip key={`extra-${name}`} active onClick={() => setExtras(extras.filter((e) => e !== name))}>
-              {name} <X size={12} className="ml-0.5 inline" />
+            <Chip key={`extra-${name}`} active label={`Remove ${name}`} onClick={() => setExtras(extras.filter((e) => e !== name))}>
+              {name} <X size={12} className="ml-0.5 inline" aria-hidden />
             </Chip>
           ))}
           {bought.length === 0 && extras.length === 0 && planned.length === 0 && (
@@ -159,7 +159,7 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
             <h2 className="text-sm font-semibold text-stone-600 dark:text-stone-300">On the list</h2>
             <div className="flex flex-wrap gap-2" aria-label="On the list">
               {planned.map((name) => (
-                <Chip key={`list-${name}`} active={!usedUp.has(name)} onClick={() => toggle(name)}>
+                <Chip key={`list-${name}`} active={!usedUp.has(name)} pressed={!usedUp.has(name)} onClick={() => toggle(name)}>
                   <span className={usedUp.has(name) ? 'line-through' : ''}>{name}</span>
                 </Chip>
               ))}
@@ -354,7 +354,7 @@ function MealCard({
       <ul className="grid gap-1.5 text-sm">
         {meal.parts.map((part, i) => (
           <li key={i}>
-            <span className="font-medium capitalize">{part.ingredients.join(', ')}</span>
+            <span className="font-medium">{sentenceCase(part.ingredients.join(', '))}</span>
             <span className="text-stone-500 dark:text-stone-400"> · {part.prep}</span>
           </li>
         ))}
@@ -371,6 +371,9 @@ function whoHas(people: FoodPreferences['people'], keep: (d: FoodPreferences['pe
     .map((p) => (possessive ? `${p.name}'s ${p.diets.join(' and ')}` : `${p.name} (${p.diets.map((d) => d.toLowerCase()).join(', ')})`));
 }
 
+/** One wording for what is shown and what is read out. */
+const HEAT_WORDS = ['A little spicy', 'Spicy', 'Very spicy'];
+
 const LEVEL_WORDS: Record<Exclude<keyof MealLevels, 'heat'>, [string, string, string]> = {
   acidity: ['A little acidic', 'Acidic', 'Very acidic'],
   richness: ['A little rich', 'Rich', 'Fried or greasy'],
@@ -379,43 +382,46 @@ const LEVEL_WORDS: Record<Exclude<keyof MealLevels, 'heat'>, [string, string, st
 
 /**
  * What a menu would print beside a dish: Vegetarian or Vegan, flames for heat, and words for
- * acidity, richness and sweetness when there is any. Quiet stone text; heat in terracotta.
+ * acidity, richness and sweetness when there is any. Quiet stone text throughout.
  */
 function MealBadges({ meal, reflux }: { meal: Meal; reflux: boolean }) {
   const levels = meal.levels ?? mealLevels(meal);
   const tags = dietTags(meal);
-  const badge = 'inline-flex items-center gap-1 rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-600 dark:border-forest-600 dark:text-stone-300';
   const icons = { acidity: Citrus, richness: Droplet, sweetness: Candy } as const;
   const words = (Object.keys(LEVEL_WORDS) as (keyof typeof LEVEL_WORDS)[]).filter((k) => levels[k] > 0);
+  const heat = HEAT_WORDS[levels.heat - 1];
   if (!tags.length && !levels.heat && !words.length && !reflux) return null;
   return (
     <ul className="mb-2 flex flex-wrap gap-1.5" aria-label={`About ${meal.name}`}>
-      {reflux && gentleOnReflux(levels) && (
-        <li className={`${badge} border-forest-200 text-forest-700 dark:text-forest-300`}>Gentle on reflux</li>
-      )}
+      {reflux && gentleOnReflux(levels) && <Badge tone="forest">Gentle on reflux</Badge>}
       {tags.map((t) => (
-        <li key={t} className={badge}>
-          <Leaf size={12} /> {t}
-        </li>
+        <Badge key={t}>
+          <Leaf size={12} aria-hidden /> {t}
+        </Badge>
       ))}
-      {levels.heat > 0 && (
-        <li className={`${badge} text-terracotta`} aria-label={['', 'A little spicy', 'Spicy', 'Very spicy'][levels.heat]}>
+      {heat && (
+        <Badge label={heat}>
           {Array.from({ length: levels.heat }, (_, i) => (
             <Flame key={i} size={12} aria-hidden />
           ))}
-          <span aria-hidden>{['', 'Mild heat', 'Spicy', 'Very spicy'][levels.heat]}</span>
-        </li>
+          <span aria-hidden>{heat}</span>
+        </Badge>
       )}
       {words.map((k) => {
         const Icon = icons[k];
         return (
-          <li key={k} className={badge}>
-            <Icon size={12} /> {LEVEL_WORDS[k][levels[k] - 1] ?? LEVEL_WORDS[k][2]}
-          </li>
+          <Badge key={k}>
+            <Icon size={12} aria-hidden /> {LEVEL_WORDS[k][Math.min(levels[k], 3) - 1]}
+          </Badge>
         );
       })}
     </ul>
   );
+}
+
+/** "chicken, rice" → "Chicken, rice": sentence case, as the rest of the app writes. */
+function sentenceCase(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function AddIngredientsDialog({

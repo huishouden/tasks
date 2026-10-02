@@ -280,3 +280,22 @@ test('strict diets drop ideas, with the reason; GERD orders and labels them inst
   await expect(dinners.nth(1)).toContainText('Spicy mushroom rice');
   await expect(dinners.nth(1).getByLabel('Spicy', { exact: true })).toBeVisible();
 });
+
+test('deleting a batch of ideas can be undone', async ({ page }) => {
+  await signIn(page, 'alice@example.com', 'Alice Example');
+  await createHousehold(page);
+  for (const item of ['Eggs', 'Mushrooms', 'Rice']) await addItem(page, item);
+  await page.getByRole('button', { name: 'Meals' }).click();
+  await page.evaluate(
+    () =>
+      (window.__mockMenuResponse = {
+        meals: [{ type: 'breakfast', name: 'Mushroom omelet', parts: [{ ingredients: ['eggs', 'mushrooms'], prep: 'Folded' }], extras: [], heat: 0, acidity: 0, richness: 1, sweetness: 0 }],
+      }),
+  );
+  await page.getByRole('button', { name: 'Suggest meals' }).click();
+  await expect(page.locator('article', { hasText: 'Mushroom omelet' })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete these ideas' }).click();
+  await expect(page.locator('article', { hasText: 'Mushroom omelet' })).toHaveCount(0);
+  await page.getByRole('status').filter({ hasText: 'Deleted 1 meal idea' }).getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('article', { hasText: 'Mushroom omelet' })).toBeVisible();
+});
