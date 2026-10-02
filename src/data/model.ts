@@ -86,6 +86,8 @@ export interface ListItem {
   link?: string;
   /** Steps ticked off one at a time; the item completes when the last one is done. */
   subtasks?: Subtask[];
+  /** Brought in from this Google task (@huishouden/pwa-kit/google-tasks). */
+  googleTaskId?: string;
   createdAt: number;
   updatedAt: number;
   completedAt: number | null;
