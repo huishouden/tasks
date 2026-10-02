@@ -1,5 +1,5 @@
 import { devices } from '@playwright/test';
-import { addItem, createHousehold, expect, seedFood, signIn, test } from './fixtures';
+import { addItem, createHousehold, expect, readHouseholdCollection, seedFood, signIn, test } from './fixtures';
 
 // Gemini has no emulator, so these tests stand in a fixed response; the prompt itself is
 // exercised against the real model with scripts/menu-probe.ts.
@@ -298,4 +298,35 @@ test('deleting a batch of ideas can be undone', async ({ page }) => {
   await expect(page.locator('article', { hasText: 'Mushroom omelet' })).toHaveCount(0);
   await page.getByRole('status').filter({ hasText: 'Deleted 1 meal idea' }).getByRole('button', { name: 'Undo' }).click();
   await expect(page.locator('article', { hasText: 'Mushroom omelet' })).toBeVisible();
+});
+
+test('an idea planned for a day shows in the shared week, and a dinner on the household agenda', async ({ page }) => {
+  await signIn(page, 'alice@example.com', 'Alice Example');
+  await createHousehold(page);
+  for (const item of ['Eggs', 'Mushrooms', 'Rice']) await addItem(page, item);
+  await page.getByRole('button', { name: 'Meals' }).click();
+  await expect(page.getByRole('region', { name: 'This week' })).toContainText('Nothing planned yet');
+  await page.evaluate(
+    () =>
+      (window.__mockMenuResponse = {
+        meals: [{ type: 'dinner', name: 'Mushroom rice bowl', parts: [{ ingredients: ['mushrooms', 'rice'], prep: 'Sautéed' }], extras: [], heat: 0, acidity: 0, richness: 1, sweetness: 0 }],
+      }),
+  );
+  await page.getByRole('button', { name: 'Suggest meals' }).click();
+  await page.getByRole('button', { name: 'Plan Mushroom rice bowl' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Plan Mushroom rice bowl' });
+  await dialog.getByRole('group', { name: 'Day' }).getByRole('button', { name: 'Tomorrow' }).click();
+  await dialog.getByRole('button', { name: 'Plan for tomorrow' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Planned for Tomorrow dinner' })).toBeVisible();
+
+  const week = page.getByRole('region', { name: 'This week' });
+  await expect(week.getByRole('row', { name: /^Tomorrow/ })).toContainText('Mushroom rice bowl');
+  await expect.poll(async () => (await readHouseholdCollection('agenda')).map((a) => a.title)).toEqual(['Dinner: Mushroom rice bowl']);
+
+  // Shared: survives a reload; removing it clears the agenda entry too.
+  await page.reload();
+  await page.getByRole('button', { name: 'Meals' }).click();
+  await week.getByRole('button', { name: 'Remove Mushroom rice bowl from Tomorrow dinner' }).click();
+  await expect(week).toContainText('Nothing planned yet');
+  await expect.poll(async () => (await readHouseholdCollection('agenda')).length).toBe(0);
 });

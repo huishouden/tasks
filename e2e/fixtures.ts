@@ -54,6 +54,16 @@ export async function seedFood(people: { id: string; name: string; diets: string
   await emulatorRequest(`${base}/households/${household}/settings/food`, { method: 'PATCH', headers, body: JSON.stringify({ fields }) });
 }
 
+/** Documents in one of the household's collections, read with admin access (for checking writes). */
+export async function readHouseholdCollection(name: string): Promise<Record<string, unknown>[]> {
+  const base = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`;
+  const headers = { Authorization: 'Bearer owner' };
+  const list = (await (await fetch(`${base}/households`, { headers })).json()) as { documents?: { name: string }[] };
+  const household = list.documents?.[0]?.name.split('/').pop();
+  const res = (await (await fetch(`${base}/households/${household}/${name}`, { headers })).json()) as { documents?: { fields: Record<string, { stringValue?: string }> }[] };
+  return (res.documents ?? []).map((d) => Object.fromEntries(Object.entries(d.fields).map(([k, v]) => [k, v.stringValue ?? v])));
+}
+
 export async function signIn(page: Page, email: string, name: string): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
