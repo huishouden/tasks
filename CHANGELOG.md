@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/huishouden/tasks/compare/v1.3.0...v1.4.0) (2026-10-02)
+
+
+### Features
+
+* error, speed and anonymous usage reports (pwa-kit observability) ([#26](https://github.com/huishouden/tasks/issues/26)) ([317817d](https://github.com/huishouden/tasks/commit/317817dd07c08259a541298b91675c5bc27df765))
+* meal ideas stay within the household's mildest spice tolerance ([#30](https://github.com/huishouden/tasks/issues/30)) ([b2a76aa](https://github.com/huishouden/tasks/commit/b2a76aa965cbcafa8edebe71459f695df96cec56))
+
 ## [1.3.0](https://github.com/huishouden/tasks/compare/v1.2.1...v1.3.0) (2026-10-02)
 
 
