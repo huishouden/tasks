@@ -729,6 +729,7 @@ export function SettingsDialog({
   theme,
   setTheme,
   install,
+  notifications,
   onAddMember,
   onRemoveMember,
   onClose,
@@ -740,6 +741,8 @@ export function SettingsDialog({
   theme: ThemeMode;
   setTheme: (t: ThemeMode) => void;
   install: { canInstall: boolean; installed: boolean; install: () => Promise<void> };
+  /** "Notifications on this device" (the kit's NotificationsCard). */
+  notifications?: React.ReactNode;
   onAddMember: (email: string) => Promise<void>;
   onRemoveMember: (email: string) => Promise<void>;
   onClose: () => void;
@@ -821,6 +824,8 @@ export function SettingsDialog({
           </label>
           <p className="mt-1 text-sm text-stone-500">Use "Kitchen" on the shared tablet so you can tell who added what.</p>
         </section>
+
+        {notifications}
 
         <section>
           <p className="mb-2 text-sm font-semibold">Appearance on this device</p>
