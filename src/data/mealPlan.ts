@@ -1,4 +1,5 @@
-import { collection, doc, query, where, writeBatch, type Firestore } from 'firebase/firestore';
+import { collection, doc, query, where, type Firestore } from 'firebase/firestore';
+import { writeBatch } from '@huishouden/pwa-kit/firestore';
 import { agendaDoc, agendaId, allDayStart } from '@huishouden/pwa-kit/agenda';
 import { addDays, toYmd, type Ymd } from '@huishouden/pwa-kit/time';
 import type { Meal } from './menus';

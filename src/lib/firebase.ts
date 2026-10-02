@@ -3,13 +3,8 @@ import { firebaseConfigFromEnv } from '@huishouden/pwa-kit/firebase';
 import { configureGoogleTokens } from '@huishouden/pwa-kit/google-token';
 import { ReCaptchaEnterpriseProvider, initializeAppCheck } from 'firebase/app-check';
 import { GoogleAuthProvider, connectAuthEmulator, getAuth, signInWithCredential, type Auth } from 'firebase/auth';
-import {
-  connectFirestoreEmulator,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  type Firestore,
-} from 'firebase/firestore';
+import { connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
+import { initFirestore } from '@huishouden/pwa-kit/firestore';
 
 export interface FirebaseHandles {
   app: FirebaseApp;
@@ -57,9 +52,8 @@ export function getFirebase(): Promise<FirebaseHandles> {
       initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
     }
     const auth = getAuth(app);
-    const db = initializeFirestore(app, {
-      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-    });
+    // Persistent cache; writes from @huishouden/pwa-kit/firestore, so one made just before the app closes is kept.
+    const db = initFirestore(app, { auth });
     if (useEmulators) {
       connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
       connectFirestoreEmulator(db, '127.0.0.1', 8080);
