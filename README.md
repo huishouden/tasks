@@ -1,6 +1,6 @@
 # Huishouden Tasks
 
-Shared groceries, lists, chores and meal ideas for one household: an installable app for the kitchen tablet and phones. Every device sees changes in real time and keeps working offline.
+Shared lists and chores. Every device in the household sees changes in real time and keeps working offline.
 
 Part of [Huishouden](https://huishouden-piekstra.web.app), a suite of small household apps that share sign-in, the household and one design language ([huishouden-pwa-kit](https://github.com/huishouden/pwa-kit)). Live at https://huishouden-tasks.web.app.
 
@@ -22,7 +22,8 @@ The screenshots come from a sample household in the emulators. After a change to
 
 ## How it works
 
-- **Sign-in:** Google accounts through Firebase Auth. A household is a list of member emails; anyone in it can see and edit every list. Members are added in Settings.
+- **Sign-in:** Google accounts through Firebase Auth, in the suite's app bar (`@huishouden/pwa-kit/react/app-bar`), and silently (One Tap) when the browser is already signed in to Google. A household is a list of member emails shared by every Huishouden app; anyone in it can see and edit every list. Members are added in Huishouden or in Settings.
+- **Google Calendar:** "Find in my calendar" reads events with a token from Google Identity Services (`@huishouden/pwa-kit/calendar`, `google-token`), asked for once from a tap and reused for its hour.
 - **Data:** Cloud Firestore, cached on each device so the app opens instantly and works without a connection. Access is enforced by the household's Firestore rules, which live in [huishouden/rules](https://github.com/huishouden/rules); changes to what Tasks stores go there as a PR.
 - **Hosting:** the `huishouden-tasks` site in the shared `huishouden-piekstra` Firebase project, with the other Huishouden apps.
 - **Config:** CI builds read the Firebase web config from the repo's `VITE_FIREBASE_*` variables (public by design); local previews fall back to `/__/firebase/init.json`, which Hosting serves.

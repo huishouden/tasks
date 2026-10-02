@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, LogOut, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
+import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
 import { describeDay, parseOpeningHours } from '@huishouden/pwa-kit/hours';
 import { PlaceSearchUnavailable, formatDistance, mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
-import { findCalendarEvents, type CalendarMatch } from '../lib/calendar';
+import { findCalendarEvents, type CalendarMatch } from '@huishouden/pwa-kit/calendar';
+import { getFirebase } from '../lib/firebase';
 import {
   ALL_CATEGORIES,
   URGENCY,
@@ -74,7 +75,8 @@ export function EditItemDialog({
     setCalendarError(null);
     setMatches(null);
     try {
-      setMatches(await findCalendarEvents(name));
+      const { auth } = await getFirebase();
+      setMatches(await findCalendarEvents(auth, name));
     } catch (e) {
       setCalendarError(friendlyError(e, 'calendar'));
     } finally {
@@ -729,7 +731,6 @@ export function SettingsDialog({
   install,
   onAddMember,
   onRemoveMember,
-  onSignOut,
   onClose,
 }: {
   household: Household;
@@ -741,7 +742,6 @@ export function SettingsDialog({
   install: { canInstall: boolean; installed: boolean; install: () => Promise<void> };
   onAddMember: (email: string) => Promise<void>;
   onRemoveMember: (email: string) => Promise<void>;
-  onSignOut: () => void;
   onClose: () => void;
 }) {
   const [invite, setInvite] = useState('');
@@ -850,14 +850,6 @@ export function SettingsDialog({
           </section>
         )}
 
-        <div className="flex items-center justify-between border-t border-stone-200 pt-4 dark:border-forest-700">
-          <span className="text-xs text-stone-400">
-            Signed in as {myEmail} · Tasks {import.meta.env.VITE_APP_VERSION} ({import.meta.env.VITE_BUILD_SHA})
-          </span>
-          <button onClick={onSignOut} className={ghostButton}>
-            <LogOut size={18} /> Sign out
-          </button>
-        </div>
       </div>
     </Dialog>
   );

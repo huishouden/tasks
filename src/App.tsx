@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { inviteMember, markJoined, removeMember } from '@huishouden/pwa-kit/household';
-import { CloudOff, Home, ListChecks, Loader2, ShoppingCart, UtensilsCrossed } from 'lucide-react';
+import { signInSilently } from '@huishouden/pwa-kit/auth';
+import { inviteMember, markJoined, removeMember, saveMyProfile } from '@huishouden/pwa-kit/household';
+import { AppBar } from '@huishouden/pwa-kit/react/app-bar';
+import { SectionTabs, cardClass } from '@huishouden/pwa-kit/react/ui';
+import { CloudOff, Loader2, Settings } from 'lucide-react';
 import type { AddRequest } from './components/AddBar';
 import { ErrorNotice } from './components/ErrorNotice';
 import { friendlyError, type FriendlyError } from './lib/errors';
@@ -27,6 +31,7 @@ import {
   useStores,
 } from './data/store';
 import { classifyItem, suggestMeals } from './lib/ai';
+import { getFirebase, googleClientId, useEmulators } from './lib/firebase';
 import { useApplyTheme, useInstallPrompt, useOnline, usePref, type ThemeMode } from './lib/prefs';
 import { HubView } from './views/HubView';
 import { ListsView } from './views/ListsView';
@@ -41,8 +46,36 @@ import { planDays, planMeal, unplanMeal } from './data/mealPlan';
 
 type Mode = 'lists' | 'hub' | 'store' | 'meals';
 
-function Centered({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-full items-center justify-center p-6">{children}</div>;
+const PORTAL_URL = 'https://huishouden-piekstra.web.app';
+const VERSION = `${import.meta.env.VITE_APP_VERSION} (${import.meta.env.VITE_BUILD_SHA})`;
+
+interface FrameProps {
+  user: User | null | undefined;
+  dark: boolean;
+  signingIn: boolean;
+  onSignIn: () => void;
+  onSignOut: () => void;
+}
+
+/** The Huishouden frame (DESIGN.md "Frame"): the kit's app bar over the page. */
+function Frame({ user, dark, signingIn, onSignIn, onSignOut, nav, actions, children }: FrameProps & { nav?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex h-full flex-col">
+      <AppBar app="Tasks" glyph="check" portalUrl={PORTAL_URL} version={VERSION} theme={dark ? 'dark' : 'light'} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut}>
+        {nav}
+        {actions}
+      </AppBar>
+      {children}
+    </div>
+  );
+}
+
+function Centered({ children }: { children: ReactNode }) {
+  return <div className="flex min-h-0 flex-1 items-center justify-center p-6">{children}</div>;
+}
+
+function Spinner() {
+  return <Loader2 className="animate-spin text-forest-500" size={36} aria-label="Loading" />;
 }
 
 function LoadFailure({ error }: { error: FriendlyError }) {
@@ -53,95 +86,99 @@ function LoadFailure({ error }: { error: FriendlyError }) {
   );
 }
 
-const PORTAL_URL = 'https://huishouden-piekstra.web.app';
-
-function Brand() {
-  return (
-    <div className="mb-6 flex flex-col items-center gap-3 text-center">
-      <img src="/icon.svg" alt="" className="h-20 w-20 rounded-3xl shadow-sm" />
-      <div>
-        <p className="text-sm font-medium text-stone-600 dark:text-stone-300">Huishouden</p>
-        <h1 className="text-3xl font-bold text-forest-700 dark:text-forest-300">Tasks</h1>
-      </div>
-    </div>
-  );
-}
-
-/** Signed-in profile photo; initials when Google gives no photo. */
-function Avatar({ photoURL, name }: { photoURL: string | null; name: string }) {
-  if (photoURL) return <img src={photoURL} alt="" referrerPolicy="no-referrer" className="hh-avatar h-9 w-9 rounded-full" />;
-  return (
-    <span className="hh-avatar flex h-9 w-9 items-center justify-center rounded-full bg-forest-100 text-sm font-semibold text-forest-700 dark:bg-forest-700 dark:text-forest-100">
-      {name.slice(0, 1).toUpperCase()}
-    </span>
-  );
-}
-
 export default function App() {
   const [theme, setTheme] = usePref<ThemeMode>('theme', 'auto');
-  useApplyTheme(theme);
+  const dark = useApplyTheme(theme);
   const auth = useAuth();
+  const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<FriendlyError | null>(null);
+
+  // Signs in without a click when the browser is signed in to Google and has used a Huishouden app.
+  const signedOut = auth.status === 'signed-out';
+  useEffect(() => {
+    const clientId = googleClientId;
+    if (signedOut && clientId && !useEmulators) void getFirebase().then(({ auth: firebaseAuth }) => signInSilently(firebaseAuth, clientId));
+  }, [signedOut]);
+
+  const onSignIn = useCallback(() => {
+    setSigningIn(true);
+    setSignInError(null);
+    signIn()
+      .catch((e: unknown) => setSignInError(friendlyError(e, 'sign-in')))
+      .finally(() => setSigningIn(false));
+  }, []);
+  const onSignOut = useCallback(() => void signOut(), []);
+  const user = auth.status === 'signed-in' ? auth.user : auth.status === 'loading' ? undefined : null;
+  const frame: FrameProps = { user, dark, signingIn, onSignIn, onSignOut };
 
   if (auth.status === 'loading') {
     return (
-      <Centered>
-        <Loader2 className="animate-spin text-forest-500" size={36} />
-      </Centered>
+      <Frame {...frame}>
+        <Centered>
+          <Spinner />
+        </Centered>
+      </Frame>
     );
   }
   if (auth.status === 'error') {
     return (
-      <Centered>
-        <LoadFailure error={friendlyError(new Error(auth.message), 'save')} />
-      </Centered>
+      <Frame {...frame}>
+        <Centered>
+          <LoadFailure error={friendlyError(new Error(auth.message), 'save')} />
+        </Centered>
+      </Frame>
     );
   }
   if (auth.status === 'signed-out') {
     return (
-      <Centered>
-        <div className="w-full max-w-sm text-center">
-          <Brand />
-          <p className="mb-6 text-stone-600 dark:text-stone-300">Shared groceries, lists and chores for the kitchen tablet and both of your phones.</p>
-          <button
-            className={`${primaryButton} w-full py-3 text-lg`}
-            onClick={() => {
-              setSignInError(null);
-              signIn().catch((e: unknown) => setSignInError(friendlyError(e, 'sign-in')));
-            }}
-          >
-            Sign in with Google
-          </button>
-          {signInError && (
-            <div className="mt-3 text-left">
-              <ErrorNotice error={signInError} />
-            </div>
-          )}
-        </div>
-      </Centered>
+      <Frame {...frame}>
+        <Centered>
+          <div className={`${cardClass} grid w-full max-w-md gap-3 p-6`}>
+            <h2 className="text-xl font-semibold">Shared lists and chores</h2>
+            <p className="text-stone-600 dark:text-stone-300">Groceries, errands and chores the whole household sees and checks off. Sign in with Google to open yours.</p>
+            {signInError && <ErrorNotice error={signInError} />}
+          </div>
+        </Centered>
+      </Frame>
     );
   }
-  return <SignedIn db={auth.db} email={auth.email} displayName={auth.user.displayName} photoURL={auth.user.photoURL} theme={theme} setTheme={setTheme} />;
+  return <SignedIn db={auth.db} email={auth.email} user={auth.user} theme={theme} setTheme={setTheme} frame={frame} />;
 }
 
-function SignedIn({ db, email, displayName, photoURL, theme, setTheme }: { db: Firestore; email: string; displayName: string | null; photoURL: string | null; theme: ThemeMode; setTheme: (t: ThemeMode) => void }) {
+function SignedIn({ db, email, user, theme, setTheme, frame }: { db: Firestore; email: string; user: User; theme: ThemeMode; setTheme: (t: ThemeMode) => void; frame: FrameProps }) {
   const household = useHousehold(db, email);
+  // Members' names and photos come from their own sign-ins (shown in the portal and beside entries).
+  const householdId = household.status === 'ready' ? household.household.id : null;
+  useEffect(() => {
+    if (householdId) saveMyProfile(db, householdId, user).catch(() => {});
+  }, [db, householdId, user]);
+
   if (household.status === 'loading') {
     return (
-      <Centered>
-        <Loader2 className="animate-spin text-forest-500" size={36} />
-      </Centered>
+      <Frame {...frame}>
+        <Centered>
+          <Spinner />
+        </Centered>
+      </Frame>
     );
   }
   if (household.status === 'error') {
     return (
-      <Centered>
-        <LoadFailure error={friendlyError(new Error(household.message), 'save')} />
-      </Centered>
+      <Frame {...frame}>
+        <Centered>
+          <LoadFailure error={friendlyError(new Error(household.message), 'save')} />
+        </Centered>
+      </Frame>
     );
   }
-  if (household.status === 'none') return <Onboarding db={db} email={email} displayName={displayName} />;
-  return <HouseholdApp db={db} email={email} displayName={displayName} photoURL={photoURL} household={household.household} theme={theme} setTheme={setTheme} />;
+  if (household.status === 'none') {
+    return (
+      <Frame {...frame}>
+        <Onboarding db={db} email={email} displayName={user.displayName} />
+      </Frame>
+    );
+  }
+  return <HouseholdApp db={db} email={email} displayName={user.displayName} household={household.household} theme={theme} setTheme={setTheme} frame={frame} />;
 }
 
 function Onboarding({ db, email, displayName }: { db: Firestore; email: string; displayName: string | null }) {
@@ -150,38 +187,36 @@ function Onboarding({ db, email, displayName }: { db: Firestore; email: string; 
   const [error, setError] = useState<FriendlyError | null>(null);
   return (
     <Centered>
-      <div className="w-full max-w-md">
-        <Brand />
-        <div className="grid gap-5 rounded-3xl bg-white p-6 shadow-sm dark:bg-forest-800">
-          <div>
-            <h2 className="mb-1 font-semibold">Joining someone?</h2>
-            <p className="text-sm text-stone-600 dark:text-stone-300">
-              Ask them to add <strong>{email}</strong> in Settings. This screen switches to your shared lists as soon as they do.
-            </p>
-          </div>
-          <div className="border-t border-stone-200 pt-5 dark:border-forest-700">
-            <h2 className="mb-2 font-semibold">Starting fresh?</h2>
-            <form
-              className="grid gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setBusy(true);
-                setError(null);
-                createHousehold(db, email, name.trim() || 'Our household')
-                  .catch((err: unknown) => setError(friendlyError(err, 'save')))
-                  .finally(() => setBusy(false));
-              }}
-            >
-              <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} aria-label="Household name" />
-              <button type="submit" disabled={busy} className={primaryButton}>
-                {busy ? <Loader2 className="animate-spin" size={18} /> : null} Create household
-              </button>
-              {error && <ErrorNotice error={error} />}
-            </form>
-          </div>
-          <button onClick={() => void signOut()} className="text-sm text-stone-500 underline">
-            Use a different Google account
-          </button>
+      <div className={`${cardClass} grid w-full max-w-md gap-5 p-6`}>
+        <div>
+          <h2 className="mb-1 font-semibold">Joining someone?</h2>
+          <p className="text-sm text-stone-600 dark:text-stone-300">
+            Ask them to add <strong>{email}</strong> to the household in{' '}
+            <a href={PORTAL_URL} className="font-medium text-forest-700 underline underline-offset-2 dark:text-forest-300">
+              Huishouden
+            </a>{' '}
+            or in Tasks' Settings. This screen switches to your shared lists as soon as they do.
+          </p>
+        </div>
+        <div className="border-t border-stone-200 pt-5 dark:border-forest-700">
+          <h2 className="mb-2 font-semibold">Starting fresh?</h2>
+          <form
+            className="grid gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setBusy(true);
+              setError(null);
+              createHousehold(db, email, name.trim() || 'Our household')
+                .catch((err: unknown) => setError(friendlyError(err, 'save')))
+                .finally(() => setBusy(false));
+            }}
+          >
+            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} aria-label="Household name" />
+            <button type="submit" disabled={busy} className={primaryButton}>
+              {busy ? <Loader2 className="animate-spin" size={18} /> : null} Create household
+            </button>
+            {error && <ErrorNotice error={error} />}
+          </form>
         </div>
       </div>
     </Centered>
@@ -197,18 +232,18 @@ function HouseholdApp({
   db,
   email,
   displayName,
-  photoURL,
   household,
   theme,
   setTheme,
+  frame,
 }: {
   db: Firestore;
   email: string;
   displayName: string | null;
-  photoURL: string | null;
   household: Household;
   theme: ThemeMode;
   setTheme: (t: ThemeMode) => void;
+  frame: FrameProps;
 }) {
   const data = useHouseholdData(db, household.id);
   const menus = useMenus(db, household.id);
@@ -322,51 +357,30 @@ function HouseholdApp({
   };
   const clearCompleted = (items: ListItem[]) => offerUndo(repo.clearCompleted(items), 'cleared');
 
-  const modes: { id: Mode; label: string; icon: typeof Home }[] = [
-    { id: 'lists', label: 'Lists', icon: ListChecks },
-    { id: 'hub', label: 'Kitchen', icon: Home },
-    { id: 'store', label: 'Store', icon: ShoppingCart },
-    { id: 'meals', label: 'Meals', icon: UtensilsCrossed },
+  const modes: { id: Mode; label: string }[] = [
+    { id: 'lists', label: 'Lists' },
+    { id: 'hub', label: 'Kitchen' },
+    { id: 'store', label: 'Store' },
+    { id: 'meals', label: 'Meals' },
   ];
 
   return (
-    <div className="safe-top flex h-full flex-col">
-      {/* Huishouden frame (DESIGN.md): family logo back to the portal, suite name over the app name. */}
-      <header className="flex items-center gap-2 border-b border-stone-200 bg-cream px-3 py-2 sm:px-4 dark:border-forest-700 dark:bg-forest-900">
-        <a href={PORTAL_URL} className="mr-auto flex items-center gap-2.5 rounded-xl" aria-label="Huishouden home">
-          <img src="/icon.svg" alt="" className="h-9 w-9 rounded-xl" />
-          <span className="hidden leading-tight sm:block">
-            <span className="block text-xs font-medium text-stone-600 dark:text-stone-300">Huishouden</span>
-            <span className="block text-base font-bold text-forest-700 dark:text-forest-300">Tasks</span>
-          </span>
-        </a>
-        <nav className="flex rounded-2xl bg-stone-100 p-1 dark:bg-forest-800" aria-label="Mode">
-          {modes.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => switchMode(id)}
-              aria-pressed={mode === id}
-              aria-label={label}
-              className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-sm font-medium sm:px-3 ${
-                mode === id ? 'bg-white shadow-sm dark:bg-forest-600' : 'text-stone-500 dark:text-stone-300'
-              }`}
-            >
-              <Icon size={16} /> <span className="hidden min-[420px]:inline">{label}</span>
-            </button>
-          ))}
-        </nav>
-        <span className="ml-auto flex items-center" title={!online ? 'Offline: changes will sync when back online' : data.pendingWrites ? 'Syncing' : 'Synced'}>
+    <Frame
+      {...frame}
+      nav={<SectionTabs tabs={modes} tab={mode} onTab={(id) => switchMode(id as Mode)} />}
+      actions={
+        <span slot="actions" className="flex items-center gap-1">
           {!online ? (
-            <CloudOff size={20} className="text-terracotta" aria-label="Offline" />
+            <CloudOff size={20} className="text-terracotta" aria-label="Offline: changes sync when back online" role="img" />
           ) : data.pendingWrites ? (
-            <Loader2 size={18} className="animate-spin text-stone-400" aria-label="Syncing" />
+            <Loader2 size={18} className="animate-spin text-stone-600 dark:text-stone-300" aria-label="Syncing" role="img" />
           ) : null}
+          <button onClick={() => setSettings(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-forest-700" aria-label="Settings">
+            <Settings size={20} />
+          </button>
         </span>
-        <button onClick={() => setSettings(true)} className="rounded-full p-0.5 hover:ring-2 hover:ring-forest-200 dark:hover:ring-forest-600" aria-label="Settings">
-          <Avatar photoURL={photoURL} name={addedAs || email} />
-        </button>
-      </header>
-
+      }
+    >
       <main className={`min-h-0 flex-1 overflow-y-auto ${undoAction || askAisleFor ? 'pb-20' : ''}`}>
         {!data.loaded ? (
           <Centered>
@@ -547,10 +561,9 @@ function HouseholdApp({
           install={install}
           onAddMember={(e) => inviteMember(db, household.id, e)}
           onRemoveMember={(e) => removeMember(db, household.id, e)}
-          onSignOut={() => void signOut()}
           onClose={() => setSettings(false)}
         />
       )}
-    </div>
+    </Frame>
   );
 }

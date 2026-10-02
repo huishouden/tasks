@@ -1,3 +1,4 @@
+import { stubGoogleTokens } from '@huishouden/pwa-kit/e2e';
 import { addItem, createHousehold, expect, signIn, test } from './fixtures';
 
 // Google Calendar has no emulator; these tests stand in its results via window.__mockCalendarEvents.
@@ -14,7 +15,7 @@ test('picking a calendar match fills in the date, time, place and event link', a
   await page.evaluate(
     (s) =>
       (window.__mockCalendarEvents = [
-        { id: 'e1', title: 'Car inspection', start: s, allDay: false, location: 'Main St Service Center', link: 'https://www.google.com/calendar/event?eid=e1', calendarName: 'Family' },
+        { id: 'e1', title: 'Car inspection', start: s, allDay: false, location: 'Main St Service Center', description: '', link: 'https://www.google.com/calendar/event?eid=e1', calendarName: 'Family' },
       ]),
     start,
   );
@@ -44,20 +45,10 @@ test('says so when nothing matches', async ({ page }) => {
   await expect(dialog.getByRole('status')).toContainText('No events matching');
 });
 
-test('a cancelled permission popup is explained, with Try again', async ({ page }) => {
+test('a closed Google window is explained, with Try again', async ({ page }) => {
+  // Google Identity Services, stood in by the kit: the person closes the permission window.
+  await stubGoogleTokens(page, { fail: 'popup_closed' });
   const dialog = page.getByRole('dialog', { name: 'Edit task' });
-  await page.evaluate(() => {
-    window.__mockCalendarEvents = undefined;
-  });
-  // Without mock data the emulator path throws; simulate the user closing Google's popup instead.
-  await page.evaluate(() => {
-    Object.defineProperty(window, '__mockCalendarEvents', {
-      configurable: true,
-      get() {
-        throw Object.assign(new Error('Firebase: Error (auth/popup-closed-by-user).'), { code: 'auth/popup-closed-by-user' });
-      },
-    });
-  });
   await dialog.getByRole('button', { name: 'Find in my calendar' }).click();
   const alert = dialog.getByRole('alert');
   await expect(alert).toContainText('Calendar access was not allowed');

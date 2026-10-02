@@ -24,12 +24,15 @@ async function shot(page: Page, name: string) {
 
 test('README screenshots', async ({ page }) => {
   test.setTimeout(120_000);
-  // An obviously invented date, so sample appointments never read as real ones.
-  await page.clock.install({ time: new Date(2031, 0, 6, 10, 0) });
   await page.setViewportSize({ width: 1280, height: 800 });
   await signIn(page, 'alex@example.com', 'Alex Example');
   await page.getByLabel('Household name').fill('Example Household');
+  // Created at the real time (the rules refuse a backdated household), then an obviously invented
+  // date, so sample appointments never read as real ones.
   await createHousehold(page);
+  await page.clock.install({ time: new Date(2031, 0, 6, 10, 0) });
+  await page.reload();
+  await page.getByRole('heading', { name: 'Groceries' }).waitFor();
 
   // Bought this week (on the Costco list, so Groceries shows only what is still needed), for meal ideas.
   await page.getByRole('button', { name: /Costco & Bulk/ }).first().click();

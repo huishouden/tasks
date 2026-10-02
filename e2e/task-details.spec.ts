@@ -2,10 +2,12 @@ import { addItem, createHousehold, expect, signIn, test } from './fixtures';
 
 // A task list asks for the details a task has (when, where, steps), not a shopping list's.
 test.beforeEach(async ({ page }) => {
-  // A fixed clock in the morning, so "before 6" is later today.
-  await page.clock.install({ time: new Date(2031, 0, 6, 10, 0) });
+  // The household is created at the real time (the rules refuse a backdated one), then the clock is
+  // fixed in the morning, so "before 6" is later today.
   await signIn(page, 'alice@example.com', 'Alice Example');
   await createHousehold(page);
+  await page.clock.install({ time: new Date(2031, 0, 6, 10, 0) });
+  await page.reload();
   await page.getByRole('button', { name: /Chores & Notes/ }).first().click();
 });
 
