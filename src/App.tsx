@@ -7,7 +7,7 @@ import { setRole } from '@huishouden/pwa-kit/roles';
 import { RoleNote, useRole } from '@huishouden/pwa-kit/react/roles';
 import { AppBar } from '@huishouden/pwa-kit/react/app-bar';
 import { NotificationsCard } from '@huishouden/pwa-kit/react/push';
-import { SectionTabs, cardClass } from '@huishouden/pwa-kit/react/ui';
+import { SampleBanner, SectionTabs, cardClass } from '@huishouden/pwa-kit/react/ui';
 import { CloudOff, Loader2, Settings } from 'lucide-react';
 import type { AddRequest } from './components/AddBar';
 import { ErrorNotice } from './components/ErrorNotice';
@@ -160,11 +160,11 @@ function DemoApp({ frame, theme, setTheme, signInError }: { frame: FrameProps; t
     );
   }
   const banner = (
-    <div className={`${cardClass} mx-3 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 sm:mx-4`} role="note">
-      <span className="rounded-full bg-terracotta-light px-3 py-0.5 text-sm font-semibold text-terracotta-dark">Sample data</span>
-      <p className="min-w-0 flex-1 text-sm text-stone-600 dark:text-stone-300">An invented household; nothing is saved. Sign in for your own.</p>
-      {signInError && <ErrorNotice error={signInError} />}
-    </div>
+    <SampleBanner
+      text="An invented household; nothing is saved. Sign in for your own."
+      notice={signInError ? <ErrorNotice error={signInError} /> : undefined}
+      className="mx-3 mt-3 sm:mx-4"
+    />
   );
   return (
     <PrefScope.Provider value="demo.">
