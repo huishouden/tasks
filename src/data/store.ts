@@ -32,6 +32,8 @@ import { mealKey, type FavoriteMeal, type Meal, type Menu } from './menus';
 import type { GeoPoint, LearnedAisle, StoreLayout } from './stores';
 import { guessCategory } from './categorize';
 import { parseWhen } from './when';
+import { planQuery, type PlannedMeal } from './mealPlan';
+import type { Ymd } from '@huishouden/pwa-kit/time';
 import {
   CATEGORIES,
   DEFAULT_LISTS,
@@ -267,6 +269,23 @@ export function useFood(db: Firestore, householdId: string): FoodPreferences | n
   const [food, setFood] = useState<FoodPreferences | null>(null);
   useEffect(() => watchFood(db, householdId, setFood, () => {}), [db, householdId]);
   return food;
+}
+
+/** The household's meal plan for the given days (shared, live). */
+export function useMealPlan(db: Firestore, householdId: string, days: Ymd[]): PlannedMeal[] {
+  const [plan, setPlan] = useState<PlannedMeal[]>([]);
+  const from = days[0];
+  const to = days[days.length - 1];
+  useEffect(
+    () =>
+      resilientSnapshot(
+        planQuery(db, householdId, from, to),
+        (snap) => setPlan(snap.docs.map((d) => d.data() as PlannedMeal)),
+        () => {},
+      ),
+    [db, householdId, from, to],
+  );
+  return plan;
 }
 
 /** Saved meal ideas, newest first. */

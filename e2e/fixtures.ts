@@ -33,12 +33,20 @@ export async function resetEmulators(): Promise<void> {
  * Writes the household's food settings as the portal would, bypassing the rules (the emulator's
  * admin access), for the one household in the emulator. People follow @huishouden/pwa-kit/food.
  */
+const REST = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`;
+const ADMIN = { Authorization: 'Bearer owner' };
+
+/** The id of the one household in the emulator, read with admin access. */
+async function onlyHouseholdId(): Promise<string> {
+  const list = (await (await fetch(`${REST}/households`, { headers: ADMIN })).json()) as { documents?: { name: string }[] };
+  const id = list.documents?.[0]?.name.split('/').pop();
+  if (!id) throw new Error('No household in the emulator yet');
+  return id;
+}
+
 export async function seedFood(people: { id: string; name: string; diets: string[]; avoid: string[] }[]): Promise<void> {
-  const base = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`;
-  const headers = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
-  const list = (await (await fetch(`${base}/households`, { headers })).json()) as { documents?: { name: string }[] };
-  const household = list.documents?.[0]?.name.split('/').pop();
-  if (!household) throw new Error('seedFood: no household yet');
+  const headers = { ...ADMIN, 'Content-Type': 'application/json' };
+  const household = await onlyHouseholdId();
   const str = (v: string) => ({ stringValue: v });
   const arr = (vs: string[]) => ({ arrayValue: { values: vs.map(str) } });
   const fields = {
@@ -51,7 +59,14 @@ export async function seedFood(people: { id: string; name: string; diets: string
     updatedAt: { integerValue: String(Date.now()) },
     by: str('alice@example.com'),
   };
-  await emulatorRequest(`${base}/households/${household}/settings/food`, { method: 'PATCH', headers, body: JSON.stringify({ fields }) });
+  await emulatorRequest(`${REST}/households/${household}/settings/food`, { method: 'PATCH', headers, body: JSON.stringify({ fields }) });
+}
+
+/** Documents in one of the household's collections, read with admin access (for checking writes). */
+export async function readHouseholdCollection(name: string): Promise<Record<string, unknown>[]> {
+  const household = await onlyHouseholdId();
+  const res = (await (await fetch(`${REST}/households/${household}/${name}`, { headers: ADMIN })).json()) as { documents?: { fields: Record<string, { stringValue?: string }> }[] };
+  return (res.documents ?? []).map((d) => Object.fromEntries(Object.entries(d.fields).map(([k, v]) => [k, v.stringValue ?? v])));
 }
 
 export async function signIn(page: Page, email: string, name: string): Promise<void> {

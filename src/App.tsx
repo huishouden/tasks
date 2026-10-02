@@ -20,6 +20,7 @@ import {
   useHousehold,
   useFavorites,
   useFood,
+  useMealPlan,
   useHouseholdData,
   useMenus,
   useStoreAisles,
@@ -36,6 +37,7 @@ import { AislePrompt } from './components/AislePrompt';
 import { placeLabel } from './data/places';
 import { stapleKey } from './data/model';
 import { MealsView } from './views/MealsView';
+import { planDays, planMeal, unplanMeal } from './data/mealPlan';
 
 type Mode = 'lists' | 'hub' | 'store' | 'meals';
 
@@ -216,6 +218,8 @@ function HouseholdApp({
 
   const favorites = useFavorites(db, household.id);
   const food = useFood(db, household.id);
+  const planWeek = useMemo(() => planDays(), []);
+  const plan = useMealPlan(db, household.id, planWeek);
   const repo = useMemo(() => new HouseholdRepo(db, household.id), [db, household.id]);
   const [savedMode, setMode] = usePref<Mode>('mode', 'lists');
   const [urlMode, setUrlMode] = useState<Mode | null>(initialMode);
@@ -410,6 +414,10 @@ function HouseholdApp({
             menus={menus}
             favorites={favorites}
             food={food}
+            planWeek={planWeek}
+            plan={plan}
+            onPlan={(day, type, meal) => planMeal(db, household.id, day, type, meal, email)}
+            onUnplan={(day, type) => unplanMeal(db, household.id, day, type)}
             suggest={suggestMeals}
             onSave={(ingredients, meals) => repo.saveMenu(ingredients, meals, addedAs)}
             onDelete={(id) => {

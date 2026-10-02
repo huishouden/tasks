@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { Candy, ChevronDown, Citrus, Droplet, Flame, Leaf, ListPlus, Loader2, Plus, Sparkles, Star, Trash2, X } from 'lucide-react';
+import { CalendarPlus, Candy, ChevronDown, Citrus, Droplet, Flame, Leaf, ListPlus, Loader2, Plus, Sparkles, Star, Trash2, X } from 'lucide-react';
 import { GENTLE_DIETS, dietTags, gentleOnReflux, isStrict, mealLevels, type MealLevels } from '../data/diet';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Badge, Chip, Dialog, ghostButton, inputClass, primaryButton } from '../components/ui';
@@ -8,6 +8,8 @@ import { useOnline, usePref } from '../lib/prefs';
 import { DIET_LABELS, householdDiets, type FoodPreferences } from '@huishouden/pwa-kit/food';
 import { MEAL_LABELS, groupMeals, kitchenInventory, mealIngredients, mealKey, pantryOf, plannedGroceries, type FavoriteMeal, type Meal, type MealContext, type Menu, type ValidatedMeals } from '../data/menus';
 import type { ListItem, ShoppingList } from '../data/model';
+import { PLAN_TYPES, firstFreeDay, type PlanType, type PlannedMeal } from '../data/mealPlan';
+import { WEEKDAYS, daysBetween, relativeDay, shortDate, toYmd, weekday, ymdToTime, type Ymd } from '@huishouden/pwa-kit/time';
 
 interface Props {
   lists: ShoppingList[];
@@ -23,6 +25,11 @@ interface Props {
   onRemoveFavorite: (id: string) => Promise<void>;
   /** Adds each name to the list with the same note. */
   onAddItems: (listId: string, names: string[], notes: string) => void;
+  /** The week shown in the plan, today first. */
+  planWeek: Ymd[];
+  plan: PlannedMeal[];
+  onPlan: (day: Ymd, type: PlanType, meal: Meal) => Promise<void>;
+  onUnplan: (day: Ymd, type: PlanType) => Promise<void>;
 }
 
 const MIN_INGREDIENTS = 3;
@@ -31,7 +38,8 @@ const MIN_INGREDIENTS = 3;
  * Meal ideas from what is in the kitchen (bought in the last 10 days) and what is still on the food
  * lists, so a week can be planned before shopping, within the household's diets.
  */
-export function MealsView({ lists, items, menus, favorites, food, suggest, onSave, onDelete, onSaveFavorite, onRemoveFavorite, onAddItems }: Props) {
+export function MealsView({ lists, items, menus, favorites, food, suggest, onSave, onDelete, onSaveFavorite, onRemoveFavorite, onAddItems, planWeek, plan, onPlan, onUnplan }: Props) {
+  const [planning, setPlanning] = useState<Meal | null>(null);
   const bought = useMemo(() => kitchenInventory(items, lists, Date.now()), [items, lists]);
   const planned = useMemo(() => plannedGroceries(items, lists).filter((p) => !bought.some((b) => b.toLowerCase() === p.toLowerCase())), [items, lists, bought]);
   const pantry = pantryOf(food);
@@ -86,6 +94,7 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
         reflux={reflux}
         onToggleSaved={() => toggleFavorite(meal)}
         onAdd={() => setAdding(meal)}
+        onPlan={meal.type === 'snack' ? undefined : () => setPlanning(meal)}
         onAddExtras={(names) => {
           if (!groceries) return;
           onAddItems(groceries.id, names, `for ${meal.name}`);
@@ -194,6 +203,8 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
         )}
       </section>
 
+      <WeekPlan days={planWeek} plan={plan} onUnplan={(day, type) => onUnplan(day, type).catch((e: unknown) => setSaveError(friendlyError(e, 'save')))} />
+
       {shown && (
         <section className="grid gap-4" aria-label="Meal ideas">
           <div className="flex flex-wrap items-center gap-2">
@@ -262,6 +273,22 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
         />
       )}
 
+      {planning && (
+        <PlanDialog
+          meal={planning}
+          days={planWeek}
+          plan={plan}
+          onPlan={(day, type) => {
+            const meal = planning;
+            setPlanning(null);
+            onPlan(day, type, meal)
+              .then(() => setNotice(`Planned for ${dayName(day)} ${type}`))
+              .catch((e: unknown) => setSaveError(friendlyError(e, 'save')));
+          }}
+          onClose={() => setPlanning(null)}
+        />
+      )}
+
       {notice && (
         <p
           role="status"
@@ -283,6 +310,7 @@ function MealCard({
   reflux,
   onToggleSaved,
   onAdd,
+  onPlan,
   onAddExtras,
 }: {
   meal: Meal;
@@ -296,6 +324,8 @@ function MealCard({
   reflux: boolean;
   onToggleSaved: () => void;
   onAdd: () => void;
+  /** Absent for snacks, which are not planned. */
+  onPlan?: () => void;
   onAddExtras: (names: string[]) => void;
 }) {
   const row = (title: string, names: string[]) =>
@@ -321,6 +351,11 @@ function MealCard({
         >
           <Star size={18} className={saved ? 'fill-current' : ''} />
         </button>
+        {onPlan && (
+          <button onClick={onPlan} aria-label={`Plan ${meal.name}`} title="Plan for a day this week" className={`${iconButton} text-stone-400`}>
+            <CalendarPlus size={18} />
+          </button>
+        )}
         {listName && (
           <button
             onClick={onAdd}
@@ -360,6 +395,135 @@ function MealCard({
         ))}
       </ul>
     </article>
+  );
+}
+
+/** "Today", "Tomorrow", "Wed, Jan 8", from the kit's day helpers. */
+function dayName(day: Ymd, now: number = Date.now()): string {
+  const today = toYmd(now);
+  const ahead = daysBetween(today, day);
+  if (ahead === 0 || ahead === 1) return relativeDay(ymdToTime(day), now);
+  return `${WEEKDAYS[weekday(day)].slice(0, 3)}, ${shortDate(day, today)}`;
+}
+
+/**
+ * The week ahead, shared with the household: each day's breakfast, lunch and dinner. Empty slots
+ * stay quiet; ideas are planned from their cards. Planned dinners also show in the portal.
+ */
+function WeekPlan({ days, plan, onUnplan }: { days: Ymd[]; plan: PlannedMeal[]; onUnplan: (day: Ymd, type: PlanType) => Promise<void> }) {
+  if (plan.length === 0) {
+    return (
+      <section aria-label="This week" className="rounded-2xl border border-dashed border-stone-300 p-4 text-sm text-stone-500 dark:border-forest-600">
+        <h2 className="mb-1 font-semibold text-stone-700 dark:text-stone-200">This week</h2>
+        Nothing planned yet. Use the calendar button on an idea to plan it for a day.
+      </section>
+    );
+  }
+  const slot = (day: Ymd, type: PlanType) => {
+    const p = plan.find((x) => x.day === day && x.type === type);
+    if (!p) return <span className="text-stone-500" aria-label="Nothing planned">–</span>;
+    return (
+      <span className="flex items-center gap-1">
+        <span className="min-w-0 flex-1">{p.name}</span>
+        <button
+          onClick={() => void onUnplan(day, type)}
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-stone-400 hover:bg-stone-100 dark:hover:bg-forest-700"
+          aria-label={`Remove ${p.name} from ${dayName(day)} ${type}`}
+        >
+          <X size={16} aria-hidden />
+        </button>
+      </span>
+    );
+  };
+  return (
+    <section aria-label="This week" className="grid gap-2">
+      <h2 className="text-sm font-semibold tracking-wider text-stone-500 uppercase">This week</h2>
+      {/* Tablet and up: a table, days down, meals across. */}
+      <table className="hidden w-full table-fixed overflow-hidden rounded-2xl border border-stone-200 bg-white text-left text-sm sm:table dark:border-forest-700 dark:bg-forest-800">
+        <caption className="sr-only">This week</caption>
+        <thead className="text-stone-500">
+          <tr>
+            <th scope="col" className="w-36 px-3 py-2 font-medium">
+              <span className="sr-only">Day</span>
+            </th>
+            {PLAN_TYPES.map((t) => (
+              <th key={t} scope="col" className="px-3 py-2 font-medium">
+                {MEAL_LABELS[t]}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {days.map((day) => (
+            <tr key={day} className="border-t border-stone-200 dark:border-forest-700">
+              <th scope="row" className="px-3 py-2 font-semibold">
+                {dayName(day)}
+              </th>
+              {PLAN_TYPES.map((t) => (
+                <td key={t} className="px-3 py-1 align-middle">
+                  {slot(day, t)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {/* Phone: one card per day with something planned. */}
+      <ul className="grid gap-2 sm:hidden">
+        {days
+          .filter((day) => plan.some((p) => p.day === day))
+          .map((day) => (
+            <li key={day} className="rounded-2xl border border-stone-200 bg-white p-3 dark:border-forest-700 dark:bg-forest-800">
+              <h3 className="mb-1 text-sm font-semibold">{dayName(day)}</h3>
+              <dl className="grid gap-1 text-sm">
+                {PLAN_TYPES.filter((t) => plan.some((p) => p.day === day && p.type === t)).map((t) => (
+                  <div key={t} className="flex items-center gap-2">
+                    <dt className="w-20 shrink-0 text-stone-500">{MEAL_LABELS[t]}</dt>
+                    <dd className="min-w-0 flex-1">{slot(day, t)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Picks the day and meal for an idea; defaults to its own type on the first free day. */
+function PlanDialog({ meal, days, plan, onPlan, onClose }: { meal: Meal; days: Ymd[]; plan: PlannedMeal[]; onPlan: (day: Ymd, type: PlanType) => void; onClose: () => void }) {
+  const initialType: PlanType = (PLAN_TYPES as readonly string[]).includes(meal.type) ? (meal.type as PlanType) : 'dinner';
+  const [type, setType] = useState<PlanType>(initialType);
+  const [day, setDay] = useState<Ymd>(() => firstFreeDay(days, plan, initialType));
+  const taken = plan.find((p) => p.day === day && p.type === type);
+  return (
+    <Dialog title={`Plan ${meal.name}`} onClose={onClose}>
+      <div className="grid gap-3">
+        <div role="group" aria-label="Meal" className="flex flex-wrap gap-2">
+          {PLAN_TYPES.map((t) => (
+            <Chip key={t} active={type === t} pressed={type === t} onClick={() => setType(t)}>
+              {MEAL_LABELS[t]}
+            </Chip>
+          ))}
+        </div>
+        <div role="group" aria-label="Day" className="flex flex-wrap gap-2">
+          {days.map((d) => (
+            <Chip key={d} active={day === d} pressed={day === d} onClick={() => setDay(d)}>
+              {dayName(d)}
+            </Chip>
+          ))}
+        </div>
+        {taken && <p className="text-sm text-stone-600 dark:text-stone-300">Replaces {taken.name}.</p>}
+        <div className="mt-1 flex justify-end gap-2">
+          <button onClick={onClose} className={ghostButton}>
+            Cancel
+          </button>
+          <button onClick={() => onPlan(day, type)} className={primaryButton}>
+            Plan for {dayName(day).toLowerCase() === 'today' || dayName(day).toLowerCase() === 'tomorrow' ? dayName(day).toLowerCase() : dayName(day)}
+          </button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
 
