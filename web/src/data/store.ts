@@ -262,8 +262,10 @@ export function useStoreAisles(db: Firestore, householdId: string, storeId: stri
   return aisles;
 }
 
-/** The household's saved store layouts, alphabetical. */
-/** The household's stores, or null until the first snapshot (so "no stores yet" is not mistaken for "none saved"). */
+/**
+ * The household's saved store layouts, alphabetical; null until the first snapshot, so "not loaded
+ * yet" is not mistaken for "none saved".
+ */
 export function useStores(db: Firestore, householdId: string): StoreLayout[] | null {
   const [stores, setStores] = useState<StoreLayout[] | null>(null);
   useEffect(
