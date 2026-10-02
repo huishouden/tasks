@@ -18,7 +18,7 @@ export default defineConfig({
       // Full app flows against the Auth and Firestore emulators.
       name: 'local',
       testMatch: /.*\.spec\.ts/,
-      testIgnore: /(live|ai|screenshots)\.spec\.ts/,
+      testIgnore: /(live|ai|screenshots|signed-in)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173', viewport: { width: 1280, height: 800 } },
     },
     {
@@ -38,6 +38,14 @@ export default defineConfig({
       // Read-only smoke test of the deployed site; never signs in or writes data.
       name: 'live',
       testMatch: /live\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], baseURL: LIVE_URL },
+    },
+    {
+      // Key flows signed in as the staging project's invented test users (`bun run e2e:signed-in`,
+      // run by the kit's staging job against huishouden-staging-tasks.web.app).
+      name: 'signed-in',
+      testMatch: /signed-in\.spec\.ts/,
+      timeout: 60_000,
       use: { ...devices['Desktop Chrome'], baseURL: LIVE_URL },
     },
   ],

@@ -4,12 +4,22 @@ on:
   push:
     branches: [main]
   pull_request:
+    # Release PRs (release-please, opened by github-actions[bot]) touch only these two files. GitHub
+    # holds runs for bot-opened PRs until someone approves them, and an unapproved run expires as a
+    # failure with no jobs; skipping them here means no run is created. The merge to main still runs
+    # everything. See pwa-kit templates/ci.yml.
+    paths-ignore: [CHANGELOG.md, package.json]
   workflow_dispatch:
+    inputs:
+      staging-ref:
+        description: Deploy this branch, tag or SHA to staging (leave empty to deploy main to production)
+        type: string
+        default: ''
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # Never cancel a deploy halfway; superseded PR checks are fine to drop.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A manual staging deploy from main must not cancel main's production deploy.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.staging-ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -26,10 +36,13 @@ jobs:
     with:
       hosting-target: tasks
       site-url: https://huishouden-tasks.web.app
+      staging-ref: ${{ inputs.staging-ref }}
 
-  # What only this app has: the signed-in browser flows, run against the Auth and Firestore
-  # emulators with the household's real rules from huishouden/rules main.
+  # What only this app has: every signed-in browser flow, run against the Auth and Firestore
+  # emulators with the household's real rules from huishouden/rules main. (The kit's staging job runs
+  # the key flows against the staging project too: e2e/signed-in.spec.ts.)
   app-tests:
+    if: ${{ !inputs.staging-ref }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
