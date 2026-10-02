@@ -6,7 +6,7 @@ import { ItemRow, aisleRowProps, type AisleProps } from '../components/ItemRow';
 import { SortableItems } from '../components/SortableItems';
 import { StaplesShelf } from '../components/StaplesShelf';
 import { Chip, ListIconBadge, ghostButton } from '../components/ui';
-import { AISLE_ORDER, formatListForSharing, sortItems, type ListItem, type ShoppingList, type Staple } from '../data/model';
+import { AISLE_ORDER, formatListForSharing, isTaskList, sortItems, type ListItem, type ShoppingList, type Staple } from '../data/model';
 
 interface Props {
   /** The shopping banner (detected store, or the store being shopped), shown above the list. */
@@ -32,6 +32,8 @@ interface Props {
 
 export function ListsView(props: Props) {
   const { lists, items, staples, selectedList } = props;
+  // To-dos are not grouped by store section, so their rows and filters leave it out.
+  const task = isTaskList(selectedList.icon);
   const [filter, setFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [showDone, setShowDone] = usePref('showDone', true);
@@ -146,7 +148,7 @@ export function ListsView(props: Props) {
             </div>
           )}
 
-          {categoryCounts.length > 1 && (
+          {!task && categoryCounts.length > 1 && (
             <div className="scrollbar-none flex gap-2 overflow-x-auto">
               <Chip active={!filter} onClick={() => setFilter(null)}>
                 All
@@ -177,7 +179,7 @@ export function ListsView(props: Props) {
                   onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)}
                   onEdit={() => props.onEdit(item)}
                   onDelete={() => props.onDelete(item)}
-                  showCategory={!filter}
+                  showCategory={!filter && !task}
                 />
               )}
             />

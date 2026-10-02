@@ -9,3 +9,4 @@ playwright-report
 .twapp-notes-*.json
 .env
 .DS_Store
+.twapp-asks.json

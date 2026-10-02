@@ -5,6 +5,7 @@ import {
   ALL_URGENCIES,
   CATEGORIES,
   URGENCY,
+  isTaskList,
   matchSuggestions,
   type Category,
   type ListIcon,
@@ -47,6 +48,7 @@ export function AddBar({ staples, onAdd, large, placeholder, listIcon }: Props) 
     const found = exact.length > 0 ? exact : staples.filter((st) => closeEnough(name, st.displayName)).slice(0, 6);
     return found.filter((st) => st.displayName.toLowerCase() !== name.trim().toLowerCase());
   }, [staples, name]);
+  const task = isTaskList(listIcon);
   const effectiveCategory = category ?? (name.trim() ? guessCategory(name, listIcon) : CATEGORIES.OTHER);
 
   function reset() {
@@ -90,7 +92,7 @@ export function AddBar({ staples, onAdd, large, placeholder, listIcon }: Props) 
           // Delayed so a tap on a suggestion lands first; skipped if focus already came back
           // (adding an item refocuses the input right after the Add button took focus).
           onBlur={() => setTimeout(() => setFocused(document.activeElement === inputRef.current), 150)}
-          placeholder={placeholder ?? 'Add an item: milk, light bulbs, call plumber…'}
+          placeholder={placeholder ?? (task ? 'Add a task: drop off dry cleaning before 6…' : 'Add an item: milk, light bulbs, call plumber…')}
           enterKeyHint="done"
           autoComplete="off"
           className={`min-w-0 flex-1 bg-transparent px-3 outline-none ${large ? 'py-3 text-xl' : 'py-2 text-base'}`}
@@ -137,22 +139,26 @@ export function AddBar({ staples, onAdd, large, placeholder, listIcon }: Props) 
 
       {showDetails && (
         <div className="mt-2 grid gap-2 rounded-2xl border border-stone-200 bg-white p-3 sm:grid-cols-2 dark:border-forest-600 dark:bg-forest-800">
-          <label className="text-sm text-stone-500">
-            Quantity
-            <input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1, 2 lbs, a dozen" className={`${inputClass} mt-1`} />
-          </label>
+          {!task && (
+            <label className="text-sm text-stone-500">
+              Quantity
+              <input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1, 2 lbs, a dozen" className={`${inputClass} mt-1`} />
+            </label>
+          )}
           <label className="text-sm text-stone-500">
             Notes
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Brand, size, organic…" className={`${inputClass} mt-1`} />
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={task ? 'Ticket number, what to bring…' : 'Brand, size, organic…'} className={`${inputClass} mt-1`} />
           </label>
-          <label className="text-sm text-stone-500">
-            Aisle
-            <select value={effectiveCategory} onChange={(e) => setCategory(e.target.value as Category)} className={`${inputClass} mt-1`}>
-              {ALL_CATEGORIES.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-          </label>
+          {!task && (
+            <label className="text-sm text-stone-500">
+              Section
+              <select value={effectiveCategory} onChange={(e) => setCategory(e.target.value as Category)} className={`${inputClass} mt-1`}>
+                {ALL_CATEGORIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="text-sm text-stone-500">
             When
             <div className="mt-1 flex gap-1.5">

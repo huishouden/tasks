@@ -18,7 +18,7 @@ test('picking a calendar match fills in the date, time, place and event link', a
       ]),
     start,
   );
-  const dialog = page.getByRole('dialog', { name: 'Edit item' });
+  const dialog = page.getByRole('dialog', { name: 'Edit task' });
   await dialog.getByRole('button', { name: 'Find in my calendar' }).click();
   const match = dialog.getByRole('list', { name: 'Calendar matches' }).getByRole('button');
   await expect(match).toContainText('Car inspection');
@@ -28,6 +28,7 @@ test('picking a calendar match fills in the date, time, place and event link', a
   await expect(dialog.getByLabel('Date', { exact: true })).toHaveValue('2030-06-14');
   await expect(dialog.getByLabel('Time (optional)')).toHaveValue('10:30');
   await expect(dialog.getByLabel('Where')).toHaveValue('Main St Service Center');
+  await dialog.getByText('List and link').click();
   await expect(dialog.getByLabel('Link')).toHaveValue('https://www.google.com/calendar/event?eid=e1');
   await dialog.getByRole('button', { name: 'Save' }).click();
 
@@ -38,13 +39,13 @@ test('picking a calendar match fills in the date, time, place and event link', a
 
 test('says so when nothing matches', async ({ page }) => {
   await page.evaluate(() => (window.__mockCalendarEvents = []));
-  const dialog = page.getByRole('dialog', { name: 'Edit item' });
+  const dialog = page.getByRole('dialog', { name: 'Edit task' });
   await dialog.getByRole('button', { name: 'Find in my calendar' }).click();
   await expect(dialog.getByRole('status')).toContainText('No events matching');
 });
 
 test('a cancelled permission popup is explained, with Try again', async ({ page }) => {
-  const dialog = page.getByRole('dialog', { name: 'Edit item' });
+  const dialog = page.getByRole('dialog', { name: 'Edit task' });
   await page.evaluate(() => {
     window.__mockCalendarEvents = undefined;
   });

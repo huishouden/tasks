@@ -5,7 +5,7 @@ import { SortableItems } from '../components/SortableItems';
 import { StaplesShelf } from '../components/StaplesShelf';
 import { ListIconBadge } from '../components/ui';
 import { CalendarClock } from 'lucide-react';
-import { formatDue, isOverdue, sortItems, upcomingItems, type ListItem, type ShoppingList, type Staple } from '../data/model';
+import { formatDue, isOverdue, isTaskList, sortItems, upcomingItems, type ListItem, type ShoppingList, type Staple } from '../data/model';
 import { useWakeLock } from '../lib/prefs';
 
 interface Props {
@@ -108,7 +108,7 @@ export function HubView(props: Props) {
             items={pending}
             onMove={(from, to) => props.onMove(pending, from, to)}
             renderItem={(item, drag) => (
-              <ItemRow key={item.id} item={item} drag={drag} large showCategory onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} onEdit={() => props.onEdit(item)} />
+              <ItemRow key={item.id} item={item} drag={drag} large showCategory={!isTaskList(selectedList.icon)} onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} onEdit={() => props.onEdit(item)} />
             )}
           />
           {recentlyDone.length > 0 && (

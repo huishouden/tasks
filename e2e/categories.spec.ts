@@ -22,7 +22,7 @@ test('Gemini places what the word list cannot', async ({ page }) => {
 test('an aisle you correct is remembered for next time', async ({ page }) => {
   await addItem(page, 'Crepe mix');
   await page.getByRole('button', { name: 'Edit Crepe mix' }).click();
-  await page.getByRole('dialog').getByLabel('Aisle').selectOption('Pantry & Dry Goods');
+  await page.getByRole('dialog').getByLabel('Section').selectOption('Pantry & Dry Goods');
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: 'Mark Crepe mix done' }).click();
 

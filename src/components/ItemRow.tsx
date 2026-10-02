@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { CalendarClock, Check, ChevronDown, ExternalLink, ListChecks, MapPin, Pencil, Signpost, Trash2, Zap } from 'lucide-react';
 import { aisleLabel } from '../data/stores';
+import { mapsSearchUrl } from '@huishouden/pwa-kit/places';
 import { URGENCY, formatDue, isOverdue, type ListItem } from '../data/model';
 
 interface Props {
@@ -48,7 +49,8 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory,
   const [expanded, setExpanded] = useState(false);
   const steps = item.subtasks ?? [];
   const stepsDone = steps.filter((st) => st.done).length;
-  const urgent = item.urgency === URGENCY.URGENT && !item.completed;
+  // A due time says more than "Need today", so the badge only shows on undated items.
+  const urgent = item.urgency === URGENCY.URGENT && !item.completed && !item.dueAt;
   const now = Date.now();
   const overdue = isOverdue(item, now);
   const details = [
@@ -155,9 +157,15 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory,
               </span>
             ) : null}
             {item.location && (
-              <span className="inline-flex min-w-0 items-center gap-1 text-stone-500 dark:text-stone-400">
+              <a
+                href={mapsSearchUrl(item.location)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-w-0 items-center gap-1 text-stone-500 underline-offset-2 hover:underline dark:text-stone-400"
+                aria-label={`${item.location}, open in Maps`}
+              >
                 <MapPin size={14} className="shrink-0" /> <span className="[overflow-wrap:anywhere]">{item.location}</span>
-              </span>
+              </a>
             )}
             {item.link && (
               <a

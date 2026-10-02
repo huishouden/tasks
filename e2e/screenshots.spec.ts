@@ -63,7 +63,7 @@ test('README screenshots', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Save' }).click();
   await addItem(page, 'Garage cleanout: sort tools, sweep the floor, donate old bikes, recycle paint cans, hang shelves, label bins, fix the light');
   await page.getByRole('button', { name: /^Edit Garage cleanout/ }).click();
-  await page.getByRole('dialog').getByRole('button', { name: /Split into checklist/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /^Split into \d+ steps$/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: /0 of 7 done/ }).click();
   for (const i of [0, 1, 2]) await page.getByRole('list', { name: 'Steps for Garage cleanout' }).getByRole('checkbox').nth(i).click();
