@@ -29,12 +29,12 @@ export function AislePrompt({ itemName, storeName, onSave, onSkip }: { itemName:
           aria-label={`Aisle for ${itemName}`}
           enterKeyHint="done"
           maxLength={24}
-          className="w-20 shrink-0 rounded-lg border border-stone-200 bg-white px-2 py-1 text-sm outline-none focus:border-forest-500 dark:border-forest-600 dark:bg-forest-900"
+          className="w-20 shrink-0 rounded-xl border border-stone-200 bg-white px-2 py-1 text-sm outline-none focus:border-forest-500 dark:border-forest-600 dark:bg-forest-900"
         />
-        <button type="submit" disabled={!value.trim()} className="shrink-0 rounded-lg bg-forest-700 px-2.5 py-1 text-sm font-semibold text-white disabled:opacity-40 dark:bg-forest-400 dark:text-forest-900">
+        <button type="submit" disabled={!value.trim()} className="shrink-0 rounded-xl bg-forest-700 px-2.5 py-1 text-sm font-semibold text-white disabled:opacity-40 dark:bg-forest-400 dark:text-forest-900">
           Save
         </button>
-        <button type="button" onClick={onSkip} className="shrink-0 rounded-lg p-1 text-stone-400 hover:text-stone-600" aria-label="Skip aisle">
+        <button type="button" onClick={onSkip} className="shrink-0 rounded-xl p-1 text-stone-400 hover:text-stone-600" aria-label="Skip aisle">
           <X size={18} />
         </button>
       </form>

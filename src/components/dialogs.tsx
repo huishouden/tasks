@@ -395,13 +395,13 @@ async function sendInvite(email: string, householdName: string): Promise<void> {
   const text = inviteMessage(email, householdName, url);
   if (navigator.share) {
     try {
-      await navigator.share({ title: 'Join our Huishouden Tasks', text });
+      await navigator.share({ title: 'Join our household on Huishouden Tasks', text });
       return;
     } catch (e) {
       if ((e as DOMException).name === 'AbortError') return;
     }
   }
-  window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Join our Huishouden Tasks')}&body=${encodeURIComponent(text)}`;
+  window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Join our household on Huishouden Tasks')}&body=${encodeURIComponent(text)}`;
 }
 
 export function SettingsDialog({

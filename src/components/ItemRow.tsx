@@ -205,12 +205,12 @@ function AisleInput({ itemName, initial, correcting, onSave, onCancel }: { itemN
         inputMode="text"
         enterKeyHint="done"
         maxLength={24}
-        className="w-28 min-w-0 rounded-lg border border-stone-200 bg-white px-2 py-1 text-sm outline-none focus:border-forest-500 dark:border-forest-600 dark:bg-forest-900"
+        className="w-28 min-w-0 rounded-xl border border-stone-200 bg-white px-2 py-1 text-sm outline-none focus:border-forest-500 dark:border-forest-600 dark:bg-forest-900"
       />
-      <button type="submit" disabled={!value.trim() && !correcting} className="rounded-lg bg-forest-700 px-2 py-1 text-sm font-medium text-white disabled:opacity-40 dark:bg-forest-400 dark:text-forest-900">
+      <button type="submit" disabled={!value.trim() && !correcting} className="rounded-xl bg-forest-700 px-2 py-1 text-sm font-medium text-white disabled:opacity-40 dark:bg-forest-400 dark:text-forest-900">
         Save
       </button>
-      <button type="button" onClick={onCancel} className="rounded-lg px-1.5 py-1 text-sm text-stone-400 hover:text-stone-600">
+      <button type="button" onClick={onCancel} className="rounded-xl px-1.5 py-1 text-sm text-stone-400 hover:text-stone-600">
         Cancel
       </button>
     </form>
