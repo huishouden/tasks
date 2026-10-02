@@ -335,11 +335,28 @@ export interface NewItem {
   addedBy: string;
 }
 
+/**
+ * A write the caller waits for. On the sample household's offline Firestore the server never
+ * acknowledges anything, so there it counts as done once it is in the local cache (at once).
+ */
+export function settled(write: Promise<void>, local: boolean): Promise<void> {
+  if (!local) return write;
+  write.catch(() => {});
+  return Promise.resolve();
+}
+
 export class HouseholdRepo {
   constructor(
     private readonly db: Firestore,
     private readonly householdId: string,
+    /** The signed-out sample household: nothing is ever acknowledged by a server. */
+    private readonly local = false,
   ) {}
+
+  /** Usage counts come from real households only, not from someone trying the sample. */
+  private track(action: string): void {
+    if (!this.local) track(action);
+  }
 
   private col(name: 'lists' | 'items' | 'staples' | 'menus' | 'stores' | 'favorites') {
     return collection(this.db, 'households', this.householdId, name);
@@ -349,7 +366,7 @@ export class HouseholdRepo {
   // immediately and syncs when online, so the UI never blocks on the network.
   /** Adds the item and returns its id, or null when the name is blank. */
   addItem(input: NewItem): string | null {
-    track('add item');
+    this.track('add item');
     const typed = input.name.trim();
     if (!typed) return null;
     const now = Date.now();
@@ -393,7 +410,7 @@ export class HouseholdRepo {
   }
 
   toggleCompleted(item: ListItem): void {
-    track('check item');
+    this.track('check item');
     const now = Date.now();
     const completed = !item.completed;
     const batch = writeBatch(this.db);
@@ -449,7 +466,7 @@ export class HouseholdRepo {
 
   /** Deletes the done items among `items` and returns them, so they can be restored. */
   clearCompleted(items: ListItem[]): ListItem[] {
-    track('clear completed');
+    this.track('clear completed');
     const done = items.filter((i) => i.completed);
     if (done.length === 0) return done;
     const batch = writeBatch(this.db);
@@ -467,7 +484,7 @@ export class HouseholdRepo {
   }
 
   createList(name: string, icon: ListIcon, color: string, sortOrder: number): string {
-    track('create list');
+    this.track('create list');
     const ref = doc(this.col('lists'));
     void setDoc(ref, { name: name.trim(), description: '', icon, color, sortOrder, createdAt: Date.now() });
     return ref.id;
@@ -485,7 +502,7 @@ export class HouseholdRepo {
     const batch = writeBatch(this.db);
     items.forEach((d) => batch.delete(d.ref));
     batch.delete(doc(this.col('lists'), listId));
-    await batch.commit();
+    await settled(batch.commit(), this.local);
   }
 
   restoreDefaultLists(): void {
@@ -496,7 +513,7 @@ export class HouseholdRepo {
   }
 
   createStore(name: string, categoryOrder: StoreLayout['categoryOrder'], found?: { location: GeoPoint; osmId: string; address: string }): string {
-    track('add store');
+    this.track('add store');
     const ref = doc(this.col('stores'));
     void setDoc(ref, {
       name: name.trim(),
@@ -512,7 +529,7 @@ export class HouseholdRepo {
 
   /** Records where an item is in a store; a blank aisle forgets it. */
   setAisle(storeId: string, itemName: string, aisle: string, by: string): void {
-    track('note aisle');
+    this.track('note aisle');
     const ref = doc(this.db, 'households', this.householdId, 'stores', storeId, 'aisles', stapleKey(itemName));
     const value = aisle.trim();
     if (!value) {
@@ -535,16 +552,16 @@ export class HouseholdRepo {
   }
 
   async saveMenu(ingredients: string[], meals: Meal[], createdBy: string): Promise<string> {
-    track('save meal ideas');
+    this.track('save meal ideas');
     const ref = doc(this.col('menus'));
-    await setDoc(ref, { createdAt: Date.now(), createdBy, ingredients, meals } satisfies Omit<Menu, 'id'>);
+    await settled(setDoc(ref, { createdAt: Date.now(), createdBy, ingredients, meals } satisfies Omit<Menu, 'id'>), this.local);
     return ref.id;
   }
 
   /** Puts a deleted batch of ideas back under its old id (for Undo). */
   async restoreMenu(menu: Menu): Promise<void> {
     const { id, ...data } = menu;
-    await setDoc(doc(this.col('menus'), id), data);
+    await settled(setDoc(doc(this.col('menus'), id), data), this.local);
   }
 
   deleteMenu(id: string): void {
@@ -559,12 +576,12 @@ export class HouseholdRepo {
    * the change immediately, so callers should not wait on it.
    */
   saveFavorite(meal: Meal, savedBy: string): Promise<void> {
-    track('save favorite meal');
-    return setDoc(doc(this.col('favorites'), mealKey(meal)), { meal, savedAt: Date.now(), savedBy } satisfies Omit<FavoriteMeal, 'id'>);
+    this.track('save favorite meal');
+    return settled(setDoc(doc(this.col('favorites'), mealKey(meal)), { meal, savedAt: Date.now(), savedBy } satisfies Omit<FavoriteMeal, 'id'>), this.local);
   }
 
   removeFavorite(id: string): Promise<void> {
-    return deleteDoc(doc(this.col('favorites'), id));
+    return settled(deleteDoc(doc(this.col('favorites'), id)), this.local);
   }
 
   forgetStaple(id: string): void {
@@ -582,8 +599,8 @@ const PUBLISH_DELAY_MS = 3000;
  * whichever device has Tasks open: a few seconds after the last change, and once on open. The kit
  * writes only what changed, so devices doing the same work cost a read each and no writes.
  */
-export function usePublish(db: Firestore, householdId: string, by: string, data: HouseholdData, plan: PlannedMeal[] | null): void {
-  const ready = data.loaded && plan !== null;
+export function usePublish(db: Firestore, householdId: string, by: string, data: HouseholdData, plan: PlannedMeal[] | null, enabled = true): void {
+  const ready = enabled && data.loaded && plan !== null;
   const agenda = useMemo(() => (ready ? agendaItems(data.items, data.lists, plan) : null), [ready, data.items, data.lists, plan]);
   const reminders = useMemo(() => (ready ? reminderItems(data.items) : null), [ready, data.items]);
   const agendaKey = agenda ? JSON.stringify(agenda) : null;

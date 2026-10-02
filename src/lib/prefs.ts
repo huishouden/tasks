@@ -1,9 +1,16 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+
+/**
+ * Where preferences are kept: the signed-out sample household uses its own keys, so trying it
+ * never changes the signed-in app's chosen list, mode or "added by" name.
+ */
+export const PrefScope = createContext('');
 
 /** Per-device preference stored in localStorage; each tablet or phone keeps its own. */
 export function usePref<T>(key: string, initial: T): [T, (value: T) => void] {
+  const scope = useContext(PrefScope);
   // The app's original name; kept so installed copies keep their settings across the rename.
-  const storageKey = `hearthlist.${key}`;
+  const storageKey = `hearthlist.${scope}${key}`;
   const [value, setValue] = useState<T>(() => {
     try {
       const raw = localStorage.getItem(storageKey);

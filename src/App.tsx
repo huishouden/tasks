@@ -31,10 +31,12 @@ import {
   useMenus,
   useStoreAisles,
   useStores,
+  settled,
 } from './data/store';
+import { DEMO_EMAIL, DEMO_HOUSEHOLD, openDemo, suggestDemoMeals } from './data/demo';
 import { classifyItem, suggestMeals } from './lib/ai';
 import { getFirebase, googleClientId, useEmulators } from './lib/firebase';
-import { useApplyTheme, useInstallPrompt, useOnline, usePref, type ThemeMode } from './lib/prefs';
+import { PrefScope, useApplyTheme, useInstallPrompt, useOnline, usePref, type ThemeMode } from './lib/prefs';
 import { HubView } from './views/HubView';
 import { ListsView } from './views/ListsView';
 import { StoreView } from './views/StoreView';
@@ -132,20 +134,37 @@ export default function App() {
       </Frame>
     );
   }
-  if (auth.status === 'signed-out') {
+  if (auth.status === 'signed-out') return <DemoApp frame={frame} theme={theme} setTheme={setTheme} signInError={signInError} />;
+  return <SignedIn db={auth.db} email={auth.email} user={auth.user} theme={theme} setTheme={setTheme} frame={frame} />;
+}
+
+/** Signed out: the app on an invented household, so it can be tried (and screenshotted) before signing in. */
+function DemoApp({ frame, theme, setTheme, signInError }: { frame: FrameProps; theme: ThemeMode; setTheme: (t: ThemeMode) => void; signInError: FriendlyError | null }) {
+  const [db, setDb] = useState<Firestore | null>(null);
+  useEffect(() => {
+    void openDemo().then(setDb);
+  }, []);
+  if (!db) {
     return (
       <Frame {...frame}>
         <Centered>
-          <div className={`${cardClass} grid w-full max-w-md gap-3 p-6`}>
-            <h2 className="text-xl font-semibold">Shared lists and chores</h2>
-            <p className="text-stone-600 dark:text-stone-300">Groceries, errands and chores the whole household sees and checks off. Sign in with Google to open yours.</p>
-            {signInError && <ErrorNotice error={signInError} />}
-          </div>
+          <Spinner />
         </Centered>
       </Frame>
     );
   }
-  return <SignedIn db={auth.db} email={auth.email} user={auth.user} theme={theme} setTheme={setTheme} frame={frame} />;
+  const banner = (
+    <div className={`${cardClass} mx-3 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 sm:mx-4`} role="note">
+      <span className="rounded-full bg-terracotta-light px-3 py-0.5 text-sm font-semibold text-terracotta-dark">Sample data</span>
+      <p className="min-w-0 flex-1 text-sm text-stone-600 dark:text-stone-300">An invented household; nothing is saved. Sign in for your own.</p>
+      {signInError && <ErrorNotice error={signInError} />}
+    </div>
+  );
+  return (
+    <PrefScope.Provider value="demo.">
+      <HouseholdApp db={db} email={DEMO_EMAIL} displayName="Alex Example" household={DEMO_HOUSEHOLD} theme={theme} setTheme={setTheme} frame={frame} demo banner={banner} />
+    </PrefScope.Provider>
+  );
 }
 
 function SignedIn({ db, email, user, theme, setTheme, frame }: { db: Firestore; email: string; user: User; theme: ThemeMode; setTheme: (t: ThemeMode) => void; frame: FrameProps }) {
@@ -248,6 +267,8 @@ function HouseholdApp({
   theme,
   setTheme,
   frame,
+  demo = false,
+  banner,
 }: {
   db: Firestore;
   email: string;
@@ -256,6 +277,10 @@ function HouseholdApp({
   theme: ThemeMode;
   setTheme: (t: ThemeMode) => void;
   frame: FrameProps;
+  /** The signed-out sample household: nothing is published, nothing leaves the device. */
+  demo?: boolean;
+  /** Shown above every screen (the sample-data note). */
+  banner?: ReactNode;
 }) {
   const data = useHouseholdData(db, household.id);
   const menus = useMenus(db, household.id);
@@ -267,8 +292,8 @@ function HouseholdApp({
   const food = useFood(db, household.id);
   const planWeek = useMemo(() => planDays(), []);
   const plan = useMealPlan(db, household.id, planWeek);
-  usePublish(db, household.id, email, data, plan);
-  const repo = useMemo(() => new HouseholdRepo(db, household.id), [db, household.id]);
+  usePublish(db, household.id, email, data, plan, !demo);
+  const repo = useMemo(() => new HouseholdRepo(db, household.id, demo), [db, household.id, demo]);
   const [savedMode, setMode] = usePref<Mode>('mode', 'lists');
   const [urlMode, setUrlMode] = useState<Mode | null>(initialMode);
   const mode = urlMode ?? savedMode;
@@ -365,7 +390,7 @@ function HouseholdApp({
     if (!selectedList) return;
     const id = repo.addItem({ ...req, listId: selectedList.id, listIcon: selectedList.icon, addedBy: addedAs });
     // Names the word list could not place get a second opinion from Gemini, in the background.
-    if (id && req.category === CATEGORIES.OTHER && FOOD_LIST_ICONS.includes(selectedList.icon) && navigator.onLine) {
+    if (!demo && id && req.category === CATEGORIES.OTHER && FOOD_LIST_ICONS.includes(selectedList.icon) && navigator.onLine) {
       void classifyItem(req.name).then((category) => {
         if (!category) return;
         repo.updateItem(id, { category });
@@ -400,7 +425,7 @@ function HouseholdApp({
       nav={<SectionTabs tabs={modes} tab={mode} onTab={(id) => switchMode(id as Mode)} />}
       actions={
         <span slot="actions" className="flex items-center gap-1">
-          {!online ? (
+          {demo ? null : !online ? (
             <CloudOff size={20} className="text-terracotta" aria-label="Offline: changes sync when back online" role="img" />
           ) : data.pendingWrites ? (
             <Loader2 size={18} className="animate-spin text-stone-600 dark:text-stone-300" aria-label="Syncing" role="img" />
@@ -412,6 +437,7 @@ function HouseholdApp({
       }
     >
       <main className={`min-h-0 flex-1 overflow-y-auto ${undoAction || askAisleFor ? 'pb-20' : ''}`}>
+        {banner}
         {!data.loaded ? (
           <Centered>
             <div className="grid justify-items-center gap-3 text-center">
@@ -460,9 +486,9 @@ function HouseholdApp({
             food={food}
             planWeek={planWeek}
             plan={plan ?? []}
-            onPlan={(day, type, meal) => planMeal(db, household.id, day, type, meal, email)}
-            onUnplan={(day, type) => unplanMeal(db, household.id, day, type)}
-            suggest={suggestMeals}
+            onPlan={(day, type, meal) => settled(planMeal(db, household.id, day, type, meal, email), demo)}
+            onUnplan={(day, type) => settled(unplanMeal(db, household.id, day, type), demo)}
+            suggest={demo ? suggestDemoMeals : suggestMeals}
             onSave={(ingredients, meals) => repo.saveMenu(ingredients, meals, addedAs)}
             onDelete={(id) => {
               const menu = menus.find((m) => m.id === id);
@@ -590,7 +616,7 @@ function HouseholdApp({
           setTheme={setTheme}
           install={install}
           notifications={
-            <NotificationsCard
+            !demo && <NotificationsCard
               db={db}
               householdId={household.id}
               user={{ email }}
