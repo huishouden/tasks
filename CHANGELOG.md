@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/huishouden/tasks/compare/v1.5.0...v1.6.0) (2026-10-02)
+
+
+### Features
+
+* Lists opens on what needs doing today ([#37](https://github.com/huishouden/tasks/issues/37)) ([c4d472d](https://github.com/huishouden/tasks/commit/c4d472dd6f421b6eb528b0d630cf7cdf5cde473a))
+
 ## [1.5.0](https://github.com/huishouden/tasks/compare/v1.4.0...v1.5.0) (2026-10-02)
 
 
