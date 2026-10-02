@@ -183,7 +183,7 @@ test('a chosen place keeps its hours and warns when it is closed at the due time
 
   // The hours are saved with the place.
   await page.getByRole('button', { name: 'Edit Drycleaners dropoff' }).click();
-  await expect(page.getByRole('dialog').getByText(/^Hours: Today: 7:00\sAM – 6:00\sPM$/)).toBeVisible();
+  await expect(page.getByRole('dialog').getByText(/^Today: 7:00\sAM – 6:00\sPM$/)).toBeVisible();
 });
 
 test('a busy map service is reported as busy, not as nothing nearby', async ({ page }) => {
