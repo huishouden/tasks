@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "huishouden-piekstra"
+  },
+  "targets": {
+    "huishouden-piekstra": {
+      "hosting": {
+        "tasks": [
+          "huishouden-tasks"
+        ]
+      }
+    }
   }
 }
