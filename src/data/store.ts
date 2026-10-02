@@ -52,6 +52,7 @@ import {
   type Staple,
   type Urgency,
 } from './model';
+import { track } from '@huishouden/pwa-kit/observability';
 
 export type AuthState =
   | { status: 'loading' }
@@ -348,6 +349,7 @@ export class HouseholdRepo {
   // immediately and syncs when online, so the UI never blocks on the network.
   /** Adds the item and returns its id, or null when the name is blank. */
   addItem(input: NewItem): string | null {
+    track('add item');
     const typed = input.name.trim();
     if (!typed) return null;
     const now = Date.now();
@@ -391,6 +393,7 @@ export class HouseholdRepo {
   }
 
   toggleCompleted(item: ListItem): void {
+    track('check item');
     const now = Date.now();
     const completed = !item.completed;
     const batch = writeBatch(this.db);
@@ -446,6 +449,7 @@ export class HouseholdRepo {
 
   /** Deletes the done items among `items` and returns them, so they can be restored. */
   clearCompleted(items: ListItem[]): ListItem[] {
+    track('clear completed');
     const done = items.filter((i) => i.completed);
     if (done.length === 0) return done;
     const batch = writeBatch(this.db);
@@ -463,6 +467,7 @@ export class HouseholdRepo {
   }
 
   createList(name: string, icon: ListIcon, color: string, sortOrder: number): string {
+    track('create list');
     const ref = doc(this.col('lists'));
     void setDoc(ref, { name: name.trim(), description: '', icon, color, sortOrder, createdAt: Date.now() });
     return ref.id;
@@ -491,6 +496,7 @@ export class HouseholdRepo {
   }
 
   createStore(name: string, categoryOrder: StoreLayout['categoryOrder'], found?: { location: GeoPoint; osmId: string; address: string }): string {
+    track('add store');
     const ref = doc(this.col('stores'));
     void setDoc(ref, {
       name: name.trim(),
@@ -506,6 +512,7 @@ export class HouseholdRepo {
 
   /** Records where an item is in a store; a blank aisle forgets it. */
   setAisle(storeId: string, itemName: string, aisle: string, by: string): void {
+    track('note aisle');
     const ref = doc(this.db, 'households', this.householdId, 'stores', storeId, 'aisles', stapleKey(itemName));
     const value = aisle.trim();
     if (!value) {
@@ -528,6 +535,7 @@ export class HouseholdRepo {
   }
 
   async saveMenu(ingredients: string[], meals: Meal[], createdBy: string): Promise<string> {
+    track('save meal ideas');
     const ref = doc(this.col('menus'));
     await setDoc(ref, { createdAt: Date.now(), createdBy, ingredients, meals } satisfies Omit<Menu, 'id'>);
     return ref.id;
@@ -551,6 +559,7 @@ export class HouseholdRepo {
    * the change immediately, so callers should not wait on it.
    */
   saveFavorite(meal: Meal, savedBy: string): Promise<void> {
+    track('save favorite meal');
     return setDoc(doc(this.col('favorites'), mealKey(meal)), { meal, savedAt: Date.now(), savedBy } satisfies Omit<FavoriteMeal, 'id'>);
   }
 

@@ -45,6 +45,7 @@ import { placeLabel } from './data/places';
 import { stapleKey } from './data/model';
 import { MealsView } from './views/MealsView';
 import { planDays, planMeal, unplanMeal } from './data/mealPlan';
+import { trackView } from '@huishouden/pwa-kit/observability';
 
 type Mode = 'lists' | 'hub' | 'store' | 'meals';
 
@@ -271,6 +272,10 @@ function HouseholdApp({
   const [savedMode, setMode] = usePref<Mode>('mode', 'lists');
   const [urlMode, setUrlMode] = useState<Mode | null>(initialMode);
   const mode = urlMode ?? savedMode;
+  // Anonymous counts of which views are used, per visit (the portal's /privacy page).
+  useEffect(() => {
+    trackView(mode);
+  }, [mode]);
   const [selectedId, setSelectedId] = usePref<string>('list', 'groceries');
   const [link, setLink] = useState(linkedItem);
   useEffect(() => {
