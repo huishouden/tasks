@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, LogOut, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
-import { placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
+import { describeDay, parseOpeningHours } from '@huishouden/pwa-kit/hours';
+import { PlaceSearchUnavailable, formatDistance, mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '../lib/calendar';
 import {
   ALL_CATEGORIES,
@@ -24,6 +25,7 @@ import {
 import type { ThemeMode } from '../lib/prefs';
 import { parseWhen } from '../data/when';
 import { currentPosition, locationPermission } from '../lib/location';
+import { hoursWarning } from '../data/hours';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { ErrorNotice } from './ErrorNotice';
 import { Dialog, LIST_ICONS, ListIconBadge, ghostButton, inputClass, primaryButton } from './ui';
@@ -188,9 +190,11 @@ export function EditItemDialog({
         // Typing over a chosen place means it is somewhere else now.
         if (place && !text.startsWith(place.name)) setPlace(null);
       }}
+      hours={place?.hours}
+      warning={hoursWarning(place?.hours, { dueAt, allDay: dueAt !== null && !time, dueBy: !!time && dueBy })}
       onPick={(p, text) => {
         setLocation(text);
-        setPlace({ name: p.name, lat: p.lat, lon: p.lon });
+        setPlace({ name: p.name, lat: p.lat, lon: p.lon, ...(p.openingHours ? { hours: p.openingHours } : {}) });
       }}
     />
   );
@@ -440,6 +444,8 @@ function WhereField({
   suggest,
   onChange,
   onPick,
+  hours,
+  warning,
 }: {
   name: string;
   value: string;
@@ -447,8 +453,19 @@ function WhereField({
   suggest: boolean;
   onChange: (text: string) => void;
   onPick: (place: Place, text: string) => void;
+  /** The chosen place's hours, and a note when they do not fit the due time. */
+  hours?: string;
+  warning?: string | null;
 }) {
   const inputId = useId();
+  const query = value.trim() || name.trim();
+  // Google Maps searches near the device by itself and knows far more businesses than
+  // OpenStreetMap; pick one there and paste or type it in.
+  const mapsLink = (label: string) => (
+    <a href={mapsSearchUrl(query)} target="_blank" rel="noreferrer" className="font-medium text-forest-700 underline underline-offset-2 dark:text-forest-300">
+      {label}
+    </a>
+  );
   const [results, setResults] = useState<Place[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -471,11 +488,17 @@ function WhereField({
     setResults(null);
     try {
       const here = await currentPosition();
-      setResults(await findPlaces(value.trim() || name, { lat: here.lat, lon: here.lng }));
+      setResults(await findPlaces(query, { lat: here.lat, lon: here.lng }));
     } catch (e) {
       if (quiet) return;
       const denied = (e as GeolocationPositionError)?.code === 1;
-      setError(denied ? 'Location is off for this app, so nearby places can’t be found. Type the place instead.' : 'Couldn’t look up places right now. Type the place, or try again in a moment.');
+      setError(
+        denied
+          ? 'Location is off for this app, so nearby places can’t be found here.'
+          : e instanceof PlaceSearchUnavailable
+            ? 'The free map service is busy right now.'
+            : 'Couldn’t look up places right now.',
+      );
     } finally {
       setBusy(false);
     }
@@ -492,14 +515,24 @@ function WhereField({
           </button>
         </div>
       </div>
+      {hours && (
+        <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
+          {parseOpeningHours(hours) ? hoursToday(hours) : `Hours: ${hours}`}
+        </p>
+      )}
+      {warning && (
+        <p className="text-sm font-medium text-terracotta" role="status">
+          {warning}
+        </p>
+      )}
       {error && (
         <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
-          {error}
+          {error} {query && mapsLink('Search Google Maps')}
         </p>
       )}
       {results && results.length === 0 && (
-        <p className="text-sm text-stone-500" role="status">
-          Nothing like "{value.trim() || name.trim()}" nearby. Try a simpler word, such as "dry cleaner" or "pharmacy".
+        <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
+          The free map has nothing like "{query}" near you; it misses many businesses. {mapsLink('Search Google Maps')}
         </p>
       )}
       {results && results.length > 0 && (
@@ -525,11 +558,13 @@ function WhereField({
                   {p.distanceKm !== undefined && p.address ? ' · ' : ''}
                   {p.address}
                 </span>
+                {p.openingHours && <span className="block text-sm text-stone-500">{hoursToday(p.openingHours)}</span>}
               </button>
             </li>
           ))}
         </ul>
       )}
+      {results && results.length > 0 && <p className="text-sm">{mapsLink('More in Google Maps')}</p>}
     </div>
   );
 }
@@ -546,14 +581,10 @@ declare global {
   }
 }
 
-/** "0.4 mi", "12 mi" in the US; "650 m", "3.1 km" elsewhere. */
-function formatDistance(km: number): string {
-  const miles = /^en-US$/i.test(navigator.language);
-  if (miles) {
-    const mi = km / 1.609;
-    return `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`;
-  }
-  return km < 1 ? `${Math.round(km * 100) * 10} m` : `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
+/** "Today: 7:00 AM – 6:00 PM" or "Today: Closed" when the hours can be read; otherwise the hours as the map writes them. */
+function hoursToday(hours: string): string {
+  const week = parseOpeningHours(hours);
+  return week ? `Today: ${describeDay(week, new Date())}` : hours;
 }
 
 /** "Today by 6:00 PM" → "today by 6:00 PM", for use mid-sentence; dates like "Tue, Jan 7" keep their case. */

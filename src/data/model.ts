@@ -95,6 +95,8 @@ export interface ItemPlace {
   name: string;
   lat: number;
   lon: number;
+  /** Business hours as OpenStreetMap writes them, when the map has them. */
+  hours?: string;
 }
 
 export interface Subtask {
