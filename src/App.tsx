@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { User } from 'firebase/auth';
+import type { Auth, User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { signInSilently } from '@huishouden/pwa-kit/auth';
 import { inviteMember, markJoined, removeMember, saveMyProfile } from '@huishouden/pwa-kit/household';
@@ -33,7 +33,11 @@ import {
   useStores,
   settled,
 } from './data/store';
-import { DEMO_EMAIL, DEMO_HOUSEHOLD, openDemo, suggestDemoMeals } from './data/demo';
+import { DEMO_AUTH, DEMO_EMAIL, DEMO_HOUSEHOLD, openDemo, suggestDemoMeals } from './data/demo';
+import { googleTaskItem, markHandled, saveGoogleTasksLinks, watchTasksSettings, type TasksSettings } from './data/googleTasks';
+import { GoogleTasksSettings } from './components/GoogleTasksSettings';
+import { GoogleTasksSuggestions, useGoogleTasksSuggestions } from '@huishouden/pwa-kit/react/google-tasks';
+import type { GoogleTask } from '@huishouden/pwa-kit/google-tasks';
 import { classifyItem, suggestMeals } from './lib/ai';
 import { getFirebase, googleClientId, useEmulators } from './lib/firebase';
 import { PrefScope, useApplyTheme, useInstallPrompt, useOnline, usePref, type ThemeMode } from './lib/prefs';
@@ -135,7 +139,7 @@ export default function App() {
     );
   }
   if (auth.status === 'signed-out') return <DemoApp frame={frame} theme={theme} setTheme={setTheme} signInError={signInError} />;
-  return <SignedIn db={auth.db} email={auth.email} user={auth.user} theme={theme} setTheme={setTheme} frame={frame} />;
+  return <SignedIn db={auth.db} auth={auth.auth} email={auth.email} user={auth.user} theme={theme} setTheme={setTheme} frame={frame} />;
 }
 
 /** Signed out: the app on an invented household, so it can be tried (and screenshotted) before signing in. */
@@ -167,7 +171,7 @@ function DemoApp({ frame, theme, setTheme, signInError }: { frame: FrameProps; t
   );
 }
 
-function SignedIn({ db, email, user, theme, setTheme, frame }: { db: Firestore; email: string; user: User; theme: ThemeMode; setTheme: (t: ThemeMode) => void; frame: FrameProps }) {
+function SignedIn({ db, auth, email, user, theme, setTheme, frame }: { db: Firestore; auth: Auth; email: string; user: User; theme: ThemeMode; setTheme: (t: ThemeMode) => void; frame: FrameProps }) {
   const household = useHousehold(db, email);
   // Members' names and photos come from their own sign-ins (shown in the portal and beside entries).
   const householdId = household.status === 'ready' ? household.household.id : null;
@@ -200,7 +204,7 @@ function SignedIn({ db, email, user, theme, setTheme, frame }: { db: Firestore; 
       </Frame>
     );
   }
-  return <HouseholdApp db={db} email={email} displayName={user.displayName} household={household.household} theme={theme} setTheme={setTheme} frame={frame} />;
+  return <HouseholdApp db={db} email={email} displayName={user.displayName} household={household.household} theme={theme} setTheme={setTheme} frame={frame} auth={auth} />;
 }
 
 function Onboarding({ db, email, displayName }: { db: Firestore; email: string; displayName: string | null }) {
@@ -269,6 +273,7 @@ function HouseholdApp({
   frame,
   demo = false,
   banner,
+  auth = DEMO_AUTH,
 }: {
   db: Firestore;
   email: string;
@@ -281,6 +286,8 @@ function HouseholdApp({
   demo?: boolean;
   /** Shown above every screen (the sample-data note). */
   banner?: ReactNode;
+  /** Firebase Auth, for Google services (Calendar, Google Tasks); none for the sample. */
+  auth?: Auth;
 }) {
   const data = useHouseholdData(db, household.id);
   const menus = useMenus(db, household.id);
@@ -373,6 +380,51 @@ function HouseholdApp({
   );
   // The tablet stays home, so the errand line is for Lists and Store on the go.
   const errandBanner = <NearbyErrand items={data.items} onDone={toggle} />;
+
+  // Google Tasks: what the Gemini app or Google Assistant added there, brought into the chosen lists.
+  const [tasksSettings, setTasksSettings] = useState<TasksSettings | null>(null);
+  useEffect(() => (demo ? undefined : watchTasksSettings(db, household.id, setTasksSettings)), [db, household.id, demo]);
+  const links = useMemo(() => tasksSettings?.googleTasks ?? [], [tasksSettings]);
+  const takenIn = useMemo(() => new Set([...(tasksSettings?.handled ?? []), ...data.items.flatMap((i) => (i.googleTaskId ? [i.googleTaskId] : []))]), [tasksSettings, data.items]);
+  const googleTasks = useGoogleTasksSuggestions({
+    auth,
+    app: 'tasks',
+    listIds: links.map((l) => l.googleListId),
+    isImported: (t) => takenIn.has(t.id),
+  });
+  const bringIn = useCallback(
+    (tasks: GoogleTask[]) => {
+      if (!tasksSettings || tasks.length === 0) return;
+      for (const t of tasks) {
+        const link = links.find((l) => l.googleListId === t.listId);
+        const list = data.lists.find((l) => l.id === link?.listId);
+        if (link && list) repo.addItem(googleTaskItem(t, link, list.icon, addedAs));
+      }
+      void markHandled(db, household.id, tasksSettings, tasks.map((t) => t.id), email).catch(() => {});
+    },
+    [tasksSettings, links, data.lists, repo, addedAs, db, household.id, email],
+  );
+  // Shopping lists take new tasks straight away; each is written under a fixed id, so two devices
+  // bringing in the same task write one item.
+  const autoAdd = googleTasks.suggestions.filter((t) => links.find((l) => l.googleListId === t.listId)?.mode === 'add');
+  const autoKey = autoAdd.map((t) => t.id).join(',');
+  useEffect(() => {
+    if (data.loaded && autoKey) bringIn(autoAdd);
+    // autoAdd is derived from autoKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoKey, data.loaded, bringIn]);
+  const offered = googleTasks.suggestions.filter((t) => links.find((l) => l.googleListId === t.listId)?.mode === 'suggest');
+  const googleTasksCard = (
+    <GoogleTasksSuggestions
+      suggestions={offered}
+      listTitle={(id) => {
+        const link = links.find((l) => l.googleListId === id);
+        return link ? `${link.title}, for ${data.lists.find((l) => l.id === link.listId)?.name ?? 'a list'}` : undefined;
+      }}
+      onAdd={(t) => bringIn([t])}
+      onDismiss={googleTasks.dismiss}
+    />
+  );
   const shoppingHere =
     mode === 'store' || (mode === 'lists' && ['grocery', 'pantry', 'bulk'].includes(data.lists.find((l) => l.id === selectedId)?.icon ?? ''));
 
@@ -543,6 +595,7 @@ function HouseholdApp({
             onReorderLists={() => setReorderLists(true)}
             banner={
               <>
+                {googleTasksCard}
                 {errandBanner}
                 {shoppingHere ? storeBanner : null}
               </>
@@ -615,6 +668,17 @@ function HouseholdApp({
           theme={theme}
           setTheme={setTheme}
           install={install}
+          googleTasks={
+            !demo && (
+              <GoogleTasksSettings
+                auth={auth}
+                lists={data.lists}
+                links={links}
+                onSave={(next) => saveGoogleTasksLinks(db, household.id, next, email)}
+                onConnected={() => void googleTasks.scan()}
+              />
+            )
+          }
           notifications={
             !demo && <NotificationsCard
               db={db}

@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import type { Auth } from 'firebase/auth';
 import { collection, disableNetwork, doc, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore';
 // On a Firestore that didn't come from initFirestore the kit's writes are Firestore's own (no outbox).
 import { writeBatch } from '@huishouden/pwa-kit/firestore';
@@ -156,3 +157,6 @@ export async function suggestDemoMeals(ctx: MealContext): Promise<ValidatedMeals
   await new Promise((resolve) => setTimeout(resolve, 600));
   return validateMeals({ meals: demoMeals().map((m) => ({ ...m, ...m.levels })) }, ctx);
 }
+
+/** No one is signed in to the sample: Google services (Calendar, Google Tasks) never look. */
+export const DEMO_AUTH = { currentUser: null, onAuthStateChanged: (cb: (user: null) => void) => (cb(null), () => {}) } as unknown as Auth;

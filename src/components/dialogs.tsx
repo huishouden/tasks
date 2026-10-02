@@ -730,6 +730,7 @@ export function SettingsDialog({
   setTheme,
   install,
   notifications,
+  googleTasks,
   onAddMember,
   onRemoveMember,
   onClose,
@@ -743,6 +744,8 @@ export function SettingsDialog({
   install: { canInstall: boolean; installed: boolean; install: () => Promise<void> };
   /** "Notifications on this device" (the kit's NotificationsCard). */
   notifications?: React.ReactNode;
+  /** Google Tasks into lists (GoogleTasksSettings). */
+  googleTasks?: React.ReactNode;
   onAddMember: (email: string) => Promise<void>;
   onRemoveMember: (email: string) => Promise<void>;
   onClose: () => void;
@@ -826,6 +829,8 @@ export function SettingsDialog({
         </section>
 
         {notifications}
+
+        {googleTasks}
 
         <section>
           <p className="mb-2 text-sm font-semibold">Appearance on this device</p>

@@ -8,6 +8,7 @@ import {
   signInWithPopup,
   signInWithRedirect,
   signOut as fbSignOut,
+  type Auth,
   type User,
 } from 'firebase/auth';
 import {
@@ -58,7 +59,7 @@ export type AuthState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'signed-out' }
-  | { status: 'signed-in'; user: User; email: string; db: Firestore };
+  | { status: 'signed-in'; user: User; email: string; db: Firestore; auth: Auth };
 
 export function useAuth(): AuthState {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
@@ -68,7 +69,7 @@ export function useAuth(): AuthState {
       .then(({ auth, db }) => {
         unsub = onAuthStateChanged(auth, (user) => {
           if (user?.email) {
-            setState({ status: 'signed-in', user, email: user.email.toLowerCase(), db });
+            setState({ status: 'signed-in', user, email: user.email.toLowerCase(), db, auth });
           } else {
             setState({ status: 'signed-out' });
           }
@@ -333,6 +334,12 @@ export interface NewItem {
   notes?: string;
   urgency?: Urgency;
   addedBy: string;
+  /** A stable id (an item brought in from Google Tasks), so adding it twice writes one item. */
+  id?: string;
+  /** The Google task it came from. */
+  googleTaskId?: string;
+  /** A day it is due (local midnight, ms), used when the name has no date of its own. */
+  due?: number;
 }
 
 /**
@@ -378,7 +385,7 @@ export class HouseholdRepo {
     const category =
       input.category && input.category !== CATEGORIES.OTHER ? input.category : guessCategory(name, input.listIcon);
     const quantity = input.quantity?.trim() || '1';
-    const ref = doc(this.col('items'));
+    const ref = input.id ? doc(this.col('items'), input.id) : doc(this.col('items'));
     const batch = writeBatch(this.db);
     batch.set(ref, {
       listId: input.listId,
@@ -390,7 +397,8 @@ export class HouseholdRepo {
       completed: false,
       urgency,
       position: urgency === URGENCY.URGENT ? -now : now,
-      ...(when ? { dueAt: when.dueAt, allDay: when.allDay, dueBy: when.by } : {}),
+      ...(when ? { dueAt: when.dueAt, allDay: when.allDay, dueBy: when.by } : input.due ? { dueAt: input.due, allDay: true, dueBy: false } : {}),
+      ...(input.googleTaskId ? { googleTaskId: input.googleTaskId } : {}),
       createdAt: now,
       updatedAt: now,
       completedAt: null,
