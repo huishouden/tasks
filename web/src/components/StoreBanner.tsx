@@ -24,6 +24,7 @@ async function permissionState(): Promise<PermissionState | 'unsupported'> {
 }
 
 const SNOOZE_MS = 12 * 60 * 60 * 1000;
+const DONE_SHOPPING_SNOOZE_MS = 3 * 60 * 60 * 1000;
 
 interface Props {
   stores: StoreLayout[];
@@ -48,13 +49,17 @@ export function StoreBanner({ stores, activeStore, onUseStore, onCreateFromPlace
     try {
       const here = await freshPosition();
       setPermission('granted');
+      const now = Date.now();
       const saved = nearestStore(stores, here);
       if (saved) {
-        onUseStore(saved.id);
+        // A store you just finished shopping at is not picked again while you walk out of it,
+        // and not offered again as a new place either.
+        if (!(snoozed[`store:${saved.id}`] > now)) onUseStore(saved.id);
         return;
       }
-      const now = Date.now();
-      const place = (await nearbyPlaces(here)).find((p) => !(snoozed[p.osmId] > now));
+      // Shops already saved as stores come back from OpenStreetMap too; never offer them as new.
+      const savedPlaces = new Set(stores.map((st) => st.osmId).filter(Boolean));
+      const place = (await nearbyPlaces(here)).find((p) => !savedPlaces.has(p.osmId) && !(snoozed[p.osmId] > now));
       setCandidate(place ?? null);
     } catch {
       // No fix or no network: stay quiet rather than show an error mid-shop.
@@ -95,7 +100,13 @@ export function StoreBanner({ stores, activeStore, onUseStore, onCreateFromPlace
         <span className="min-w-0 flex-1 truncate">
           Shopping at <strong>{activeStore.name}</strong>. Check items off and add their aisle if you like.
         </span>
-        <button onClick={onEnd} className="shrink-0 rounded-lg px-2 py-1 font-medium hover:bg-forest-100 dark:hover:bg-forest-700">
+        <button
+          onClick={() => {
+            setSnoozed({ ...snoozed, [`store:${activeStore.id}`]: Date.now() + DONE_SHOPPING_SNOOZE_MS });
+            onEnd();
+          }}
+          className="shrink-0 rounded-lg px-2 py-1 font-medium hover:bg-forest-100 dark:hover:bg-forest-700"
+        >
           Done shopping
         </button>
       </div>
