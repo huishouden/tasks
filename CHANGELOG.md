@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/huishouden/tasks/compare/v1.1.0...v1.2.0) (2026-10-02)
+
+
+### Features
+
+* Tasks opens in the Huishouden app bar, on the shared kit's sign-in, calendar and link previews ([#27](https://github.com/huishouden/tasks/issues/27)) ([d120196](https://github.com/huishouden/tasks/commit/d120196176fdeb932d711e5997db3b8136e2786a))
+
 ## [1.1.0](https://github.com/huishouden/tasks/compare/v1.0.0...v1.1.0) (2026-10-02)
 
 
