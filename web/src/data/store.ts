@@ -29,7 +29,7 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '../lib/firebase';
 import { mealKey, type FavoriteMeal, type Meal, type Menu } from './menus';
-import type { GeoPoint, StoreLayout } from './stores';
+import type { GeoPoint, LearnedAisle, StoreLayout } from './stores';
 import { guessCategory } from './categorize';
 import {
   CATEGORIES,
@@ -245,6 +245,23 @@ export function useHouseholdData(db: Firestore, householdId: string): HouseholdD
   };
 }
 
+/** Learned aisles at one store, keyed like staples (normalised item name). */
+export function useStoreAisles(db: Firestore, householdId: string, storeId: string | null): Map<string, string> {
+  const [aisles, setAisles] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    if (!storeId) {
+      setAisles(new Map());
+      return;
+    }
+    return resilientSnapshot(
+      collection(db, 'households', householdId, 'stores', storeId, 'aisles'),
+      (snap) => setAisles(new Map(snap.docs.map((d) => [d.id, (d.data() as LearnedAisle).aisle]))),
+      () => {},
+    );
+  }, [db, householdId, storeId]);
+  return aisles;
+}
+
 /** The household's saved store layouts, alphabetical. */
 export function useStores(db: Firestore, householdId: string): StoreLayout[] {
   const [stores, setStores] = useState<StoreLayout[]>([]);
@@ -452,10 +469,31 @@ export class HouseholdRepo {
     void batch.commit();
   }
 
-  createStore(name: string, categoryOrder: StoreLayout['categoryOrder']): string {
+  createStore(name: string, categoryOrder: StoreLayout['categoryOrder'], found?: { location: GeoPoint; osmId: string; address: string }): string {
     const ref = doc(this.col('stores'));
-    void setDoc(ref, { name: name.trim(), categoryOrder, aisleLabels: {}, location: null, createdAt: Date.now() } satisfies Omit<StoreLayout, 'id'>);
+    void setDoc(ref, {
+      name: name.trim(),
+      categoryOrder,
+      aisleLabels: {},
+      location: found?.location ?? null,
+      osmId: found?.osmId ?? null,
+      address: found?.address ?? '',
+      createdAt: Date.now(),
+    } satisfies Omit<StoreLayout, 'id'>);
     return ref.id;
+  }
+
+  /** Records where an item is in a store; a blank aisle forgets it. */
+  setAisle(storeId: string, itemName: string, aisle: string, by: string): void {
+    const ref = doc(this.db, 'households', this.householdId, 'stores', storeId, 'aisles', stapleKey(itemName));
+    const value = aisle.trim();
+    if (!value) {
+      const batch = writeBatch(this.db);
+      batch.delete(ref);
+      void batch.commit();
+      return;
+    }
+    void setDoc(ref, { aisle: value.slice(0, 24), name: itemName.trim(), updatedAt: Date.now(), updatedBy: by } satisfies Omit<LearnedAisle, 'id'>);
   }
 
   updateStore(id: string, changes: Partial<Pick<StoreLayout, 'name' | 'categoryOrder' | 'aisleLabels'>> & { location?: GeoPoint | null }): void {

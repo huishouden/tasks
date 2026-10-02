@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ArrowUpDown, ChevronDown, Plus, Search, Share2, Trash2, X } from 'lucide-react';
 import { AddBar, type AddRequest } from '../components/AddBar';
 import { usePref } from '../lib/prefs';
-import { ItemRow } from '../components/ItemRow';
+import { ItemRow, aisleRowProps, type AisleProps } from '../components/ItemRow';
 import { SortableItems } from '../components/SortableItems';
 import { StaplesShelf } from '../components/StaplesShelf';
 import { Chip, ListIconBadge, ghostButton } from '../components/ui';
@@ -21,6 +21,7 @@ interface Props {
   onAddStaple: (s: Staple) => void;
   onToggle: (item: ListItem) => void;
   onToggleSubtask: (item: ListItem, subtaskId: string) => void;
+  aisle?: AisleProps;
   onEdit: (item: ListItem) => void;
   onDelete: (item: ListItem) => void;
   onClearCompleted: (items: ListItem[]) => void;
@@ -170,7 +171,7 @@ export function ListsView(props: Props) {
                   key={item.id}
                   item={item}
                   drag={drag}
-                  onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)}
+                  onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)}
                   onEdit={() => props.onEdit(item)}
                   onDelete={() => props.onDelete(item)}
                   showCategory={!filter}
@@ -192,7 +193,7 @@ export function ListsView(props: Props) {
               {showDone && (
                 <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2">
                   {done.map((item) => (
-                    <ItemRow key={item.id} item={item} onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} onDelete={() => props.onDelete(item)} />
+                    <ItemRow key={item.id} item={item} onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} onDelete={() => props.onDelete(item)} />
                   ))}
                 </ul>
               )}

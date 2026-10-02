@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Check, LocateFixed, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ErrorNotice } from '../components/ErrorNotice';
-import { ItemRow } from '../components/ItemRow';
+import { ItemRow, aisleRowProps, type AisleProps } from '../components/ItemRow';
 import { SortableRows } from '../components/SortableRows';
 import { Chip, ghostButton, inputClass, primaryButton } from '../components/ui';
-import { moveInOrder, type Category, type ListItem, type ShoppingList } from '../data/model';
-import { fullCategoryOrder, groupForStore, nearestStore, type GeoPoint, type StoreLayout } from '../data/stores';
+import { moveInOrder, stapleKey, type Category, type ListItem, type ShoppingList } from '../data/model';
+import { fullCategoryOrder, groupWithAisles, type GeoPoint, type StoreLayout } from '../data/stores';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { useWakeLock } from '../lib/prefs';
 
@@ -18,6 +18,7 @@ interface Props {
   onSelectList: (id: string) => void;
   onToggle: (item: ListItem) => void;
   onToggleSubtask: (item: ListItem, subtaskId: string) => void;
+  aisle?: AisleProps;
   onClearCompleted: (items: ListItem[]) => void;
   stores: StoreLayout[];
   storeId: string | null;
@@ -25,6 +26,8 @@ interface Props {
   onCreateStore: (name: string) => string;
   onUpdateStore: (id: string, changes: StoreChanges) => void;
   onDeleteStore: (id: string) => void;
+  /** Learned aisles at the selected store, keyed by normalised item name. */
+  aisles: Map<string, string>;
 }
 
 function currentPosition(): Promise<GeoPoint> {
@@ -42,31 +45,6 @@ function currentPosition(): Promise<GeoPoint> {
   });
 }
 
-/**
- * Picks the saved store you are standing in, but only when location access was already granted:
- * opening Store mode never raises a permission prompt by itself.
- */
-function useAutoPickedStore(stores: StoreLayout[]): StoreLayout | null {
-  const [picked, setPicked] = useState<StoreLayout | null>(null);
-  const located = useMemo(() => stores.filter((s) => s.location), [stores]);
-  const key = located.map((s) => `${s.id}:${s.location?.lat},${s.location?.lng}`).join('|');
-  useEffect(() => {
-    if (!key || !navigator.permissions) return;
-    let cancelled = false;
-    navigator.permissions
-      .query({ name: 'geolocation' })
-      .then((status) => (status.state === 'granted' ? currentPosition() : null))
-      .then((here) => {
-        if (!cancelled && here) setPicked(nearestStore(located, here));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [key, located]);
-  return picked;
-}
-
 function cleanLabels(labels: Partial<Record<Category, string>>): Partial<Record<Category, string>> {
   return Object.fromEntries(Object.entries(labels).flatMap(([k, v]) => (v?.trim() ? [[k, v.trim()]] : [])));
 }
@@ -78,26 +56,15 @@ export function StoreView(props: Props) {
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
-  const [autoNote, setAutoNote] = useState<string | null>(null);
-
-  const autoPicked = useAutoPickedStore(stores);
-  const autoPickedId = autoPicked?.id;
-  useEffect(() => {
-    // Reacts only to a new location-based pick, never to manual selection changes.
-    if (!autoPicked || !autoPickedId) return;
-    onSelectStore(autoPickedId);
-    setAutoNote(autoPicked.name);
-  }, [autoPickedId]);
 
   const store = stores.find((s) => s.id === storeId) ?? null;
   const listItems = useMemo(() => items.filter((i) => i.listId === selectedList.id), [items, selectedList.id]);
   const total = listItems.length;
   const done = listItems.filter((i) => i.completed).length;
   const progress = total === 0 ? 0 : done / total;
-  const sections = groupForStore(listItems, store?.categoryOrder);
+  const sections = groupWithAisles(listItems, props.aisles, store?.categoryOrder, store?.aisleLabels, stapleKey);
 
   function choose(id: string | null) {
-    setAutoNote(null);
     setEditing(false);
     onSelectStore(id);
   }
@@ -128,11 +95,6 @@ export function StoreView(props: Props) {
             <Plus size={12} className="mr-0.5 inline" /> Add store
           </Chip>
         </div>
-        {autoNote && store && (
-          <p className="text-sm text-forest-700 dark:text-forest-300" role="status">
-            <LocateFixed size={14} className="mr-1 inline" /> Picked {autoNote} because you're there.
-          </p>
-        )}
         {adding && (
           <form
             className="flex gap-2"
@@ -184,27 +146,24 @@ export function StoreView(props: Props) {
             </div>
           </div>
           {sections.length === 0 && <p className="p-8 text-center text-stone-500">This list is empty.</p>}
-          {sections.map(([section, group]) => {
-            const label = store?.aisleLabels?.[section];
-            return (
-              <section key={section} aria-label={section}>
-                <h2 className="mb-2 text-sm font-semibold tracking-wider text-stone-500 uppercase">
-                  {section}
-                  {label && (
-                    <span className="ml-1.5 rounded-md bg-forest-100 px-1.5 py-0.5 tracking-normal text-forest-700 normal-case dark:bg-forest-700 dark:text-forest-100">
-                      {label}
-                    </span>
-                  )}
-                  <span className="font-normal"> · {group.filter((i) => !i.completed).length} left</span>
-                </h2>
-                <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
-                  {group.map((item) => (
-                    <ItemRow key={item.id} item={item} large onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+          {sections.map((group) => (
+            <section key={group.key} aria-label={group.title}>
+              <h2 className="mb-2 text-sm font-semibold tracking-wider text-stone-500 uppercase">
+                {group.title}
+                {group.label && (
+                  <span className="ml-1.5 rounded-md bg-forest-100 px-1.5 py-0.5 tracking-normal text-forest-700 normal-case dark:bg-forest-700 dark:text-forest-100">
+                    {group.label}
+                  </span>
+                )}
+                <span className="font-normal"> · {group.items.filter((i) => !i.completed).length} left</span>
+              </h2>
+              <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
+                {group.items.map((item) => (
+                  <ItemRow key={item.id} item={item} large onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} />
+                ))}
+              </ul>
+            </section>
+          ))}
           {done > 0 && (
             <button onClick={() => props.onClearCompleted(listItems)} className={`${ghostButton} justify-self-center`}>
               Clear {done} checked item{done === 1 ? '' : 's'}

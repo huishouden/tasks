@@ -13,7 +13,53 @@ export interface StoreLayout {
   /** Optional label per section, e.g. "Aisle 12" or "Back wall". */
   aisleLabels: Partial<Record<Category, string>>;
   location?: GeoPoint | null;
+  /** The OpenStreetMap shop this was created from, if detected rather than typed. */
+  osmId?: string | null;
+  address?: string;
   createdAt: number;
+}
+
+/** An item's aisle at one store, learned from what someone typed while shopping. */
+export interface LearnedAisle {
+  id: string;
+  aisle: string;
+  name: string;
+  updatedAt: number;
+  updatedBy: string;
+}
+
+/** Numbers sort numerically ("Aisle 2" before "Aisle 10"); words like "Deli" follow, alphabetically. */
+export function compareAisles(a: string, b: string): number {
+  const na = parseInt(a.replace(/\D+/g, ''), 10);
+  const nb = parseInt(b.replace(/\D+/g, ''), 10);
+  if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+  if (!isNaN(na) !== !isNaN(nb)) return isNaN(na) ? 1 : -1;
+  return a.localeCompare(b, undefined, { numeric: true });
+}
+
+/** "12" → "Aisle 12"; anything with letters ("Deli", "Back wall") is kept as typed. */
+export function aisleLabel(aisle: string): string {
+  const t = aisle.trim();
+  return /^\d+[a-z]?$/i.test(t) ? `Aisle ${t.toUpperCase()}` : t;
+}
+
+export type StoreGroup = { key: string; title: string; label?: string; items: ListItem[] };
+
+/**
+ * Items walked in store order: those with a learned aisle grouped by aisle (numeric order),
+ * then the rest by section in the store's walking order.
+ */
+export function groupWithAisles(items: ListItem[], aisles: Map<string, string>, order?: Category[], sectionLabels?: Partial<Record<Category, string>>, keyOf: (name: string) => string = (n) => n.toLowerCase()): StoreGroup[] {
+  const byAisle = new Map<string, ListItem[]>();
+  const rest: ListItem[] = [];
+  for (const item of items) {
+    const aisle = aisles.get(keyOf(item.name));
+    if (aisle) byAisle.set(aisle, [...(byAisle.get(aisle) ?? []), item]);
+    else rest.push(item);
+  }
+  const aisleGroups = [...byAisle.keys()].sort(compareAisles).map((a) => ({ key: `aisle:${a}`, title: aisleLabel(a), items: sortItems(byAisle.get(a)!) }));
+  const sectionGroups = groupForStore(rest, order).map(([c, group]) => ({ key: `section:${c}`, title: c, label: sectionLabels?.[c], items: group }));
+  return [...aisleGroups, ...sectionGroups];
 }
 
 /** A store's full walking order: its saved order first, then any sections it does not mention. */

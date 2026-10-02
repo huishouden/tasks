@@ -23,6 +23,7 @@ import {
   useFavorites,
   useHouseholdData,
   useMenus,
+  useStoreAisles,
   useStores,
 } from './data/store';
 import { classifyItem, suggestMeals } from './lib/ai';
@@ -30,6 +31,10 @@ import { useApplyTheme, useInstallPrompt, useOnline, usePref, type ThemeMode } f
 import { HubView } from './views/HubView';
 import { ListsView } from './views/ListsView';
 import { StoreView } from './views/StoreView';
+import { StoreBanner } from './components/StoreBanner';
+import { AislePrompt } from './components/AislePrompt';
+import { placeLabel } from './data/places';
+import { stapleKey } from './data/model';
 import { MealsView } from './views/MealsView';
 
 type Mode = 'lists' | 'hub' | 'store' | 'meals';
@@ -190,6 +195,7 @@ function HouseholdApp({
   const menus = useMenus(db, household.id);
   const stores = useStores(db, household.id);
   const [storeId, setStoreId] = usePref<string | null>('store', null);
+
   const favorites = useFavorites(db, household.id);
   const repo = useMemo(() => new HouseholdRepo(db, household.id), [db, household.id]);
   const [savedMode, setMode] = usePref<Mode>('mode', 'lists');
@@ -210,6 +216,35 @@ function HouseholdApp({
   useEffect(() => {
     if (!hasJoined) void markJoined(db, household.id, email).catch(() => {});
   }, [hasJoined, db, household.id, email]);
+
+  // A shopping trip: aisle prompts only appear while one is running, and it ends on its own.
+  const [session, setSession] = usePref<{ storeId: string; until: number } | null>('shopping', null);
+  const shoppingStoreId = session && session.until > Date.now() && stores.some((st) => st.id === session.storeId) ? session.storeId : null;
+  const startShopping = (id: string) => {
+    setStoreId(id);
+    setSession({ storeId: id, until: Date.now() + 3 * 60 * 60 * 1000 });
+  };
+  const endShopping = () => setSession(null);
+  const aisleStoreId = shoppingStoreId ?? (mode === 'store' ? storeId : null);
+  const aisles = useStoreAisles(db, household.id, aisleStoreId);
+  const [askAisleFor, setAskAisleFor] = useState<string | null>(null);
+  const toggle = (item: ListItem) => {
+    repo.toggleCompleted(item);
+    // Just checked off in a store, with no aisle on record there yet: offer to note it.
+    setAskAisleFor(!item.completed && shoppingStoreId && !aisles.has(stapleKey(item.name)) ? item.id : null);
+  };
+  const aisleProps = aisleStoreId
+    ? {
+        aisleFor: (item: ListItem) => aisles.get(stapleKey(item.name)),
+        onAisle: (item: ListItem, aisle: string) => {
+          repo.setAisle(aisleStoreId, item.name, aisle, addedAs);
+          setAskAisleFor(null);
+        },
+        onDismissAisle: () => setAskAisleFor(null),
+      }
+    : undefined;
+  const shoppingHere =
+    mode === 'store' || (mode === 'lists' && ['grocery', 'pantry', 'bulk'].includes(data.lists.find((l) => l.id === selectedId)?.icon ?? ''));
 
   // Falls back for display only: a just-created list is briefly missing until its snapshot
   // arrives, and resetting the saved choice then would jump back to the first list.
@@ -286,7 +321,22 @@ function HouseholdApp({
         </button>
       </header>
 
-      <main className={`min-h-0 flex-1 overflow-y-auto ${undoAction ? 'pb-20' : ''}`}>
+      <main className={`min-h-0 flex-1 overflow-y-auto ${undoAction || askAisleFor ? 'pb-20' : ''}`}>
+        {data.loaded && shoppingHere && (
+          <div className="mx-auto max-w-3xl px-4 pt-3 sm:px-6">
+            <StoreBanner
+              // A fresh banner per screen, so switching to Groceries or Store mode checks again.
+              key={mode}
+              stores={stores}
+              activeStore={stores.find((st) => st.id === shoppingStoreId) ?? null}
+              onUseStore={startShopping}
+              onCreateFromPlace={(place) =>
+                startShopping(repo.createStore(placeLabel(place), [], { location: place.location, osmId: place.osmId, address: place.address }))
+              }
+              onEnd={endShopping}
+            />
+          </div>
+        )}
         {!data.loaded ? (
           <Centered>
             <div className="grid justify-items-center gap-3 text-center">
@@ -320,8 +370,9 @@ function HouseholdApp({
             onSelectList={setSelectedId}
             onAdd={add}
             onAddStaple={addStaple}
-            onToggle={(i) => repo.toggleCompleted(i)}
+            onToggle={toggle}
             onToggleSubtask={(i, id) => repo.toggleSubtask(i, id)}
+            aisle={aisleProps}
             onEdit={setEditing}
             onMove={(ordered, from, to) => repo.moveItem(ordered, from, to)}
           />
@@ -344,12 +395,20 @@ function HouseholdApp({
             items={data.items}
             selectedList={selectedList}
             onSelectList={setSelectedId}
-            onToggle={(i) => repo.toggleCompleted(i)}
+            onToggle={toggle}
             onToggleSubtask={(i, id) => repo.toggleSubtask(i, id)}
+            aisle={aisleProps}
             onClearCompleted={clearCompleted}
             stores={stores}
             storeId={storeId}
-            onSelectStore={setStoreId}
+            onSelectStore={(id) => {
+              if (id) startShopping(id);
+              else {
+                setStoreId(null);
+                endShopping();
+              }
+            }}
+            aisles={aisles}
             onCreateStore={(name) => repo.createStore(name, [])}
             onUpdateStore={(id, changes) => repo.updateStore(id, changes)}
             onDeleteStore={(id) => repo.deleteStore(id)}
@@ -366,8 +425,9 @@ function HouseholdApp({
             onDeleteList={(l) => void repo.deleteList(l.id)}
             onAdd={add}
             onAddStaple={addStaple}
-            onToggle={(i) => repo.toggleCompleted(i)}
+            onToggle={toggle}
             onToggleSubtask={(i, id) => repo.toggleSubtask(i, id)}
+            aisle={aisleProps}
             onEdit={setEditing}
             onDelete={deleteItem}
             onClearCompleted={clearCompleted}
@@ -403,6 +463,23 @@ function HouseholdApp({
           onDismiss={() => setUndoAction((a) => (a?.id === undoAction.id ? null : a))}
         />
       )}
+      {askAisleFor && shoppingStoreId && (() => {
+        const item = data.items.find((i) => i.id === askAisleFor);
+        const store = stores.find((st) => st.id === shoppingStoreId);
+        if (!item || !store || undoAction) return null;
+        return (
+          <AislePrompt
+            key={item.id}
+            itemName={item.name}
+            storeName={store.name}
+            onSave={(aisle) => {
+              repo.setAisle(store.id, item.name, aisle, addedAs);
+              setAskAisleFor(null);
+            }}
+            onSkip={() => setAskAisleFor(null)}
+          />
+        );
+      })()}
       {reorderLists && <ReorderListsDialog lists={data.lists} onReorder={(ids) => repo.reorderLists(ids)} onClose={() => setReorderLists(false)} />}
       {settings && (
         <SettingsDialog
