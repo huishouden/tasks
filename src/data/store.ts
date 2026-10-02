@@ -334,17 +334,14 @@ export interface NewItem {
   notes?: string;
   urgency?: Urgency;
   addedBy: string;
-<<<<<<< HEAD
   /** A stable id (an item brought in from Google Tasks), so adding it twice writes one item. */
   id?: string;
   /** The Google task it came from. */
   googleTaskId?: string;
   /** A day it is due (local midnight, ms), used when the name has no date of its own. */
   due?: number;
-=======
   /** The adder's email, recorded as `by`: helpers and kids change and delete only their own. */
   by?: string;
->>>>>>> 6d280fc (feat(roles): helpers and kids tick anyone's items and change only their own; settings for admins and members)
 }
 
 /**

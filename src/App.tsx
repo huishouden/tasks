@@ -397,7 +397,8 @@ function HouseholdApp({
   const googleTasks = useGoogleTasksSuggestions({
     auth,
     app: 'tasks',
-    listIds: links.map((l) => l.googleListId),
+    // Bringing tasks in records them in the household's settings: admins' and members' devices only.
+    listIds: canSetUp ? links.map((l) => l.googleListId) : [],
     isImported: (t) => takenIn.has(t.id),
   });
   const bringIn = useCallback(
@@ -406,7 +407,7 @@ function HouseholdApp({
       for (const t of tasks) {
         const link = links.find((l) => l.googleListId === t.listId);
         const list = data.lists.find((l) => l.id === link?.listId);
-        if (link && list) repo.addItem(googleTaskItem(t, link, list.icon, addedAs));
+        if (link && list) repo.addItem({ ...googleTaskItem(t, link, list.icon, addedAs), by: email });
       }
       void markHandled(db, household.id, tasksSettings, tasks.map((t) => t.id), email).catch(() => {});
     },
@@ -625,7 +626,7 @@ function HouseholdApp({
             onToggle={toggle}
             onToggleSubtask={(i, id) => repo.toggleSubtask(i, id)}
             aisle={aisleProps}
-            onEdit={setEditing}
+            onEdit={(item) => mayChange(item) && setEditing(item)}
             onDelete={deleteItem}
             onClearCompleted={clearCompleted}
             onMove={(ordered, from, to) => repo.moveItem(ordered, from, to)}
@@ -688,7 +689,7 @@ function HouseholdApp({
           setTheme={setTheme}
           install={install}
           googleTasks={
-            !demo && (
+            !demo && canSetUp && (
               <GoogleTasksSettings
                 auth={auth}
                 lists={data.lists}
