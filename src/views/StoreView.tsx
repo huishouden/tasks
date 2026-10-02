@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Check, LocateFixed, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ErrorNotice } from '../components/ErrorNotice';
+import { RoleNote } from '@huishouden/pwa-kit/react/roles';
 import { ItemRow, aisleRowProps, type AisleProps } from '../components/ItemRow';
 import { SortableRows } from '../components/SortableRows';
 import { Chip, ghostButton, inputClass, primaryButton } from '../components/ui';
@@ -28,6 +29,8 @@ interface Props {
   onCreateStore: (name: string) => string;
   onUpdateStore: (id: string, changes: StoreChanges) => void;
   onDeleteStore: (id: string) => void;
+  /** Helpers and kids shop with the saved layouts but don't add or change stores. */
+  canSetUp?: boolean;
   /** Learned aisles at the selected store, keyed by normalised item name. */
   aisles: Map<string, string>;
 }
@@ -94,9 +97,11 @@ export function StoreView(props: Props) {
               {s.name}
             </Chip>
           ))}
-          <Chip onClick={() => setAdding(true)}>
-            <Plus size={12} className="mr-0.5 inline" /> Add store
-          </Chip>
+          {props.canSetUp !== false && (
+            <Chip onClick={() => setAdding(true)}>
+              <Plus size={12} className="mr-0.5 inline" /> Add store
+            </Chip>
+          )}
         </div>
         {adding && (
           <form
@@ -117,7 +122,8 @@ export function StoreView(props: Props) {
             </button>
           </form>
         )}
-        {store && !editing && (
+        {props.canSetUp === false && <RoleNote action="change-settings" />}
+        {store && !editing && props.canSetUp !== false && (
           <button onClick={() => setEditing(true)} className={`${ghostButton} justify-self-start text-sm`}>
             <Pencil size={16} /> Edit {store.name} layout
           </button>

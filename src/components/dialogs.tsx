@@ -1,3 +1,5 @@
+import { ROLE_LABELS, can, householdRole, type Role } from '@huishouden/pwa-kit/roles';
+import { RoleNote, RoleSelect } from '@huishouden/pwa-kit/react/roles';
 import { useEffect, useId, useRef, useState } from 'react';
 import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
 import { describeDay, parseOpeningHours } from '@huishouden/pwa-kit/hours';
@@ -733,6 +735,7 @@ export function SettingsDialog({
   googleTasks,
   onAddMember,
   onRemoveMember,
+  onSetRole,
   onClose,
 }: {
   household: Household;
@@ -746,11 +749,15 @@ export function SettingsDialog({
   notifications?: React.ReactNode;
   /** Google Tasks into lists (GoogleTasksSettings). */
   googleTasks?: React.ReactNode;
-  onAddMember: (email: string) => Promise<void>;
+  onAddMember: (email: string, role: Role) => Promise<void>;
   onRemoveMember: (email: string) => Promise<void>;
+  onSetRole: (email: string, role: Role) => Promise<void>;
   onClose: () => void;
 }) {
   const [invite, setInvite] = useState('');
+  const [inviteRole, setInviteRole] = useState<Role>('member');
+  const myRole = householdRole(household, myEmail);
+  const admin = can(myRole, 'manage-people');
   const [error, setError] = useState<FriendlyError | null>(null);
   const validInvite = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invite.trim());
   return (
@@ -759,8 +766,8 @@ export function SettingsDialog({
         <section>
           <h3 className="mb-1 font-semibold">{household.name}</h3>
           <p className="mb-3 text-sm text-stone-500">
-            Everyone here sees and edits every list, in every Huishouden app. Add someone by the Google address they sign in with,
-            then send them the link.
+            What each person can do depends on their role, in every Huishouden app. Add someone by the Google address they sign in
+            with, then send them the link.
           </p>
           <ul className="mb-3 grid gap-1.5">
             {household.members.map((m) => {
@@ -775,16 +782,24 @@ export function SettingsDialog({
                     <span className={`text-xs ${joined ? 'text-forest-600 dark:text-forest-300' : 'text-terracotta'}`}>
                       {joined ? 'Joined' : 'Invited, not signed in yet'}
                     </span>
+                    {!(admin && m !== myEmail) && <span className="text-xs text-stone-500"> · {ROLE_LABELS[householdRole(household, m) ?? 'member']}</span>}
                   </span>
+                  {admin && m !== myEmail && (
+                    <RoleSelect
+                      value={householdRole(household, m) ?? 'member'}
+                      label={`Role for ${m}`}
+                      onChange={(next) => void onSetRole(m, next).catch((err: unknown) => setError(friendlyError(err, 'save')))}
+                    />
+                  )}
                   {!joined && (
                     <button onClick={() => void sendInvite(m, household.name)} className={`${ghostButton} text-sm`} aria-label={`Send invite to ${m}`}>
                       <Send size={16} /> Send invite
                     </button>
                   )}
-                  {m !== myEmail && (
+                  {admin && m !== myEmail && (
                     <button
                       onClick={() => {
-                        if (confirm(`Remove ${m} from the household?`)) void onRemoveMember(m);
+                        if (confirm(`Remove ${m} from the household?`)) void onRemoveMember(m).catch((err: unknown) => setError(friendlyError(err, 'save')));
                       }}
                       className="rounded-lg p-1.5 text-stone-400 hover:text-red-600"
                       aria-label={`Remove ${m}`}
@@ -796,6 +811,8 @@ export function SettingsDialog({
               );
             })}
           </ul>
+          {!admin && <RoleNote action="manage-people" />}
+          {admin && (
           <form
             className="flex gap-2"
             onSubmit={(e) => {
@@ -803,16 +820,21 @@ export function SettingsDialog({
               if (!validInvite) return;
               setError(null);
               const email = invite.trim().toLowerCase();
-              onAddMember(email)
-                .then(() => setInvite(''))
+              onAddMember(email, inviteRole)
+                .then(() => {
+                  setInvite('');
+                  setInviteRole('member');
+                })
                 .catch((err: unknown) => setError(friendlyError(err, 'save')));
             }}
           >
-            <input type="email" value={invite} onChange={(e) => setInvite(e.target.value)} placeholder="their.gmail@gmail.com" className={inputClass} />
+            <input type="email" value={invite} onChange={(e) => setInvite(e.target.value)} placeholder="Their Google account email" className={inputClass} aria-label="Their Google account email" />
+            <RoleSelect value={inviteRole} label="Their role" onChange={setInviteRole} />
             <button type="submit" disabled={!validInvite} className={primaryButton} aria-label="Add member">
               <UserPlus size={18} />
             </button>
           </form>
+          )}
           {error && (
             <div className="mt-2">
               <ErrorNotice error={error} />

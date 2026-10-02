@@ -30,6 +30,11 @@ interface Props {
   plan: PlannedMeal[];
   onPlan: (day: Ymd, type: PlanType, meal: Meal) => Promise<void>;
   onUnplan: (day: Ymd, type: PlanType) => Promise<void>;
+  /**
+   * A helper or kid: meal ideas, favourites and the plan are the household's choices, so they see
+   * them and can put ingredients on a list, but don't suggest, save or plan.
+   */
+  readOnly?: boolean;
 }
 
 const MIN_INGREDIENTS = 3;
@@ -38,7 +43,7 @@ const MIN_INGREDIENTS = 3;
  * Meal ideas from what is in the kitchen (bought in the last 10 days) and what is still on the food
  * lists, so a week can be planned before shopping, within the household's diets.
  */
-export function MealsView({ lists, items, menus, favorites, food, suggest, onSave, onDelete, onSaveFavorite, onRemoveFavorite, onAddItems, planWeek, plan, onPlan, onUnplan }: Props) {
+export function MealsView({ lists, items, menus, favorites, food, suggest, onSave, onDelete, onSaveFavorite, onRemoveFavorite, onAddItems, planWeek, plan, onPlan, onUnplan, readOnly = false }: Props) {
   const [planning, setPlanning] = useState<Meal | null>(null);
   const bought = useMemo(() => kitchenInventory(items, lists, Date.now()), [items, lists]);
   const planned = useMemo(() => plannedGroceries(items, lists).filter((p) => !bought.some((b) => b.toLowerCase() === p.toLowerCase())), [items, lists, bought]);
@@ -93,9 +98,9 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
         listName={groceries?.name}
         sources={mealIngredients(meal, ctx)}
         reflux={reflux}
-        onToggleSaved={() => toggleFavorite(meal)}
+        onToggleSaved={readOnly ? undefined : () => toggleFavorite(meal)}
         onAdd={() => setAdding(meal)}
-        onPlan={meal.type === 'snack' ? undefined : () => setPlanning(meal)}
+        onPlan={readOnly || meal.type === 'snack' ? undefined : () => setPlanning(meal)}
         onAddExtras={(names) => {
           if (!groceries) return;
           onAddItems(groceries.id, names, `for ${meal.name}`);
@@ -131,6 +136,12 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
 
   return (
     <div className="mx-auto grid max-w-4xl gap-6 p-4 sm:p-6">
+      {readOnly ? (
+        <section className="grid gap-1 rounded-3xl bg-white p-4 sm:p-5 dark:bg-forest-800">
+          <h1 className="text-2xl font-bold">Meals</h1>
+          <p className="text-sm text-stone-600 dark:text-stone-300">Only admins and members can suggest, save and plan meals.</p>
+        </section>
+      ) : (
       <section className="grid gap-3 rounded-3xl bg-white p-4 sm:p-5 dark:bg-forest-800">
         <div>
           <h1 className="text-2xl font-bold">What can we make?</h1>
@@ -208,8 +219,9 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
           </p>
         )}
       </section>
+      )}
 
-      <WeekPlan days={planWeek} plan={plan} onUnplan={(day, type) => onUnplan(day, type).catch((e: unknown) => setSaveError(friendlyError(e, 'save')))} />
+      <WeekPlan days={planWeek} plan={plan} onUnplan={readOnly ? undefined : (day, type) => onUnplan(day, type).catch((e: unknown) => setSaveError(friendlyError(e, 'save')))} />
 
       {shown && (
         <section className="grid gap-4" aria-label="Meal ideas">
@@ -229,9 +241,11 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
                 ))}
               </select>
             </div>
-            <button onClick={() => onDelete(shown.id)} className={`${ghostButton} text-stone-400`} aria-label="Delete these ideas">
-              <Trash2 size={18} />
-            </button>
+            {!readOnly && (
+              <button onClick={() => onDelete(shown.id)} className={`${ghostButton} text-stone-400`} aria-label="Delete these ideas">
+                <Trash2 size={18} />
+              </button>
+            )}
           </div>
           {groupMeals(shown.meals, reflux).map(([type, meals]) => (
             <div key={type}>
@@ -328,7 +342,8 @@ function MealCard({
   sources: Record<'have' | 'list' | 'extra', string[]>;
   /** Someone in the household has GERD: mark the meals that are easy on it. */
   reflux: boolean;
-  onToggleSaved: () => void;
+  /** Absent for helpers and kids, who see favourites but don't change them. */
+  onToggleSaved?: () => void;
   onAdd: () => void;
   /** Absent for snacks, which are not planned. */
   onPlan?: () => void;
@@ -348,15 +363,17 @@ function MealCard({
           {label && <p className="text-xs font-semibold tracking-wider text-stone-500 uppercase">{label}</p>}
           <h3 className="font-semibold">{meal.name}</h3>
         </div>
-        <button
-          onClick={onToggleSaved}
-          aria-pressed={saved}
-          aria-label={saved ? `Remove ${meal.name} from favorites` : `Save ${meal.name} to favorites`}
-          title={saved ? 'Remove from favorites' : 'Save to favorites'}
-          className={`${iconButton} ${saved ? 'text-terracotta' : 'text-stone-400'}`}
-        >
-          <Star size={18} className={saved ? 'fill-current' : ''} />
-        </button>
+        {onToggleSaved && (
+          <button
+            onClick={onToggleSaved}
+            aria-pressed={saved}
+            aria-label={saved ? `Remove ${meal.name} from favorites` : `Save ${meal.name} to favorites`}
+            title={saved ? 'Remove from favorites' : 'Save to favorites'}
+            className={`${iconButton} ${saved ? 'text-terracotta' : 'text-stone-400'}`}
+          >
+            <Star size={18} className={saved ? 'fill-current' : ''} />
+          </button>
+        )}
         {onPlan && (
           <button onClick={onPlan} aria-label={`Plan ${meal.name}`} title="Plan for a day this week" className={`${iconButton} text-stone-400`}>
             <CalendarPlus size={18} />
@@ -416,7 +433,7 @@ function dayName(day: Ymd, now: number = Date.now()): string {
  * The week ahead, shared with the household: each day's breakfast, lunch and dinner. Empty slots
  * stay quiet; ideas are planned from their cards. Planned dinners also show in the portal.
  */
-function WeekPlan({ days, plan, onUnplan }: { days: Ymd[]; plan: PlannedMeal[]; onUnplan: (day: Ymd, type: PlanType) => Promise<void> }) {
+function WeekPlan({ days, plan, onUnplan }: { days: Ymd[]; plan: PlannedMeal[]; onUnplan?: (day: Ymd, type: PlanType) => Promise<void> }) {
   if (plan.length === 0) {
     return (
       <section aria-label="This week" className="rounded-2xl border border-dashed border-stone-300 p-4 text-sm text-stone-500 dark:border-forest-600">
@@ -431,13 +448,15 @@ function WeekPlan({ days, plan, onUnplan }: { days: Ymd[]; plan: PlannedMeal[]; 
     return (
       <span className="flex items-center gap-1">
         <span className="min-w-0 flex-1">{p.name}</span>
-        <button
-          onClick={() => void onUnplan(day, type)}
-          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-stone-400 hover:bg-stone-100 dark:hover:bg-forest-700"
-          aria-label={`Remove ${p.name} from ${dayName(day)} ${type}`}
-        >
-          <X size={16} aria-hidden />
-        </button>
+        {onUnplan && (
+          <button
+            onClick={() => void onUnplan(day, type)}
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-stone-400 hover:bg-stone-100 dark:hover:bg-forest-700"
+            aria-label={`Remove ${p.name} from ${dayName(day)} ${type}`}
+          >
+            <X size={16} aria-hidden />
+          </button>
+        )}
       </span>
     );
   };

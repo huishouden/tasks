@@ -3,6 +3,8 @@ import type { Auth, User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { signInSilently } from '@huishouden/pwa-kit/auth';
 import { inviteMember, markJoined, removeMember, saveMyProfile } from '@huishouden/pwa-kit/household';
+import { setRole } from '@huishouden/pwa-kit/roles';
+import { RoleNote, useRole } from '@huishouden/pwa-kit/react/roles';
 import { AppBar } from '@huishouden/pwa-kit/react/app-bar';
 import { NotificationsCard } from '@huishouden/pwa-kit/react/push';
 import { SectionTabs, cardClass } from '@huishouden/pwa-kit/react/ui';
@@ -13,7 +15,7 @@ import { friendlyError, type FriendlyError } from './lib/errors';
 import { EditItemDialog, NewListDialog, ReorderListsDialog, SettingsDialog } from './components/dialogs';
 import { inputClass, primaryButton } from './components/ui';
 import { UndoToast, type UndoAction } from './components/UndoToast';
-import { CATEGORIES, firstName, removedMessage, type Household, type ListIcon, type ListItem, type ShoppingList, type Staple } from './data/model';
+import { CATEGORIES, firstName, mayChangeItem, removedMessage, type Household, type ListIcon, type ListItem, type ShoppingList, type Staple } from './data/model';
 
 const FOOD_LIST_ICONS: ListIcon[] = ['grocery', 'pantry', 'bulk'];
 import {
@@ -299,7 +301,11 @@ function HouseholdApp({
   const food = useFood(db, household.id);
   const planWeek = useMemo(() => planDays(), []);
   const plan = useMealPlan(db, household.id, planWeek);
-  usePublish(db, household.id, email, data, plan, !demo);
+  const role = useRole(household, email);
+  // Admins and members change anything; helpers and kids only what they added (the rules check `by`).
+  const mayChange = (item: ListItem) => mayChangeItem(item, role.role, email);
+  const canSetUp = role.can('change-settings');
+  usePublish(db, household.id, email, data, plan, !demo, role.restricted);
   const repo = useMemo(() => new HouseholdRepo(db, household.id, demo), [db, household.id, demo]);
   const [savedMode, setMode] = usePref<Mode>('mode', 'lists');
   const [urlMode, setUrlMode] = useState<Mode | null>(initialMode);
@@ -320,7 +326,7 @@ function HouseholdApp({
   useEffect(() => {
     if (!data.loaded || (!link.list && !link.item)) return;
     const item = link.item ? data.items.find((i) => i.id === link.item) : undefined;
-    if (item) setEditing(item);
+    if (item && mayChangeItem(item, role.role, email)) setEditing(item);
     setLink({ list: null, item: null });
     window.history.replaceState(null, '', window.location.pathname);
   }, [data.loaded, data.items, link]);
@@ -372,8 +378,10 @@ function HouseholdApp({
       stores={stores}
       activeStore={stores.find((st) => st.id === shoppingStoreId) ?? null}
       onUseStore={startShopping}
-      onCreateFromPlace={(place) =>
-        startShopping(repo.createStore(placeLabel(place), [], { location: place.location, osmId: place.osmId, address: place.address }))
+      onCreateFromPlace={
+        canSetUp
+          ? (place) => startShopping(repo.createStore(placeLabel(place), [], { location: place.location, osmId: place.osmId, address: place.address }))
+          : undefined
       }
       onEnd={endShopping}
     />
@@ -440,7 +448,7 @@ function HouseholdApp({
 
   const add = (req: AddRequest) => {
     if (!selectedList) return;
-    const id = repo.addItem({ ...req, listId: selectedList.id, listIcon: selectedList.icon, addedBy: addedAs });
+    const id = repo.addItem({ ...req, listId: selectedList.id, listIcon: selectedList.icon, addedBy: addedAs, by: email });
     // Names the word list could not place get a second opinion from Gemini, in the background.
     if (!demo && id && req.category === CATEGORIES.OTHER && FOOD_LIST_ICONS.includes(selectedList.icon) && navigator.onLine) {
       void classifyItem(req.name).then((category) => {
@@ -451,7 +459,7 @@ function HouseholdApp({
     }
   };
   const addStaple = (s: Staple) =>
-    selectedList && repo.addItem({ listId: selectedList.id, name: s.displayName, category: s.category, quantity: s.defaultQuantity, addedBy: addedAs });
+    selectedList && repo.addItem({ listId: selectedList.id, name: s.displayName, category: s.category, quantity: s.defaultQuantity, addedBy: addedAs, by: email });
 
   function offerUndo(removed: ListItem[], how: 'deleted' | 'cleared') {
     if (removed.length === 0) return;
@@ -462,7 +470,7 @@ function HouseholdApp({
     repo.deleteItem(item);
     offerUndo([item], 'deleted');
   };
-  const clearCompleted = (items: ListItem[]) => offerUndo(repo.clearCompleted(items), 'cleared');
+  const clearCompleted = (items: ListItem[]) => offerUndo(repo.clearCompleted(items.filter(mayChange)), 'cleared');
 
   const modes: { id: Mode; label: string }[] = [
     { id: 'lists', label: 'Lists' },
@@ -506,12 +514,18 @@ function HouseholdApp({
           <Centered>
             <div className="grid max-w-sm justify-items-center gap-3 text-center">
               <p className="text-stone-600 dark:text-stone-300">This household has no lists.</p>
-              <button onClick={() => repo.restoreDefaultLists()} className={primaryButton}>
-                Add the default lists
-              </button>
-              <button onClick={() => setNewList(true)} className="text-sm text-stone-500 underline">
-                Or create your own
-              </button>
+              {canSetUp ? (
+                <>
+                  <button onClick={() => repo.restoreDefaultLists()} className={primaryButton}>
+                    Add the default lists
+                  </button>
+                  <button onClick={() => setNewList(true)} className="text-sm text-stone-500 underline">
+                    Or create your own
+                  </button>
+                </>
+              ) : (
+                <RoleNote action="change-settings" />
+              )}
             </div>
           </Centered>
         ) : mode === 'hub' ? (
@@ -526,7 +540,8 @@ function HouseholdApp({
             onToggle={toggle}
             onToggleSubtask={(i, id) => repo.toggleSubtask(i, id)}
             aisle={aisleProps}
-            onEdit={setEditing}
+            onEdit={(item) => mayChange(item) && setEditing(item)}
+            mayChange={mayChange}
             onMove={(ordered, from, to) => repo.moveItem(ordered, from, to)}
           />
         ) : mode === 'meals' ? (
@@ -552,7 +567,8 @@ function HouseholdApp({
             }}
             onSaveFavorite={(meal) => repo.saveFavorite(meal, addedAs)}
             onRemoveFavorite={(id) => repo.removeFavorite(id)}
-            onAddItems={(listId, names, notes) => names.forEach((name) => repo.addItem({ listId, name, notes, addedBy: addedAs }))}
+            onAddItems={(listId, names, notes) => names.forEach((name) => repo.addItem({ listId, name, notes, addedBy: addedAs, by: email }))}
+            readOnly={!canSetUp}
           />
         ) : mode === 'store' ? (
           <StoreView
@@ -580,6 +596,7 @@ function HouseholdApp({
                 {storeBanner}
               </>
             }
+            canSetUp={canSetUp}
             onCreateStore={(name) => repo.createStore(name, [])}
             onUpdateStore={(id, changes) => repo.updateStore(id, changes)}
             onDeleteStore={(id) => repo.deleteStore(id)}
@@ -601,6 +618,8 @@ function HouseholdApp({
               </>
             }
             onDeleteList={(l) => void repo.deleteList(l.id)}
+            canSetUp={canSetUp}
+            mayChange={mayChange}
             onAdd={add}
             onAddStaple={addStaple}
             onToggle={toggle}
@@ -691,8 +710,9 @@ function HouseholdApp({
               plain
             />
           }
-          onAddMember={(e) => inviteMember(db, household.id, e)}
-          onRemoveMember={(e) => removeMember(db, household.id, e)}
+          onAddMember={(e, r) => inviteMember(db, { ...household, roles: household.roles ?? {} }, e, r)}
+          onRemoveMember={(e) => removeMember(db, { ...household, roles: household.roles ?? {} }, e)}
+          onSetRole={(e, r) => setRole(db, { ...household, roles: household.roles ?? {} }, e, r)}
           onClose={() => setSettings(false)}
         />
       )}

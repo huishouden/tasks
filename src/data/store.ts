@@ -133,7 +133,7 @@ export async function createHousehold(db: Firestore, email: string, name: string
   const now = Date.now();
   // One batch, so the household never exists without its lists.
   const batch = writeBatch(db);
-  batch.set(ref, { name, members: [email], createdAt: now });
+  batch.set(ref, { name, members: [email], roles: { [email]: 'admin' }, createdAt: now });
   for (const list of DEFAULT_LISTS) {
     batch.set(doc(db, 'households', ref.id, 'lists', list.id), { ...list, createdAt: now });
   }
@@ -334,12 +334,17 @@ export interface NewItem {
   notes?: string;
   urgency?: Urgency;
   addedBy: string;
+<<<<<<< HEAD
   /** A stable id (an item brought in from Google Tasks), so adding it twice writes one item. */
   id?: string;
   /** The Google task it came from. */
   googleTaskId?: string;
   /** A day it is due (local midnight, ms), used when the name has no date of its own. */
   due?: number;
+=======
+  /** The adder's email, recorded as `by`: helpers and kids change and delete only their own. */
+  by?: string;
+>>>>>>> 6d280fc (feat(roles): helpers and kids tick anyone's items and change only their own; settings for admins and members)
 }
 
 /**
@@ -394,6 +399,7 @@ export class HouseholdRepo {
       quantity,
       notes: input.notes?.trim() ?? '',
       addedBy: input.addedBy,
+      ...(input.by ? { by: input.by } : {}),
       completed: false,
       urgency,
       position: urgency === URGENCY.URGENT ? -now : now,
@@ -607,7 +613,7 @@ const PUBLISH_DELAY_MS = 3000;
  * whichever device has Tasks open: a few seconds after the last change, and once on open. The kit
  * writes only what changed, so devices doing the same work cost a read each and no writes.
  */
-export function usePublish(db: Firestore, householdId: string, by: string, data: HouseholdData, plan: PlannedMeal[] | null, enabled = true): void {
+export function usePublish(db: Firestore, householdId: string, by: string, data: HouseholdData, plan: PlannedMeal[] | null, enabled = true, restricted = false): void {
   const ready = enabled && data.loaded && plan !== null;
   const agenda = useMemo(() => (ready ? agendaItems(data.items, data.lists, plan) : null), [ready, data.items, data.lists, plan]);
   const reminders = useMemo(() => (ready ? reminderItems(data.items) : null), [ready, data.items]);
@@ -615,12 +621,12 @@ export function usePublish(db: Firestore, householdId: string, by: string, data:
   const remindersKey = reminders ? JSON.stringify(reminders) : null;
   useEffect(() => {
     if (!agendaKey) return;
-    const timer = setTimeout(() => void syncAgenda(db, householdId, APP, JSON.parse(agendaKey) as AgendaInput[], { by }).catch(() => {}), PUBLISH_DELAY_MS);
+    const timer = setTimeout(() => void syncAgenda(db, householdId, APP, JSON.parse(agendaKey) as AgendaInput[], { by, restricted }).catch(() => {}), PUBLISH_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [db, householdId, by, agendaKey]);
+  }, [db, householdId, by, agendaKey, restricted]);
   useEffect(() => {
     if (!remindersKey) return;
-    const timer = setTimeout(() => void syncReminders(db, householdId, APP, JSON.parse(remindersKey) as ReminderInput[], by).catch(() => {}), PUBLISH_DELAY_MS);
+    const timer = setTimeout(() => void syncReminders(db, householdId, APP, JSON.parse(remindersKey) as ReminderInput[], by, undefined, { restricted }).catch(() => {}), PUBLISH_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [db, householdId, by, remindersKey]);
+  }, [db, householdId, by, remindersKey, restricted]);
 }
