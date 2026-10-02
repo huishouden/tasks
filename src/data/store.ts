@@ -369,7 +369,7 @@ export class HouseholdRepo {
     void batch.commit();
   }
 
-  updateItem(id: string, changes: Partial<Pick<ListItem, 'name' | 'category' | 'quantity' | 'notes' | 'urgency' | 'addedBy' | 'listId' | 'position' | 'dueAt' | 'allDay' | 'dueBy' | 'location' | 'link' | 'subtasks'>>): void {
+  updateItem(id: string, changes: Partial<Pick<ListItem, 'name' | 'category' | 'quantity' | 'notes' | 'urgency' | 'addedBy' | 'listId' | 'position' | 'dueAt' | 'allDay' | 'dueBy' | 'location' | 'place' | 'link' | 'subtasks'>>): void {
     void updateDoc(doc(this.col('items'), id), { ...changes, updatedAt: Date.now() });
   }
 

@@ -80,6 +80,8 @@ export interface ListItem {
   /** A deadline ("by 6 PM", typed as "before 6") rather than an appointment ("at 6 PM"). */
   dueBy?: boolean;
   location?: string;
+  /** The place chosen with Find nearby, so the app can mention the errand when you are near it. */
+  place?: ItemPlace | null;
   /** A link to open from the item, such as the appointment's Google Calendar event. */
   link?: string;
   /** Steps ticked off one at a time; the item completes when the last one is done. */
@@ -87,6 +89,12 @@ export interface ListItem {
   createdAt: number;
   updatedAt: number;
   completedAt: number | null;
+}
+
+export interface ItemPlace {
+  name: string;
+  lat: number;
+  lon: number;
 }
 
 export interface Subtask {

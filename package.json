@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
-    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#feat/places-near",
+    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#b9a86a2",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.14.0",

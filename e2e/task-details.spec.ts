@@ -91,3 +91,57 @@ test('a shopping item keeps quantity and section, with the rest folded away', as
   await dialog.getByText('Date, place, list and link').click();
   await expect(dialog.getByLabel('Date', { exact: true })).toBeVisible();
 });
+
+test.describe('with location allowed', () => {
+  test.beforeEach(async ({ page }) => {
+    // Stand-ins for the device position and OpenStreetMap, on every page load.
+    await page.addInitScript(() => {
+      window.__mockPosition = { lat: 40, lon: -75 };
+      const place = (name: string, address: string, distanceKm: number, lat: number) => ({
+        name, address, distanceKm, lat, lon: -75, osmUrl: `https://www.openstreetmap.org/node/${name.length}`, mapsUrl: 'https://www.google.com/maps',
+      });
+      window.__mockPlaces = [place('Example Cleaners', '12 Main St', 0.1, 40.001), place('Corner Cleaners', '40 Oak Ave', 2.4, 40.02)];
+    });
+    await page.reload();
+    await page.getByRole('button', { name: /Chores & Notes/ }).first().click();
+  });
+
+  test('an errand that names a kind of place shows the nearest ones straight away', async ({ page }) => {
+    await addItem(page, 'Drop off dry cleaning');
+    await page.getByRole('button', { name: 'Edit Drop off dry cleaning' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Edit task' });
+    const nearest = dialog.getByRole('list', { name: 'Nearby places' }).getByRole('button');
+    await expect(nearest).toHaveCount(2);
+    await nearest.first().click();
+    await expect(dialog.getByLabel('Where')).toHaveValue('Example Cleaners, 12 Main St');
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('main li', { hasText: 'Drop off dry cleaning' })).toContainText('Example Cleaners');
+
+    // Back near that place later: the errand is mentioned, and Done finishes it.
+    await page.reload();
+    const line = page.getByRole('status', { name: 'Nearby errand' });
+    await expect(line).toContainText('Near Example Cleaners: Drop off dry cleaning');
+    await line.getByRole('button', { name: 'Done' }).click();
+    await expect(page.getByRole('button', { name: 'Mark Drop off dry cleaning not done' })).toBeVisible();
+    await expect(line).toHaveCount(0);
+  });
+
+  test('far from the place, nothing is mentioned', async ({ page }) => {
+    await addItem(page, 'Drop off dry cleaning');
+    await page.getByRole('button', { name: 'Edit Drop off dry cleaning' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Edit task' });
+    await dialog.getByRole('list', { name: 'Nearby places' }).getByRole('button').nth(1).click();
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Chores & Notes', level: 1 })).toBeVisible();
+    await page.waitForTimeout(1000);
+    await expect(page.getByRole('status', { name: 'Nearby errand' })).toHaveCount(0);
+  });
+
+  test('a task without a kind of place does not look anything up', async ({ page }) => {
+    await addItem(page, 'Call grandma');
+    await page.getByRole('button', { name: 'Edit Call grandma' }).click();
+    await page.waitForTimeout(500);
+    await expect(page.getByRole('dialog').getByRole('list', { name: 'Nearby places' })).toHaveCount(0);
+  });
+});

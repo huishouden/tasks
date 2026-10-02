@@ -29,6 +29,7 @@ import { useApplyTheme, useInstallPrompt, useOnline, usePref, type ThemeMode } f
 import { HubView } from './views/HubView';
 import { ListsView } from './views/ListsView';
 import { StoreView } from './views/StoreView';
+import { NearbyErrand } from './components/NearbyErrand';
 import { StoreBanner } from './components/StoreBanner';
 import { AislePrompt } from './components/AislePrompt';
 import { placeLabel } from './data/places';
@@ -274,6 +275,8 @@ function HouseholdApp({
       onEnd={endShopping}
     />
   );
+  // The tablet stays home, so the errand line is for Lists and Store on the go.
+  const errandBanner = <NearbyErrand items={data.items} onDone={toggle} />;
   const shoppingHere =
     mode === 'store' || (mode === 'lists' && ['grocery', 'pantry', 'bulk'].includes(data.lists.find((l) => l.id === selectedId)?.icon ?? ''));
 
@@ -431,7 +434,12 @@ function HouseholdApp({
               }
             }}
             aisles={aisles}
-            banner={storeBanner}
+            banner={
+              <>
+                {errandBanner}
+                {storeBanner}
+              </>
+            }
             onCreateStore={(name) => repo.createStore(name, [])}
             onUpdateStore={(id, changes) => repo.updateStore(id, changes)}
             onDeleteStore={(id) => repo.deleteStore(id)}
@@ -445,7 +453,12 @@ function HouseholdApp({
             onSelectList={setSelectedId}
             onNewList={() => setNewList(true)}
             onReorderLists={() => setReorderLists(true)}
-            banner={shoppingHere ? storeBanner : null}
+            banner={
+              <>
+                {errandBanner}
+                {shoppingHere ? storeBanner : null}
+              </>
+            }
             onDeleteList={(l) => void repo.deleteList(l.id)}
             onAdd={add}
             onAddStaple={addStaple}

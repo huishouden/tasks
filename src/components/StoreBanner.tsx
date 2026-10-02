@@ -1,27 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LocateFixed, MapPin, ShoppingCart, X } from 'lucide-react';
 import { nearbyPlaces, placeLabel, type NearbyPlace } from '../data/places';
-import { nearestStore, type GeoPoint, type StoreLayout } from '../data/stores';
+import { nearestStore, type StoreLayout } from '../data/stores';
+import { currentPosition, locationPermission } from '../lib/location';
 import { usePref } from '../lib/prefs';
-
-function freshPosition(): Promise<GeoPoint> {
-  return new Promise((resolve, reject) =>
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-      reject,
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
-    ),
-  );
-}
-
-async function permissionState(): Promise<PermissionState | 'unsupported'> {
-  if (!('geolocation' in navigator)) return 'unsupported';
-  try {
-    return (await navigator.permissions.query({ name: 'geolocation' })).state;
-  } catch {
-    return 'prompt';
-  }
-}
 
 const SNOOZE_MS = 12 * 60 * 60 * 1000;
 const DONE_SHOPPING_SNOOZE_MS = 3 * 60 * 60 * 1000;
@@ -47,7 +29,7 @@ export function StoreBanner({ stores, activeStore, onUseStore, onCreateFromPlace
   const detect = useCallback(async () => {
     setLooking(true);
     try {
-      const here = await freshPosition();
+      const here = await currentPosition({ fresh: true });
       setPermission('granted');
       const now = Date.now();
       const saved = nearestStore(stores, here);
@@ -63,7 +45,7 @@ export function StoreBanner({ stores, activeStore, onUseStore, onCreateFromPlace
       setCandidate(place ?? null);
     } catch {
       // No fix or no network: stay quiet rather than show an error mid-shop.
-      setPermission(await permissionState());
+      setPermission(await locationPermission());
     } finally {
       setLooking(false);
     }
@@ -78,7 +60,7 @@ export function StoreBanner({ stores, activeStore, onUseStore, onCreateFromPlace
   useEffect(() => {
     if (activeStore) return;
     const check = () => {
-      void permissionState().then((state) => {
+      void locationPermission().then((state) => {
         setPermission(state);
         if (state !== 'granted' || Date.now() - lastLookup.current < 60_000) return;
         lastLookup.current = Date.now();

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, LogOut, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
-import { searchPlaces, type Place } from '@huishouden/pwa-kit/places';
+import { placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '../lib/calendar';
 import {
   ALL_CATEGORIES,
@@ -15,6 +15,7 @@ import {
   type Subtask,
   type Category,
   type Household,
+  type ItemPlace,
   type ListIcon,
   type ListItem,
   type ShoppingList,
@@ -22,6 +23,7 @@ import {
 } from '../data/model';
 import type { ThemeMode } from '../lib/prefs';
 import { parseWhen } from '../data/when';
+import { currentPosition, locationPermission } from '../lib/location';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { ErrorNotice } from './ErrorNotice';
 import { Dialog, LIST_ICONS, ListIconBadge, ghostButton, inputClass, primaryButton } from './ui';
@@ -50,6 +52,7 @@ export function EditItemDialog({
   const [time, setTime] = useState(item.dueAt && !item.allDay ? toTimeInput(item.dueAt) : '');
   const [dueBy, setDueBy] = useState(!!item.dueBy);
   const [location, setLocation] = useState(item.location ?? '');
+  const [place, setPlace] = useState<ItemPlace | null>(item.place ?? null);
   const [link, setLink] = useState(item.link ?? '');
   const [steps, setSteps] = useState<Subtask[]>(item.subtasks ?? []);
   const [showSteps, setShowSteps] = useState((item.subtasks ?? []).length > 0);
@@ -76,7 +79,10 @@ export function EditItemDialog({
     setDate(toDateInput(m.start));
     setTime(m.allDay ? '' : toTimeInput(m.start));
     setDueBy(false);
-    if (m.location) setLocation(m.location);
+    if (m.location) {
+      setLocation(m.location);
+      setPlace(null);
+    }
     setLink(m.link);
     setMatches(null);
   }
@@ -172,7 +178,22 @@ export function EditItemDialog({
     </>
   );
 
-  const whereField = <WhereField name={name} value={location} onChange={setLocation} />;
+  const whereField = (
+    <WhereField
+      name={name}
+      value={location}
+      suggest={task}
+      onChange={(text) => {
+        setLocation(text);
+        // Typing over a chosen place means it is somewhere else now.
+        if (place && !text.startsWith(place.name)) setPlace(null);
+      }}
+      onPick={(p, text) => {
+        setLocation(text);
+        setPlace({ name: p.name, lat: p.lat, lon: p.lon });
+      }}
+    />
+  );
 
   const stepsFields = (
     <fieldset className="grid gap-2 rounded-2xl border border-stone-200 p-3 dark:border-forest-700">
@@ -251,6 +272,7 @@ export function EditItemDialog({
             allDay: dueAt !== null && !time,
             dueBy: dueAt !== null && !!time && dueBy,
             location: location.trim(),
+            place: location.trim() ? place : null,
             link: link.trim(),
             subtasks: steps.filter((st) => st.text.trim()),
           });
@@ -412,19 +434,45 @@ export function EditItemDialog({
  * dropoff" → dry cleaners near you) from OpenStreetMap. Searches run only on a tap, as the
  * free service asks, and location is read only then.
  */
-function WhereField({ name, value, onChange }: { name: string; value: string; onChange: (v: string) => void }) {
+function WhereField({
+  name,
+  value,
+  suggest,
+  onChange,
+  onPick,
+}: {
+  name: string;
+  value: string;
+  /** Look nearby on open when the task names a kind of place and location is already allowed. */
+  suggest: boolean;
+  onChange: (text: string) => void;
+  onPick: (place: Place, text: string) => void;
+}) {
   const [results, setResults] = useState<Place[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function findNearby() {
+  // "Drop off dry cleaning" with no place yet: show the nearest dry cleaners straight away, without
+  // a prompt (only when location is already allowed; otherwise Find nearby asks on a tap).
+  const auto = useRef(suggest && !value.trim() && placeKinds(name).length > 0);
+  useEffect(() => {
+    if (!auto.current) return;
+    auto.current = false;
+    void locationPermission().then((state) => {
+      if (state === 'granted') void findNearby({ quiet: true });
+    });
+    // Once, when the editor opens.
+  }, []);
+
+  async function findNearby({ quiet = false }: { quiet?: boolean } = {}) {
     setBusy(true);
     setError(null);
     setResults(null);
     try {
       const here = await currentPosition();
-      setResults(await findPlaces(value.trim() || name, here));
+      setResults(await findPlaces(value.trim() || name, { lat: here.lat, lon: here.lng }));
     } catch (e) {
+      if (quiet) return;
       const denied = (e as GeolocationPositionError)?.code === 1;
       setError(denied ? 'Location is off for this app, so nearby places can’t be found. Type the place instead.' : 'Couldn’t look up places right now. Type the place, or try again in a moment.');
     } finally {
@@ -460,7 +508,7 @@ function WhereField({ name, value, onChange }: { name: string; value: string; on
               <button
                 type="button"
                 onClick={() => {
-                  onChange(p.address ? `${p.name}, ${p.address}` : p.name);
+                  onPick(p, p.address ? `${p.name}, ${p.address}` : p.name);
                   setResults(null);
                 }}
                 className="w-full rounded-xl border border-stone-200 px-3 py-2 text-left hover:border-forest-500 hover:bg-forest-50 dark:border-forest-600 dark:hover:bg-forest-700"
@@ -480,17 +528,6 @@ function WhereField({ name, value, onChange }: { name: string; value: string; on
   );
 }
 
-function currentPosition(): Promise<{ lat: number; lon: number }> {
-  if (window.__mockPosition) return Promise.resolve(window.__mockPosition);
-  return new Promise((resolve, reject) =>
-    navigator.geolocation.getCurrentPosition((p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }), reject, {
-      enableHighAccuracy: false,
-      timeout: 10_000,
-      maximumAge: 5 * 60_000,
-    }),
-  );
-}
-
 function findPlaces(text: string, near: { lat: number; lon: number }): Promise<Place[]> {
   if (window.__mockPlaces) return Promise.resolve(window.__mockPlaces);
   return searchPlaces(text, { near, limit: 5 });
@@ -498,8 +535,7 @@ function findPlaces(text: string, near: { lat: number; lon: number }): Promise<P
 
 declare global {
   interface Window {
-    /** Browser tests stand in for location and OpenStreetMap, which have no emulator. */
-    __mockPosition?: { lat: number; lon: number };
+    /** Browser tests stand in for OpenStreetMap, which has no emulator. */
     __mockPlaces?: Place[];
   }
 }
