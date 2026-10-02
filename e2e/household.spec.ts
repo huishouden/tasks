@@ -46,7 +46,7 @@ test('an invited member sees the same lists and changes sync both ways', async (
   await addItem(page, 'Eggs');
 
   await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByPlaceholder('their.gmail@gmail.com').fill('bob@example.com');
+  await page.getByPlaceholder('Their Google account email').fill('bob@example.com');
   await page.getByRole('button', { name: 'Add member' }).click();
   const bobRow = page.locator('li', { hasText: 'bob@example.com' });
   await expect(bobRow).toContainText('Invited, not signed in yet');

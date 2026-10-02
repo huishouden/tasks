@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowUpDown, ChevronDown, Plus, Search, Share2, Trash2, X } from 'lucide-react';
 import { AddBar, type AddRequest } from '../components/AddBar';
 import { usePref } from '../lib/prefs';
+import { RoleNote } from '@huishouden/pwa-kit/react/roles';
 import { ItemRow, aisleRowProps, type AisleProps } from '../components/ItemRow';
 import { SortableItems } from '../components/SortableItems';
 import { StaplesShelf } from '../components/StaplesShelf';
@@ -29,10 +30,16 @@ interface Props {
   onDelete: (item: ListItem) => void;
   onClearCompleted: (items: ListItem[]) => void;
   onMove: (ordered: ListItem[], from: number, to: number) => void;
+  /** Whether this person may change or delete the item: helpers and kids only their own. */
+  mayChange?: (item: ListItem) => boolean;
+  /** Creating, reordering and deleting lists: admins and members. */
+  canSetUp?: boolean;
 }
 
 export function ListsView(props: Props) {
   const { lists, items, staples, selectedList } = props;
+  const mine = (item: ListItem) => props.mayChange?.(item) !== false;
+  const setUp = props.canSetUp !== false;
   // To-dos are not grouped by store section, so their rows and filters leave it out.
   const task = isTaskList(selectedList.icon);
   const [filter, setFilter] = useState<string | null>(null);
@@ -89,10 +96,14 @@ export function ListsView(props: Props) {
             {pendingCount(l.id) > 0 && <span className="text-sm text-stone-500">{pendingCount(l.id)}</span>}
           </button>
         ))}
-        <button onClick={props.onNewList} className={`${ghostButton} mt-2 justify-start`}>
-          <Plus size={18} /> New list
-        </button>
-        {lists.length > 1 && (
+        {setUp ? (
+          <button onClick={props.onNewList} className={`${ghostButton} mt-2 justify-start`}>
+            <Plus size={18} /> New list
+          </button>
+        ) : (
+          <RoleNote action="change-settings" className="mt-2 px-3" />
+        )}
+        {setUp && lists.length > 1 && (
           <button onClick={props.onReorderLists} className={`${ghostButton} justify-start`}>
             <ArrowUpDown size={18} /> Reorder lists
           </button>
@@ -107,8 +118,8 @@ export function ListsView(props: Props) {
               {pendingCount(l.id) > 0 ? ` · ${pendingCount(l.id)}` : ''}
             </Chip>
           ))}
-          <Chip onClick={props.onNewList}>+ New</Chip>
-          {lists.length > 1 && <Chip onClick={props.onReorderLists}>Reorder</Chip>}
+          {setUp && <Chip onClick={props.onNewList}>+ New</Chip>}
+          {setUp && lists.length > 1 && <Chip onClick={props.onReorderLists}>Reorder</Chip>}
         </div>
 
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-4 p-4 sm:p-6">
@@ -126,15 +137,17 @@ export function ListsView(props: Props) {
               <Share2 size={20} />
               <span className="hidden sm:inline">{shared ? 'Copied' : 'Share'}</span>
             </button>
-            <button
-              onClick={() => {
-                if (confirm(`Delete "${selectedList.name}" and its ${listItems.length} items?`)) props.onDeleteList(selectedList);
-              }}
-              className={`${ghostButton} text-stone-400`}
-              aria-label="Delete list"
-            >
-              <Trash2 size={20} />
-            </button>
+            {setUp && (
+              <button
+                onClick={() => {
+                  if (confirm(`Delete "${selectedList.name}" and its ${listItems.length} items?`)) props.onDeleteList(selectedList);
+                }}
+                className={`${ghostButton} text-stone-400`}
+                aria-label="Delete list"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
           </header>
 
           <AddBar staples={staples} listIcon={selectedList.icon} onAdd={props.onAdd} />
@@ -181,8 +194,8 @@ export function ListsView(props: Props) {
                   item={item}
                   drag={drag}
                   onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)}
-                  onEdit={() => props.onEdit(item)}
-                  onDelete={() => props.onDelete(item)}
+                  onEdit={mine(item) ? () => props.onEdit(item) : undefined}
+                  onDelete={mine(item) ? () => props.onDelete(item) : undefined}
                   showCategory={!filter && !task}
                 />
               )}
@@ -195,14 +208,16 @@ export function ListsView(props: Props) {
                 <button onClick={() => setShowDone(!showDone)} className={`${ghostButton} -ml-3`}>
                   <ChevronDown size={18} className={showDone ? 'rotate-180' : ''} /> Done ({done.length})
                 </button>
-                <button onClick={() => props.onClearCompleted(listItems)} className={`${ghostButton} text-sm`}>
-                  Clear done
-                </button>
+                {done.some(mine) && (
+                  <button onClick={() => props.onClearCompleted(listItems.filter(mine))} className={`${ghostButton} text-sm`}>
+                    Clear done
+                  </button>
+                )}
               </div>
               {showDone && (
                 <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2">
                   {done.map((item) => (
-                    <ItemRow key={item.id} item={item} onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} onDelete={() => props.onDelete(item)} />
+                    <ItemRow key={item.id} item={item} onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} onDelete={mine(item) ? () => props.onDelete(item) : undefined} />
                   ))}
                 </ul>
               )}

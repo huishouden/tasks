@@ -12,7 +12,8 @@ interface Props {
   stores: StoreLayout[];
   activeStore: StoreLayout | null;
   onUseStore: (id: string) => void;
-  onCreateFromPlace: (place: NearbyPlace) => void;
+  /** Absent for helpers and kids, who shop at saved stores but don't add them. */
+  onCreateFromPlace?: (place: NearbyPlace) => void;
   onEnd: () => void;
 }
 
@@ -95,7 +96,7 @@ export function StoreBanner({ stores, activeStore, onUseStore, onCreateFromPlace
     );
   }
 
-  if (candidate) {
+  if (candidate && onCreateFromPlace) {
     const label = placeLabel(candidate);
     return (
       <div role="region" aria-label="Detected store" className={`${line} border border-forest-200 bg-white dark:border-forest-600 dark:bg-forest-800`}>

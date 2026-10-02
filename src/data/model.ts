@@ -1,3 +1,4 @@
+import { can, type Role } from '@huishouden/pwa-kit/roles';
 export const CATEGORIES = {
   PRODUCE: 'Produce & Greens',
   DAIRY_EGGS: 'Dairy & Eggs',
@@ -70,6 +71,8 @@ export interface ListItem {
   quantity: string;
   notes: string;
   addedBy: string;
+  /** Email of whoever added it: helpers and kids change and delete only their own (the rules check it). */
+  by?: string;
   completed: boolean;
   urgency: Urgency;
   /** Manual order within the list; lower comes first. Older items without one use createdAt. */
@@ -123,6 +126,8 @@ export interface Household {
   members: string[];
   /** Members who have signed in at least once; the rest are invited but not yet seen. */
   joined?: string[];
+  /** Roles written out (`@huishouden/pwa-kit/roles`); anyone missing is a member, the creator an admin. */
+  roles?: Record<string, Role>;
   createdAt: number;
 }
 
@@ -349,4 +354,12 @@ export function newSubtask(text: string, id = Math.random().toString(36).slice(2
 export function toggleSubtask(subtasks: Subtask[], id: string): { subtasks: Subtask[]; allDone: boolean } {
   const next = subtasks.map((s) => (s.id === id ? { ...s, done: !s.done } : s));
   return { subtasks: next, allDone: next.length > 0 && next.every((s) => s.done) };
+}
+
+/**
+ * Whether someone may change or delete an item (ticking it off is open to everyone): admins and
+ * members any, helpers and kids only those they added. Matches the household rules.
+ */
+export function mayChangeItem(item: Pick<ListItem, 'by'>, role: Role | null, email: string): boolean {
+  return can(role, 'edit-others') || (!!role && !!item.by && item.by === email);
 }

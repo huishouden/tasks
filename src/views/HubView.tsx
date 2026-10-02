@@ -20,6 +20,8 @@ interface Props {
   onToggleSubtask: (item: ListItem, subtaskId: string) => void;
   aisle?: AisleProps;
   onEdit: (item: ListItem) => void;
+  /** Whether this person may change the item: helpers and kids only their own. */
+  mayChange?: (item: ListItem) => boolean;
   onMove: (ordered: ListItem[], from: number, to: number) => void;
 }
 
@@ -108,7 +110,7 @@ export function HubView(props: Props) {
             items={pending}
             onMove={(from, to) => props.onMove(pending, from, to)}
             renderItem={(item, drag) => (
-              <ItemRow key={item.id} item={item} drag={drag} large showCategory={!isTaskList(selectedList.icon)} onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} onEdit={() => props.onEdit(item)} />
+              <ItemRow key={item.id} item={item} drag={drag} large showCategory={!isTaskList(selectedList.icon)} onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} onEdit={props.mayChange?.(item) === false ? undefined : () => props.onEdit(item)} />
             )}
           />
           {recentlyDone.length > 0 && (
