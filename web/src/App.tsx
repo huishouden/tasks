@@ -193,7 +193,8 @@ function HouseholdApp({
 }) {
   const data = useHouseholdData(db, household.id);
   const menus = useMenus(db, household.id);
-  const stores = useStores(db, household.id);
+  const loadedStores = useStores(db, household.id);
+  const stores = useMemo(() => loadedStores ?? [], [loadedStores]);
   const [storeId, setStoreId] = usePref<string | null>('store', null);
 
   const favorites = useFavorites(db, household.id);
@@ -322,7 +323,7 @@ function HouseholdApp({
       </header>
 
       <main className={`min-h-0 flex-1 overflow-y-auto ${undoAction || askAisleFor ? 'pb-20' : ''}`}>
-        {data.loaded && shoppingHere && (
+        {data.loaded && loadedStores && shoppingHere && (
           <div className="mx-auto max-w-3xl px-4 pt-3 sm:px-6">
             <StoreBanner
               // A fresh banner per screen, so switching to Groceries or Store mode checks again.

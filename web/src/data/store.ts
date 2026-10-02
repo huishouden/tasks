@@ -263,8 +263,9 @@ export function useStoreAisles(db: Firestore, householdId: string, storeId: stri
 }
 
 /** The household's saved store layouts, alphabetical. */
-export function useStores(db: Firestore, householdId: string): StoreLayout[] {
-  const [stores, setStores] = useState<StoreLayout[]>([]);
+/** The household's stores, or null until the first snapshot (so "no stores yet" is not mistaken for "none saved"). */
+export function useStores(db: Firestore, householdId: string): StoreLayout[] | null {
+  const [stores, setStores] = useState<StoreLayout[] | null>(null);
   useEffect(
     () =>
       resilientSnapshot(
