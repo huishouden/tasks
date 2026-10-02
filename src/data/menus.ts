@@ -1,5 +1,5 @@
-import { DEFAULT_PANTRY, DIET_GUIDANCE, DIET_LABELS, householdDietRules, pantryText, type FoodPreferences } from '@huishouden/pwa-kit/food';
-import { GENTLE_DIETS, avoidCaffeine, dietProblems, isStrict, levelScore, mealLevels, type MealLevels } from './diet';
+import { DEFAULT_PANTRY, householdDietPreferences, householdDietRules, pantryText, type FoodPreferences } from '@huishouden/pwa-kit/food';
+import { avoidCaffeine, dietProblems, levelScore, mealLevels, type MealLevels } from './diet';
 import type { ListItem, ShoppingList } from './model';
 
 export const MENU_MODEL = 'gemini-3.8-flash';
@@ -247,12 +247,9 @@ Vary the meals: do not use the same main protein in more than two meals. Prefer 
 }
 
 export function menuPrompt(ctx: MealContext, perType = 3): string {
-  // Strict diets are rules; gentle ones (GERD, low-sodium) are preferences.
-  const strict = { people: ctx.food.people.map((p) => ({ ...p, diets: p.diets.filter(isStrict) })) };
-  const rules = householdDietRules(strict);
-  const prefs = ctx.food.people.flatMap((p) =>
-    p.diets.filter((d) => GENTLE_DIETS.includes(d)).map((d) => `${p.name}: ${DIET_LABELS[d]}. Lean towards meals that ${DIET_GUIDANCE[d].replace(/^avoid /, 'go easy on ')}.`),
-  );
+  // Strict diets are rules; gentle ones (GERD, low-sodium) are preferences (the kit's DIET_STRICT).
+  const rules = householdDietRules(ctx.food, { strictOnly: true });
+  const prefs = householdDietPreferences(ctx.food);
   return [
     `HAVE: ${ctx.have.join(', ') || '(nothing yet)'}`,
     `ON THE LIST: ${ctx.onList.join(', ') || '(nothing)'}`,

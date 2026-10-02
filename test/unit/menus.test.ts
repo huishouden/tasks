@@ -180,7 +180,7 @@ describe('the prompt', () => {
     // GERD is a preference, not a rule.
     expect(prompt).toContain('HOUSEHOLD PREFERENCES (most meals, not all):');
     expect(prompt.split('HOUSEHOLD PREFERENCES')[0]).not.toContain('GERD');
-    expect(prompt.split('HOUSEHOLD PREFERENCES')[1]).toContain('Sam: GERD (reflux)');
+    expect(prompt.split('HOUSEHOLD PREFERENCES')[1]).toContain('Sam has GERD (reflux): most meals, not every one, should follow this');
   });
 
   it('only pushes coffee at breakfast when nobody avoids caffeine', () => {

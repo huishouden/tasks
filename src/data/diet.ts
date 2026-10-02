@@ -1,4 +1,4 @@
-import type { Diet, FoodPreferences } from '@huishouden/pwa-kit/food';
+import { isStrict, type Diet, type FoodPreferences } from '@huishouden/pwa-kit/food';
 import type { Meal } from './menus';
 
 /**
@@ -12,9 +12,8 @@ import type { Meal } from './menus';
  *   reflux with medication), so meals stay and show how hot, acidic, rich and sweet they are.
  */
 
-/** Diets that are preferences: meals are rated and ordered for them, not dropped. */
-export const GENTLE_DIETS: readonly Diet[] = ['gerd', 'low-sodium'];
-export const isStrict = (diet: Diet) => !GENTLE_DIETS.includes(diet);
+// Which diets are rules and which are preferences is the kit's (DIET_STRICT).
+export { GENTLE_DIETS, isStrict } from '@huishouden/pwa-kit/food';
 
 type Rule = {
   /** Words or phrases that break the diet, matched as whole words (plurals too). */
