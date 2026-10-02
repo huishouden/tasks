@@ -159,3 +159,44 @@ test('when the free map has nothing nearby, Google Maps is one tap away', async 
   await expect(dialog.getByRole('status')).toContainText('The free map has nothing like "drycleaners" near you');
   await expect(dialog.getByRole('link', { name: 'Search Google Maps' })).toHaveAttribute('href', 'https://www.google.com/maps/search/?api=1&query=drycleaners');
 });
+
+test('a chosen place keeps its hours and warns when it is closed at the due time', async ({ page }) => {
+  await addItem(page, 'Drycleaners dropoff');
+  await page.getByRole('button', { name: 'Edit Drycleaners dropoff' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit task' });
+  await page.evaluate(() => {
+    window.__mockPosition = { lat: 40, lon: -75 };
+    window.__mockPlaces = [
+      { name: 'Example Cleaners', address: '12 Main St', distanceKm: 0.8, lat: 40, lon: -75, osmUrl: 'n1', mapsUrl: 'm', openingHours: 'Mo-Fr 07:00-18:00; Sa 08:00-12:00; Su off' },
+    ];
+  });
+  await dialog.getByRole('button', { name: 'Find nearby' }).click();
+  // Monday 6 January 2031 (the fixed clock): open 7–6.
+  await expect(dialog.getByRole('list', { name: 'Nearby places' })).toContainText(/Today: 7:00\sAM – 6:00\sPM/);
+  await dialog.getByRole('list', { name: 'Nearby places' }).getByRole('button').first().click();
+  await dialog.getByLabel('Date', { exact: true }).fill('2031-01-06');
+  await dialog.getByLabel('Time (optional)').fill('18:30');
+  await expect(dialog.getByText(/^Closed at 6:30\sPM\. That day: 7:00\sAM – 6:00\sPM$/)).toBeVisible();
+  await dialog.getByLabel('Time (optional)').fill('17:00');
+  await expect(dialog.getByText(/^Closed at/)).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Save' }).click();
+
+  // The hours are saved with the place.
+  await page.getByRole('button', { name: 'Edit Drycleaners dropoff' }).click();
+  await expect(page.getByRole('dialog').getByText(/^Hours: Today: 7:00\sAM – 6:00\sPM$/)).toBeVisible();
+});
+
+test('a busy map service is reported as busy, not as nothing nearby', async ({ page }) => {
+  await addItem(page, 'Drycleaners dropoff');
+  await page.getByRole('button', { name: 'Edit Drycleaners dropoff' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit task' });
+  await page.evaluate(() => {
+    window.__mockPosition = { lat: 40, lon: -75 };
+    window.__mockPlaces = undefined;
+  });
+  // Every map server refuses.
+  await page.route(/overpass|nominatim/, (route) => route.fulfill({ status: 504, body: 'busy' }));
+  await dialog.getByRole('button', { name: 'Find nearby' }).click();
+  await expect(dialog.getByRole('status')).toContainText('The free map service is busy right now.');
+  await expect(dialog.getByRole('link', { name: 'Search Google Maps' })).toBeVisible();
+});

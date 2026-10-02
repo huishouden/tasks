@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, LogOut, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
-import { mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
+import { describeDay, parseOpeningHours } from '@huishouden/pwa-kit/hours';
+import { PlaceSearchUnavailable, formatDistance, mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '../lib/calendar';
 import {
   ALL_CATEGORIES,
@@ -24,7 +25,7 @@ import {
 import type { ThemeMode } from '../lib/prefs';
 import { parseWhen } from '../data/when';
 import { currentPosition, locationPermission } from '../lib/location';
-import { formatDistance } from '../lib/units';
+import { hoursWarning } from '../data/hours';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { ErrorNotice } from './ErrorNotice';
 import { Dialog, LIST_ICONS, ListIconBadge, ghostButton, inputClass, primaryButton } from './ui';
@@ -189,9 +190,11 @@ export function EditItemDialog({
         // Typing over a chosen place means it is somewhere else now.
         if (place && !text.startsWith(place.name)) setPlace(null);
       }}
+      hours={place?.hours}
+      warning={hoursWarning(place?.hours, { dueAt, allDay: dueAt !== null && !time, dueBy: !!time && dueBy })}
       onPick={(p, text) => {
         setLocation(text);
-        setPlace({ name: p.name, lat: p.lat, lon: p.lon });
+        setPlace({ name: p.name, lat: p.lat, lon: p.lon, ...(p.openingHours ? { hours: p.openingHours } : {}) });
       }}
     />
   );
@@ -441,6 +444,8 @@ function WhereField({
   suggest,
   onChange,
   onPick,
+  hours,
+  warning,
 }: {
   name: string;
   value: string;
@@ -448,6 +453,9 @@ function WhereField({
   suggest: boolean;
   onChange: (text: string) => void;
   onPick: (place: Place, text: string) => void;
+  /** The chosen place's hours, and a note when they do not fit the due time. */
+  hours?: string;
+  warning?: string | null;
 }) {
   const inputId = useId();
   const query = value.trim() || name.trim();
@@ -484,7 +492,13 @@ function WhereField({
     } catch (e) {
       if (quiet) return;
       const denied = (e as GeolocationPositionError)?.code === 1;
-      setError(denied ? 'Location is off for this app, so nearby places can’t be found here.' : 'Couldn’t look up places right now.');
+      setError(
+        denied
+          ? 'Location is off for this app, so nearby places can’t be found here.'
+          : e instanceof PlaceSearchUnavailable
+            ? 'The free map service is busy right now.'
+            : 'Couldn’t look up places right now.',
+      );
     } finally {
       setBusy(false);
     }
@@ -501,6 +515,16 @@ function WhereField({
           </button>
         </div>
       </div>
+      {hours && (
+        <p className="text-sm text-stone-600 dark:text-stone-300">
+          Hours: {hoursToday(hours)}
+        </p>
+      )}
+      {warning && (
+        <p className="text-sm font-medium text-terracotta" role="status">
+          {warning}
+        </p>
+      )}
       {error && (
         <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
           {error} {query && mapsLink('Search Google Maps')}
@@ -534,6 +558,7 @@ function WhereField({
                   {p.distanceKm !== undefined && p.address ? ' · ' : ''}
                   {p.address}
                 </span>
+                {p.openingHours && <span className="block text-sm text-stone-500">{hoursToday(p.openingHours)}</span>}
               </button>
             </li>
           ))}
@@ -554,6 +579,12 @@ declare global {
     /** Browser tests stand in for OpenStreetMap, which has no emulator. */
     __mockPlaces?: Place[];
   }
+}
+
+/** "Today: 7:00 AM – 6:00 PM" or "Today: Closed" when the hours can be read; otherwise the hours as the map writes them. */
+function hoursToday(hours: string): string {
+  const week = parseOpeningHours(hours);
+  return week ? `Today: ${describeDay(week, new Date())}` : hours;
 }
 
 /** "Today by 6:00 PM" → "today by 6:00 PM", for use mid-sentence; dates like "Tue, Jan 7" keep their case. */
