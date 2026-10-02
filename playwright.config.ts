@@ -47,7 +47,7 @@ export default defineConfig({
       ? [{ command: 'bunx vite --port 5174 --strictPort', url: 'http://localhost:5174', reuseExistingServer: true, timeout: 60_000 }]
       : [
         {
-          command: 'bunx firebase emulators:start --only auth,firestore --project demo-huishouden-tasks',
+          command: 'sh e2e/emulators/fetch-rules.sh && bunx firebase emulators:start --config e2e/emulators/firebase.json --only auth,firestore --project demo-huishouden-tasks',
           url: 'http://127.0.0.1:4400/emulators',
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

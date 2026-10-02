@@ -9,10 +9,9 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "lint": "tsc --noEmit",
     "test": "vitest run test/unit",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-huishouden-tasks \"vitest run test/rules\"",
     "e2e": "PW_LIVE_ONLY=1 playwright test --project=live",
     "e2e:ai": "PW_AI=1 playwright test --project=ai",
-    "verify": "bun run lint && bunx pwa-design-check && bun run test && bun run test:rules && vite build",
+    "verify": "bun run lint && bunx pwa-design-check && bun run test && vite build",
     "e2e:local": "playwright test --project=local",
     "screenshots:local": "playwright test --project=screenshots",
     "prepare": "git config core.hooksPath .githooks || true"
@@ -27,7 +26,6 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^5.0.2",
     "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.20.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
