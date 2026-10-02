@@ -1,6 +1,6 @@
 import { collection, doc, query, where, type Firestore } from 'firebase/firestore';
 import { writeBatch } from '@huishouden/pwa-kit/firestore';
-import { agendaDoc, agendaId, allDayStart } from '@huishouden/pwa-kit/agenda';
+import { agendaDoc, agendaId, allDayStart, type AgendaInput } from '@huishouden/pwa-kit/agenda';
 import { addDays, toYmd, type Ymd } from '@huishouden/pwa-kit/time';
 import type { Meal } from './menus';
 
@@ -46,6 +46,11 @@ const agendaCollection = (db: Firestore, householdId: string) => collection(db, 
 /** The agenda document a planned dinner on `day` is published as (one per day, idempotent). */
 const dinnerAgendaId = (day: Ymd) => agendaId(TASKS_APP, agendaRef(day), allDayStart(day));
 
+/** What a planned dinner publishes: an all-day "Dinner: <meal>" linking to Meals. */
+export function dinnerAgenda(planned: Pick<PlannedMeal, 'day' | 'name'>): AgendaInput {
+  return { ref: agendaRef(planned.day), kind: 'other', title: `Dinner: ${planned.name}`.slice(0, 120), start: allDayStart(planned.day), allDay: true, url: MEALS_URL };
+}
+
 /**
  * Plans (or replaces) one slot. A dinner is published to the household agenda in the same batch,
  * so the plan and the agenda can never disagree after a failure.
@@ -55,7 +60,7 @@ export async function planMeal(db: Firestore, householdId: string, day: Ymd, typ
   const batch = writeBatch(db);
   batch.set(doc(planCollection(db, householdId), slotId(day, type)), planned);
   if (type === 'dinner') {
-    const entry = agendaDoc(TASKS_APP, { ref: agendaRef(day), kind: 'other', title: `Dinner: ${meal.name}`.slice(0, 120), start: allDayStart(day), allDay: true, url: MEALS_URL }, by);
+    const entry = agendaDoc(TASKS_APP, dinnerAgenda({ day, name: meal.name }), by);
     batch.set(doc(agendaCollection(db, householdId), dinnerAgendaId(day)), entry);
   }
   await batch.commit();

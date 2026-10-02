@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { syncAgenda, type AgendaInput } from '@huishouden/pwa-kit/agenda';
+import { syncReminders, type ReminderInput } from '@huishouden/pwa-kit/reminders';
+import { APP, agendaItems, reminderItems } from './publish';
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -272,9 +275,9 @@ export function useFood(db: Firestore, householdId: string): FoodPreferences | n
   return food;
 }
 
-/** The household's meal plan for the given days (shared, live). */
-export function useMealPlan(db: Firestore, householdId: string, days: Ymd[]): PlannedMeal[] {
-  const [plan, setPlan] = useState<PlannedMeal[]>([]);
+/** The household's meal plan for the given days (shared, live); null until the first snapshot. */
+export function useMealPlan(db: Firestore, householdId: string, days: Ymd[]): PlannedMeal[] | null {
+  const [plan, setPlan] = useState<PlannedMeal[] | null>(null);
   const from = days[0];
   const to = days[days.length - 1];
   useEffect(
@@ -560,4 +563,30 @@ export class HouseholdRepo {
     batch.delete(doc(this.col('staples'), id));
     void batch.commit();
   }
+}
+
+/** How long the lists stay still before the agenda and reminders are brought in step. */
+const PUBLISH_DELAY_MS = 3000;
+
+/**
+ * Keeps the household agenda and the push reminders in step with the lists and the meal plan, from
+ * whichever device has Tasks open: a few seconds after the last change, and once on open. The kit
+ * writes only what changed, so devices doing the same work cost a read each and no writes.
+ */
+export function usePublish(db: Firestore, householdId: string, by: string, data: HouseholdData, plan: PlannedMeal[] | null): void {
+  const ready = data.loaded && plan !== null;
+  const agenda = useMemo(() => (ready ? agendaItems(data.items, data.lists, plan) : null), [ready, data.items, data.lists, plan]);
+  const reminders = useMemo(() => (ready ? reminderItems(data.items) : null), [ready, data.items]);
+  const agendaKey = agenda ? JSON.stringify(agenda) : null;
+  const remindersKey = reminders ? JSON.stringify(reminders) : null;
+  useEffect(() => {
+    if (!agendaKey) return;
+    const timer = setTimeout(() => void syncAgenda(db, householdId, APP, JSON.parse(agendaKey) as AgendaInput[], { by }).catch(() => {}), PUBLISH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [db, householdId, by, agendaKey]);
+  useEffect(() => {
+    if (!remindersKey) return;
+    const timer = setTimeout(() => void syncReminders(db, householdId, APP, JSON.parse(remindersKey) as ReminderInput[], by).catch(() => {}), PUBLISH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [db, householdId, by, remindersKey]);
 }

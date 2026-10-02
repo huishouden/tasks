@@ -21,6 +21,8 @@ export default defineConfig({
       shortName: 'Tasks',
       description: 'Shared lists and chores',
       url: 'https://huishouden-tasks.web.app',
+      // Shows the shared sender's reminders (pwa-kit push) and opens their links into Tasks.
+      push: true,
       themeColor: '#1b4332',
       backgroundColor: '#faf9f5',
       includeAssets: ['icon.svg', 'favicon.png', 'apple-touch-icon.png', 'og.png'],

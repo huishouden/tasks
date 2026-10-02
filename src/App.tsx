@@ -4,6 +4,7 @@ import type { Firestore } from 'firebase/firestore';
 import { signInSilently } from '@huishouden/pwa-kit/auth';
 import { inviteMember, markJoined, removeMember, saveMyProfile } from '@huishouden/pwa-kit/household';
 import { AppBar } from '@huishouden/pwa-kit/react/app-bar';
+import { NotificationsCard } from '@huishouden/pwa-kit/react/push';
 import { SectionTabs, cardClass } from '@huishouden/pwa-kit/react/ui';
 import { CloudOff, Loader2, Settings } from 'lucide-react';
 import type { AddRequest } from './components/AddBar';
@@ -25,6 +26,7 @@ import {
   useFavorites,
   useFood,
   useMealPlan,
+  usePublish,
   useHouseholdData,
   useMenus,
   useStoreAisles,
@@ -224,8 +226,17 @@ function Onboarding({ db, email, displayName }: { db: Firestore; email: string; 
 }
 
 function initialMode(): Mode | null {
-  const m = new URLSearchParams(window.location.search).get('mode');
+  const params = new URLSearchParams(window.location.search);
+  // A link to an item (from the household calendar or a reminder) opens it in its list.
+  if (params.get('list')) return 'lists';
+  const m = params.get('mode');
   return m === 'hub' || m === 'store' || m === 'lists' || m === 'meals' ? m : null;
+}
+
+/** The list and item a deep link names (`?list=<id>&item=<id>`), read once on open. */
+function linkedItem(): { list: string | null; item: string | null } {
+  const params = new URLSearchParams(window.location.search);
+  return { list: params.get('list'), item: params.get('item') };
 }
 
 function HouseholdApp({
@@ -255,13 +266,27 @@ function HouseholdApp({
   const food = useFood(db, household.id);
   const planWeek = useMemo(() => planDays(), []);
   const plan = useMealPlan(db, household.id, planWeek);
+  usePublish(db, household.id, email, data, plan);
   const repo = useMemo(() => new HouseholdRepo(db, household.id), [db, household.id]);
   const [savedMode, setMode] = usePref<Mode>('mode', 'lists');
   const [urlMode, setUrlMode] = useState<Mode | null>(initialMode);
   const mode = urlMode ?? savedMode;
   const [selectedId, setSelectedId] = usePref<string>('list', 'groceries');
+  const [link, setLink] = useState(linkedItem);
+  useEffect(() => {
+    if (link.list) setSelectedId(link.list);
+    // Only on open: the link chose the list once, and the person moves on from there.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [addedAs, setAddedAs] = usePref<string>('addedAs', firstName(displayName, email));
   const [editing, setEditing] = useState<ListItem | null>(null);
+  useEffect(() => {
+    if (!data.loaded || (!link.list && !link.item)) return;
+    const item = link.item ? data.items.find((i) => i.id === link.item) : undefined;
+    if (item) setEditing(item);
+    setLink({ list: null, item: null });
+    window.history.replaceState(null, '', window.location.pathname);
+  }, [data.loaded, data.items, link]);
   const [newList, setNewList] = useState(false);
   const [reorderLists, setReorderLists] = useState(false);
   const [settings, setSettings] = useState(false);
@@ -429,7 +454,7 @@ function HouseholdApp({
             favorites={favorites}
             food={food}
             planWeek={planWeek}
-            plan={plan}
+            plan={plan ?? []}
             onPlan={(day, type, meal) => planMeal(db, household.id, day, type, meal, email)}
             onUnplan={(day, type) => unplanMeal(db, household.id, day, type)}
             suggest={suggestMeals}
@@ -559,6 +584,18 @@ function HouseholdApp({
           theme={theme}
           setTheme={setTheme}
           install={install}
+          notifications={
+            <NotificationsCard
+              db={db}
+              householdId={household.id}
+              user={{ email }}
+              app="tasks"
+              vapidKey={import.meta.env.VITE_VAPID_PUBLIC_KEY}
+              offText="Get a notification here an hour before a task is due, and on the morning of a task due that day."
+              onText="On. This device tells you an hour before a task is due, and on the morning of a task due that day."
+              plain
+            />
+          }
           onAddMember={(e) => inviteMember(db, household.id, e)}
           onRemoveMember={(e) => removeMember(db, household.id, e)}
           onClose={() => setSettings(false)}
