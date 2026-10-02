@@ -36,7 +36,8 @@ function currentPosition(): Promise<GeoPoint> {
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
       (e) => reject(new Error(e.code === e.PERMISSION_DENIED ? 'Location permission was denied.' : e.message)),
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 5 * 60_000 },
+      // Always a fresh fix: a cached one from minutes ago can still be at the last store.
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
     );
   });
 }
@@ -256,14 +257,17 @@ function LayoutEditor({
         renderRow={(c) => (
           <>
             <span className="min-w-0 flex-1 font-medium">{c}</span>
-            <input
-              value={labels[c as Category] ?? ''}
-              onChange={(e) => setLabels({ ...labels, [c]: e.target.value })}
-              onBlur={() => onUpdate({ aisleLabels: cleanLabels(labels) })}
-              placeholder="Aisle"
-              aria-label={`Aisle for ${c}`}
-              className={`${inputClass} w-28 py-1.5 text-sm`}
-            />
+            {/* Fixed width in a wrapper: the shared input style is full-width and would win over w-28. */}
+            <div className="w-24 shrink-0 sm:w-28">
+              <input
+                value={labels[c as Category] ?? ''}
+                onChange={(e) => setLabels({ ...labels, [c]: e.target.value })}
+                onBlur={() => onUpdate({ aisleLabels: cleanLabels(labels) })}
+                placeholder="Aisle"
+                aria-label={`Aisle for ${c}`}
+                className={`${inputClass} py-1.5 text-sm`}
+              />
+            </div>
           </>
         )}
       />

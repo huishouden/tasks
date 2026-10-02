@@ -1,6 +1,6 @@
 /** What went wrong, phrased for the household rather than for a developer. */
 export interface FriendlyError {
-  kind: 'offline' | 'busy' | 'quota' | 'timeout' | 'verification' | 'permission' | 'empty' | 'unknown';
+  kind: 'offline' | 'busy' | 'quota' | 'timeout' | 'verification' | 'permission' | 'empty' | 'cancelled' | 'unknown';
   message: string;
   /** Whether trying the same thing again soon is likely to work. */
   retryable: boolean;
@@ -8,7 +8,7 @@ export interface FriendlyError {
   detail: string;
 }
 
-export type ErrorContext = 'meals' | 'sign-in' | 'save';
+export type ErrorContext = 'meals' | 'sign-in' | 'save' | 'calendar';
 
 /** Thrown when a reply arrives but contains nothing usable. */
 export class EmptyResultError extends Error {
@@ -48,6 +48,12 @@ export function friendlyError(e: unknown, context: ErrorContext, online = typeof
       context === 'meals' ? "You're offline. Meal ideas need a connection." : "Couldn't reach the internet. Check the connection and try again.",
       true,
     );
+  }
+  if (/popup-closed-by-user|cancelled-popup-request|access_denied/.test(all)) {
+    return make('cancelled', context === 'calendar' ? 'Calendar access was not allowed, so nothing was searched.' : 'Sign-in was cancelled.', true);
+  }
+  if (/user-mismatch/.test(all)) {
+    return make('verification', 'Pick the same Google account you are signed in with.', true);
   }
   if (e instanceof TimeoutError || /timed out|timeout|deadline/.test(all)) {
     return make('timeout', 'That took too long. Try again.', true);

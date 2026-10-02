@@ -142,19 +142,21 @@ export function MealsView({ lists, items, menus, favorites, suggest, onSave, onD
       {shown && (
         <section className="grid gap-4" aria-label="Meal ideas">
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={shown.id}
-              onChange={(e) => setSelectedId(e.target.value)}
-              className={`${inputClass} w-auto flex-1`}
-              aria-label="Saved meal ideas"
-            >
-              {menus.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {new Date(m.createdAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · {m.createdBy} ·{' '}
-                  {m.meals.length} ideas
-                </option>
-              ))}
-            </select>
+            <div className="min-w-0 flex-1">
+              <select
+                value={shown.id}
+                onChange={(e) => setSelectedId(e.target.value)}
+                className={inputClass}
+                aria-label="Saved meal ideas"
+              >
+                {menus.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {new Date(m.createdAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · {m.createdBy} ·{' '}
+                    {m.meals.length} ideas
+                  </option>
+                ))}
+              </select>
+            </div>
             <button onClick={() => onDelete(shown.id)} className={`${ghostButton} text-stone-400`} aria-label="Delete these ideas">
               <Trash2 size={18} />
             </button>
