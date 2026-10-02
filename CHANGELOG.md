@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/huishouden/tasks/compare/v1.7.0...v1.8.0) (2026-10-02)
+
+
+### Features
+
+* **roles:** helpers and kids tick anyone's items and change only their own; settings for admins and members ([#42](https://github.com/huishouden/tasks/issues/42)) ([48b030a](https://github.com/huishouden/tasks/commit/48b030ab7ed3ebdd75be054ce0409d6d090b56e5))
+
 ## [1.7.0](https://github.com/huishouden/tasks/compare/v1.6.0...v1.7.0) (2026-10-02)
 
 
