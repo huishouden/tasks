@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/huishouden/tasks/compare/v1.2.0...v1.2.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* an entry saved just before the app closes is no longer lost ([#25](https://github.com/huishouden/tasks/issues/25)) ([cc934fb](https://github.com/huishouden/tasks/commit/cc934fb7e7bac99cc0fdd503199d73b5e6dd334f))
+
 ## [1.2.0](https://github.com/huishouden/tasks/compare/v1.1.0...v1.2.0) (2026-10-02)
 
 
