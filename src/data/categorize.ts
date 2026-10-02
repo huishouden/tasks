@@ -1,4 +1,4 @@
-import { CATEGORIES, type Category, type ListIcon } from './model';
+import { CATEGORIES, isTaskList, type Category, type ListIcon } from './model';
 
 const C = CATEGORIES;
 
@@ -110,9 +110,6 @@ const TASK_VERBS = [
   'pack', 'pay', 'prep', 'renew', 'return', 'schedule', 'sterilize', 'text', 'wash',
 ];
 
-/** Lists whose items are to-dos, not shopping, so a guess there should not be a store aisle. */
-const TASK_LIST_ICONS: ListIcon[] = ['chores', 'notes'];
-
 function singular(word: string): string {
   if (word.length <= 3) return word;
   if (word.endsWith('ies')) return `${word.slice(0, -3)}y`;
@@ -196,7 +193,8 @@ function fuzzyWord(word: string): Category | null {
  * which is the signal to ask Gemini. Items on chores or notes lists are always Chores & Tasks.
  */
 export function guessCategory(name: string, listIcon?: ListIcon): Category {
-  if (listIcon && TASK_LIST_ICONS.includes(listIcon)) return C.CHORES;
+  // To-dos, not shopping, so a guess there should not be a store aisle.
+  if (isTaskList(listIcon)) return C.CHORES;
   const w = words(name);
   if (w.length === 0) return listIcon === 'hardware' ? C.HARDWARE_HOME : C.OTHER;
   const joined = ` ${w.join(' ')} `;

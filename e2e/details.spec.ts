@@ -9,10 +9,11 @@ test.beforeEach(async ({ page }) => {
 test('an appointment shows its date and place, and links to Google Calendar', async ({ page }) => {
   await addItem(page, 'Get car inspected at the dealer');
   await page.getByRole('button', { name: 'Edit Get car inspected at the dealer' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit item' });
+  const dialog = page.getByRole('dialog', { name: 'Edit task' });
   await dialog.getByLabel('Date').fill('2030-06-14');
   await dialog.getByLabel('Time (optional)').fill('10:30');
   await dialog.getByLabel('Where').fill('Main St Service Center');
+  await dialog.getByText('List and link').click();
 
   const add = dialog.getByRole('link', { name: 'Add to Google Calendar' });
   const url = new URL((await add.getAttribute('href'))!);
@@ -54,9 +55,9 @@ test('a long list item becomes a checklist that completes step by step', async (
   expect(rowBox.x + rowBox.width).toBeLessThanOrEqual(mainBox.x + mainBox.width + 1);
 
   await row.getByRole('button', { name: /^Edit Garage cleanout/ }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit item' });
-  await dialog.getByRole('button', { name: /Split into checklist/ }).click();
-  await expect(dialog.getByLabel('Item')).toHaveValue('Garage cleanout');
+  const dialog = page.getByRole('dialog', { name: 'Edit task' });
+  await dialog.getByRole('button', { name: 'Split into 7 steps' }).click();
+  await expect(dialog.getByLabel('Task', { exact: true })).toHaveValue('Garage cleanout');
   await expect(dialog.getByLabel(/^Step \d+$/)).toHaveCount(7);
   await dialog.getByRole('button', { name: 'Save' }).click();
 

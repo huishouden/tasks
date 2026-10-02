@@ -30,6 +30,7 @@ import { getFirebase } from '../lib/firebase';
 import { mealKey, type FavoriteMeal, type Meal, type Menu } from './menus';
 import type { GeoPoint, LearnedAisle, StoreLayout } from './stores';
 import { guessCategory } from './categorize';
+import { parseWhen } from './when';
 import {
   CATEGORIES,
   DEFAULT_LISTS,
@@ -312,9 +313,13 @@ export class HouseholdRepo {
   // immediately and syncs when online, so the UI never blocks on the network.
   /** Adds the item and returns its id, or null when the name is blank. */
   addItem(input: NewItem): string | null {
-    const name = input.name.trim();
-    if (!name) return null;
+    const typed = input.name.trim();
+    if (!typed) return null;
     const now = Date.now();
+    // "Drycleaners dropoff before 6" is saved as "Drycleaners dropoff", due today by 6 PM.
+    const when = parseWhen(typed, now);
+    const name = when?.rest ?? typed;
+    const urgency = when ? URGENCY.NORMAL : (input.urgency ?? URGENCY.NORMAL);
     const category =
       input.category && input.category !== CATEGORIES.OTHER ? input.category : guessCategory(name, input.listIcon);
     const quantity = input.quantity?.trim() || '1';
@@ -328,8 +333,9 @@ export class HouseholdRepo {
       notes: input.notes?.trim() ?? '',
       addedBy: input.addedBy,
       completed: false,
-      urgency: input.urgency ?? URGENCY.NORMAL,
-      position: input.urgency === URGENCY.URGENT ? -now : now,
+      urgency,
+      position: urgency === URGENCY.URGENT ? -now : now,
+      ...(when ? { dueAt: when.dueAt, allDay: when.allDay, dueBy: when.by } : {}),
       createdAt: now,
       updatedAt: now,
       completedAt: null,
@@ -363,7 +369,7 @@ export class HouseholdRepo {
     void batch.commit();
   }
 
-  updateItem(id: string, changes: Partial<Pick<ListItem, 'name' | 'category' | 'quantity' | 'notes' | 'urgency' | 'addedBy' | 'listId' | 'position' | 'dueAt' | 'allDay' | 'location' | 'link' | 'subtasks'>>): void {
+  updateItem(id: string, changes: Partial<Pick<ListItem, 'name' | 'category' | 'quantity' | 'notes' | 'urgency' | 'addedBy' | 'listId' | 'position' | 'dueAt' | 'allDay' | 'dueBy' | 'location' | 'link' | 'subtasks'>>): void {
     void updateDoc(doc(this.col('items'), id), { ...changes, updatedAt: Date.now() });
   }
 

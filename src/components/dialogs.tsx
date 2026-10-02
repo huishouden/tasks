@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { CalendarPlus, CalendarSearch, Download, ListChecks, Loader2, LogOut, MapPin, Plus, Send, Trash2, UserPlus, X } from 'lucide-react';
+import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, LogOut, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
+import { searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '../lib/calendar';
 import {
   ALL_CATEGORIES,
-  ALL_URGENCIES,
+  URGENCY,
+  isTaskList,
   LIST_COLORS,
   moveInOrder,
   formatDue,
@@ -19,6 +21,7 @@ import {
   type Urgency,
 } from '../data/model';
 import type { ThemeMode } from '../lib/prefs';
+import { parseWhen } from '../data/when';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { ErrorNotice } from './ErrorNotice';
 import { Dialog, LIST_ICONS, ListIconBadge, ghostButton, inputClass, primaryButton } from './ui';
@@ -45,12 +48,16 @@ export function EditItemDialog({
   const [listId, setListId] = useState(item.listId);
   const [date, setDate] = useState(item.dueAt ? toDateInput(item.dueAt) : '');
   const [time, setTime] = useState(item.dueAt && !item.allDay ? toTimeInput(item.dueAt) : '');
+  const [dueBy, setDueBy] = useState(!!item.dueBy);
   const [location, setLocation] = useState(item.location ?? '');
   const [link, setLink] = useState(item.link ?? '');
   const [steps, setSteps] = useState<Subtask[]>(item.subtasks ?? []);
+  const [showSteps, setShowSteps] = useState((item.subtasks ?? []).length > 0);
   const [searching, setSearching] = useState(false);
   const [matches, setMatches] = useState<CalendarMatch[] | null>(null);
   const [calendarError, setCalendarError] = useState<FriendlyError | null>(null);
+
+  const task = isTaskList(lists.find((l) => l.id === listId)?.icon);
 
   async function searchCalendar() {
     setSearching(true);
@@ -68,6 +75,7 @@ export function EditItemDialog({
   function useMatch(m: CalendarMatch) {
     setDate(toDateInput(m.start));
     setTime(m.allDay ? '' : toTimeInput(m.start));
+    setDueBy(false);
     if (m.location) setLocation(m.location);
     setLink(m.link);
     setMatches(null);
@@ -75,10 +83,156 @@ export function EditItemDialog({
   const [newStep, setNewStep] = useState('');
   const split = steps.length === 0 ? splitIntoChecklist(name) : null;
   const dueAt = date ? fromInputs(date, time) : null;
+  // "before 6" typed into the name or notes, offered as a due time while there is none.
+  const inferred = date ? null : (parseWhen(name) ?? (notes ? parseWhen(notes) : null));
   const linkValid = !link.trim() || /^https?:\/\/\S+$/i.test(link.trim());
   const listName = lists.find((l) => l.id === listId)?.name ?? '';
+
+  function applyInferred() {
+    if (!inferred) return;
+    setDate(toDateInput(inferred.dueAt));
+    setTime(inferred.allDay ? '' : toTimeInput(inferred.dueAt));
+    setDueBy(inferred.by);
+    if (parseWhen(name)) setName(inferred.rest);
+    else setNotes(inferred.rest);
+  }
+
+  const whenFields = (
+    <>
+      <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+        <label className="text-sm text-stone-500">
+          Date
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} mt-1`} />
+        </label>
+        <label className="text-sm text-stone-500">
+          Time (optional)
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={!date} className={`${inputClass} mt-1`} />
+        </label>
+        {date && (
+          <button
+            type="button"
+            onClick={() => {
+              setDate('');
+              setTime('');
+              setDueBy(false);
+            }}
+            className="mb-1 rounded-lg p-2 text-stone-400 hover:text-stone-700"
+            aria-label="Clear date"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
+      {date && time && (
+        <div className="flex gap-1.5" role="group" aria-label="Kind of time">
+          {[
+            { by: false, label: `At ${formatTime(time)}` },
+            { by: true, label: `By ${formatTime(time)}` },
+          ].map((o) => (
+            <button
+              key={o.label}
+              type="button"
+              onClick={() => setDueBy(o.by)}
+              aria-pressed={dueBy === o.by}
+              className={`rounded-full border px-3 py-1 text-sm ${dueBy === o.by ? 'border-forest-700 bg-forest-700 text-white' : 'border-stone-200 dark:border-forest-600'}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <button type="button" onClick={() => void searchCalendar()} disabled={searching || !name.trim()} className={`${ghostButton} justify-self-start px-2 py-1 text-sm text-forest-700 dark:text-forest-300`}>
+        {searching ? <Loader2 size={16} className="animate-spin" /> : <CalendarSearch size={16} />} {searching ? 'Searching your calendars…' : 'Find in my calendar'}
+      </button>
+      {calendarError && <ErrorNotice error={calendarError} onRetry={() => void searchCalendar()} retrying={searching} />}
+      {matches && matches.length === 0 && (
+        <p className="text-sm text-stone-500" role="status">
+          No events matching "{name.trim()}" in your calendars from last week to a year ahead.
+        </p>
+      )}
+      {matches && matches.length > 0 && (
+        <ul className="grid gap-1.5" aria-label="Calendar matches">
+          {matches.map((m) => (
+            <li key={m.id}>
+              <button type="button" onClick={() => useMatch(m)} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-left hover:border-forest-500 hover:bg-forest-50 dark:border-forest-600 dark:hover:bg-forest-700">
+                <span className="block font-medium [overflow-wrap:anywhere]">{m.title}</span>
+                <span className="block text-sm text-stone-500">
+                  {formatDue({ dueAt: m.start, allDay: m.allDay }, Date.now())} · {m.calendarName}
+                </span>
+                {m.location && (
+                  <span className="block text-sm text-stone-500 [overflow-wrap:anywhere]">
+                    <MapPin size={12} className="mr-0.5 inline" /> {m.location}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+
+  const whereField = <WhereField name={name} value={location} onChange={setLocation} />;
+
+  const stepsFields = (
+    <fieldset className="grid gap-2 rounded-2xl border border-stone-200 p-3 dark:border-forest-700">
+      <legend className="px-1 text-sm text-stone-500">Steps</legend>
+      {steps.map((st, i) => (
+        <div key={st.id} className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={st.done}
+            onChange={() => setSteps(steps.map((x) => (x.id === st.id ? { ...x, done: !x.done } : x)))}
+            className="h-4 w-4 shrink-0 accent-forest-600"
+            aria-label={`Step ${i + 1} done`}
+          />
+          <input
+            value={st.text}
+            onChange={(e) => setSteps(steps.map((x) => (x.id === st.id ? { ...x, text: e.target.value } : x)))}
+            className={`${inputClass} py-1.5`}
+            aria-label={`Step ${i + 1}`}
+          />
+          <button type="button" onClick={() => setSteps(steps.filter((x) => x.id !== st.id))} className="rounded-lg p-1.5 text-stone-400 hover:text-red-600" aria-label={`Remove step ${i + 1}`}>
+            <X size={16} />
+          </button>
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <input
+          value={newStep}
+          onChange={(e) => setNewStep(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (newStep.trim()) setSteps([...steps, newSubtask(newStep)]);
+              setNewStep('');
+            }
+          }}
+          placeholder={steps.length ? 'Add another step' : 'First step'}
+          className={`${inputClass} py-1.5`}
+          aria-label="New step"
+          autoFocus={steps.length === 0}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            if (newStep.trim()) setSteps([...steps, newSubtask(newStep)]);
+            setNewStep('');
+          }}
+          disabled={!newStep.trim()}
+          className={ghostButton}
+          aria-label="Add step"
+        >
+          <Plus size={18} />
+        </button>
+      </div>
+    </fieldset>
+  );
+
+  const quick = 'inline-flex items-center gap-1.5 rounded-full border border-stone-200 px-3 py-1.5 text-sm text-stone-700 hover:border-forest-500 dark:border-forest-600 dark:text-stone-200';
+
   return (
-    <Dialog title="Edit item" onClose={onClose}>
+    <Dialog title={task ? 'Edit task' : 'Edit item'} onClose={onClose}>
       <form
         className="grid gap-3"
         onSubmit={(e) => {
@@ -90,10 +244,12 @@ export function EditItemDialog({
             quantity: quantity.trim() || '1',
             notes: notes.trim(),
             category,
-            urgency,
+            // A due time replaces "Need today".
+            urgency: dueAt !== null && urgency === URGENCY.URGENT ? URGENCY.NORMAL : urgency,
             listId,
             dueAt,
             allDay: dueAt !== null && !time,
+            dueBy: dueAt !== null && !!time && dueBy,
             location: location.trim(),
             link: link.trim(),
             subtasks: steps.filter((st) => st.text.trim()),
@@ -102,190 +258,134 @@ export function EditItemDialog({
         }}
       >
         <label className="text-sm text-stone-500">
-          Item
+          {task ? 'Task' : 'Item'}
           <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} mt-1`} autoFocus />
         </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="text-sm text-stone-500">
-            Quantity
-            <input value={quantity} onChange={(e) => setQuantity(e.target.value)} className={`${inputClass} mt-1`} />
-          </label>
-          <label className="text-sm text-stone-500">
-            When
-            <select value={urgency} onChange={(e) => setUrgency(e.target.value as Urgency)} className={`${inputClass} mt-1`}>
-              {ALL_URGENCIES.map((u) => (
-                <option key={u}>{u}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label className="text-sm text-stone-500">
-          Notes
-          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Brand, size, organic…" className={`${inputClass} mt-1`} />
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="text-sm text-stone-500">
-            Aisle
-            <select value={category} onChange={(e) => setCategory(e.target.value as Category)} className={`${inputClass} mt-1`}>
-              {ALL_CATEGORIES.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm text-stone-500">
-            List
-            <select value={listId} onChange={(e) => setListId(e.target.value)} className={`${inputClass} mt-1`}>
-              {lists.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {split && (
+        {inferred && (
           <button
             type="button"
-            onClick={() => {
-              setName(split.title);
-              setSteps(split.steps.map((t) => newSubtask(t)));
-            }}
-            className={`${ghostButton} justify-self-start bg-forest-50 text-forest-700 dark:bg-forest-700 dark:text-forest-100`}
+            onClick={applyInferred}
+            className={`${ghostButton} justify-self-start bg-forest-50 text-left text-forest-700 dark:bg-forest-700 dark:text-forest-100`}
           >
-            <ListChecks size={18} /> Split into checklist: "{split.title}" with {split.steps.length} steps
+            <CalendarClock size={18} className="shrink-0" />
+            <span>
+              <span className="block">Due {lowerFirst(formatDue({ dueAt: inferred.dueAt, allDay: inferred.allDay, dueBy: inferred.by }, Date.now()).replace(' · ', ' '))}</span>
+              <span className="block text-sm font-normal text-forest-600 dark:text-forest-200">from “{inferred.phrase}”</span>
+            </span>
           </button>
         )}
-        <fieldset className="grid gap-2 rounded-2xl border border-stone-200 p-3 dark:border-forest-700">
-          <legend className="px-1 text-sm text-stone-500">Checklist</legend>
-          {steps.map((st, i) => (
-            <div key={st.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={st.done}
-                onChange={() => setSteps(steps.map((x) => (x.id === st.id ? { ...x, done: !x.done } : x)))}
-                className="h-4 w-4 shrink-0 accent-forest-600"
-                aria-label={`Step ${i + 1} done`}
-              />
-              <input
-                value={st.text}
-                onChange={(e) => setSteps(steps.map((x) => (x.id === st.id ? { ...x, text: e.target.value } : x)))}
-                className={`${inputClass} py-1.5`}
-                aria-label={`Step ${i + 1}`}
-              />
-              <button type="button" onClick={() => setSteps(steps.filter((x) => x.id !== st.id))} className="rounded-lg p-1.5 text-stone-400 hover:text-red-600" aria-label={`Remove step ${i + 1}`}>
-                <X size={16} />
-              </button>
-            </div>
-          ))}
-          <div className="flex gap-2">
-            <input
-              value={newStep}
-              onChange={(e) => setNewStep(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  if (newStep.trim()) setSteps([...steps, newSubtask(newStep)]);
-                  setNewStep('');
-                }
-              }}
-              placeholder={steps.length ? 'Add another step' : 'Add a step to make this a checklist'}
-              className={`${inputClass} py-1.5`}
-              aria-label="New step"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (newStep.trim()) setSteps([...steps, newSubtask(newStep)]);
-                setNewStep('');
-              }}
-              disabled={!newStep.trim()}
-              className={ghostButton}
-              aria-label="Add step"
-            >
-              <Plus size={18} />
-            </button>
+
+        {task ? (
+          <>
+            <fieldset className="grid gap-2">
+              <legend className="mb-1 text-sm text-stone-500">When</legend>
+              {whenFields}
+            </fieldset>
+            {whereField}
+          </>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-sm text-stone-500">
+              Quantity
+              <input value={quantity} onChange={(e) => setQuantity(e.target.value)} className={`${inputClass} mt-1`} />
+            </label>
+            <label className="text-sm text-stone-500">
+              Section
+              <select value={category} onChange={(e) => setCategory(e.target.value as Category)} className={`${inputClass} mt-1`}>
+                {ALL_CATEGORIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </label>
           </div>
-        </fieldset>
-        <fieldset className="grid gap-3 rounded-2xl border border-stone-200 p-3 dark:border-forest-700">
-          <legend className="px-1 text-sm text-stone-500">Date or appointment</legend>
-          <button type="button" onClick={() => void searchCalendar()} disabled={searching || !name.trim()} className={`${ghostButton} justify-self-start bg-forest-50 text-forest-700 dark:bg-forest-700 dark:text-forest-100`}>
-            {searching ? <Loader2 size={18} className="animate-spin" /> : <CalendarSearch size={18} />} {searching ? 'Searching your calendars…' : 'Find in my calendar'}
-          </button>
-          {calendarError && <ErrorNotice error={calendarError} onRetry={() => void searchCalendar()} retrying={searching} />}
-          {matches && matches.length === 0 && (
-            <p className="text-sm text-stone-500" role="status">
-              No events matching "{name.trim()}" in your calendars from last week to a year ahead.
-            </p>
-          )}
-          {matches && matches.length > 0 && (
-            <ul className="grid gap-1.5" aria-label="Calendar matches">
-              {matches.map((m) => (
-                <li key={m.id}>
-                  <button type="button" onClick={() => useMatch(m)} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-left hover:border-forest-500 hover:bg-forest-50 dark:border-forest-600 dark:hover:bg-forest-700">
-                    <span className="block font-medium [overflow-wrap:anywhere]">{m.title}</span>
-                    <span className="block text-sm text-stone-500">
-                      {formatDue({ dueAt: m.start, allDay: m.allDay }, Date.now())} · {m.calendarName}
-                    </span>
-                    {m.location && (
-                      <span className="block text-sm text-stone-500 [overflow-wrap:anywhere]">
-                        <MapPin size={12} className="mr-0.5 inline" /> {m.location}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-            <label className="text-sm text-stone-500">
-              Date
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} mt-1`} />
-            </label>
-            <label className="text-sm text-stone-500">
-              Time (optional)
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={!date} className={`${inputClass} mt-1`} />
-            </label>
-            {date && (
+        )}
+
+        <label className="text-sm text-stone-500">
+          Notes
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={task ? 'Ticket number, what to bring…' : 'Brand, size, organic…'} className={`${inputClass} mt-1`} />
+        </label>
+
+        {showSteps ? (
+          stepsFields
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {split && (
               <button
                 type="button"
                 onClick={() => {
-                  setDate('');
-                  setTime('');
+                  setName(split.title);
+                  setSteps(split.steps.map((t) => newSubtask(t)));
+                  setShowSteps(true);
                 }}
-                className="mb-1 rounded-lg p-2 text-stone-400 hover:text-stone-700"
-                aria-label="Clear date"
+                className={`${quick} border-forest-200 bg-forest-50 text-forest-700 dark:bg-forest-700 dark:text-forest-100`}
               >
-                <X size={18} />
+                <ListChecks size={16} /> Split into {split.steps.length} steps
+              </button>
+            )}
+            {!split && (
+              <button type="button" onClick={() => setShowSteps(true)} className={quick}>
+                <ListChecks size={16} /> Add steps
+              </button>
+            )}
+            {dueAt === null && (
+              <button
+                type="button"
+                onClick={() => setUrgency(urgency === URGENCY.URGENT ? URGENCY.NORMAL : URGENCY.URGENT)}
+                aria-pressed={urgency === URGENCY.URGENT}
+                className={`${quick} ${urgency === URGENCY.URGENT ? 'border-terracotta bg-terracotta-light font-semibold text-terracotta' : ''}`}
+              >
+                <Zap size={16} /> Need today
               </button>
             )}
           </div>
-          <label className="text-sm text-stone-500">
-            Where
-            <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Fire station on Main St" className={`${inputClass} mt-1`} />
-          </label>
-          <label className="text-sm text-stone-500">
-            Link
-            <input
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              placeholder="Paste the Google Calendar event link"
-              inputMode="url"
-              className={`${inputClass} mt-1`}
-              aria-invalid={!linkValid}
-            />
-          </label>
-          {!linkValid && <p className="text-sm text-terracotta">Links start with https://</p>}
-          {dueAt !== null && !link.trim() && (
-            <a
-              href={googleCalendarLink({ name, notes, dueAt, allDay: !time, location }, listName)}
-              target="_blank"
-              rel="noreferrer"
-              className={`${ghostButton} justify-self-start text-forest-700 dark:text-forest-300`}
-            >
-              <CalendarPlus size={18} /> Add to Google Calendar
-            </a>
-          )}
-        </fieldset>
+        )}
+
+        <details className="group rounded-2xl border border-stone-200 dark:border-forest-700" open={!task && (dueAt !== null || !!location || !!link)}>
+          <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm text-stone-600 dark:text-stone-300">
+            {task ? 'List and link' : 'Date, place, list and link'}
+            <ChevronDown size={16} className="transition group-open:rotate-180" />
+          </summary>
+          <div className="grid gap-3 border-t border-stone-200 p-3 dark:border-forest-700">
+            {!task && (
+              <>
+                {whenFields}
+                {whereField}
+              </>
+            )}
+            <label className="text-sm text-stone-500">
+              List
+              <select value={listId} onChange={(e) => setListId(e.target.value)} className={`${inputClass} mt-1`}>
+                {lists.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm text-stone-500">
+              Link
+              <input
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                placeholder="Paste the Google Calendar event link"
+                inputMode="url"
+                className={`${inputClass} mt-1`}
+                aria-invalid={!linkValid}
+              />
+            </label>
+            {!linkValid && <p className="text-sm text-terracotta">Links start with https://</p>}
+            {dueAt !== null && !link.trim() && (
+              <a
+                href={googleCalendarLink({ name, notes, dueAt, allDay: !time, location }, listName)}
+                target="_blank"
+                rel="noreferrer"
+                className={`${ghostButton} justify-self-start text-forest-700 dark:text-forest-300`}
+              >
+                <CalendarPlus size={18} /> Add to Google Calendar
+              </a>
+            )}
+          </div>
+        </details>
         <p className="text-sm text-stone-500">Added by {item.addedBy || 'someone'}</p>
         <div className="mt-2 flex justify-between gap-2">
           <button
@@ -305,6 +405,124 @@ export function EditItemDialog({
       </form>
     </Dialog>
   );
+}
+
+/**
+ * Where an errand happens, with "Find nearby": the closest places of that kind ("Drycleaners
+ * dropoff" → dry cleaners near you) from OpenStreetMap. Searches run only on a tap, as the
+ * free service asks, and location is read only then.
+ */
+function WhereField({ name, value, onChange }: { name: string; value: string; onChange: (v: string) => void }) {
+  const [results, setResults] = useState<Place[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function findNearby() {
+    setBusy(true);
+    setError(null);
+    setResults(null);
+    try {
+      const here = await currentPosition();
+      setResults(await findPlaces(value.trim() || name, here));
+    } catch (e) {
+      const denied = (e as GeolocationPositionError)?.code === 1;
+      setError(denied ? 'Location is off for this app, so nearby places can’t be found. Type the place instead.' : 'Couldn’t look up places right now. Type the place, or try again in a moment.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-2">
+      <label className="text-sm text-stone-500">
+        Where
+        <div className="mt-1 flex gap-2">
+          <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Place or address" className={inputClass} />
+          <button type="button" onClick={() => void findNearby()} disabled={busy || !(value.trim() || name.trim())} className={`${ghostButton} shrink-0 border border-stone-200 dark:border-forest-600`}>
+            {busy ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />} {busy ? 'Looking…' : 'Find nearby'}
+          </button>
+        </div>
+      </label>
+      {error && (
+        <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
+          {error}
+        </p>
+      )}
+      {results && results.length === 0 && (
+        <p className="text-sm text-stone-500" role="status">
+          Nothing like "{value.trim() || name.trim()}" nearby. Try a simpler word, such as "dry cleaner" or "pharmacy".
+        </p>
+      )}
+      {results && results.length > 0 && (
+        <ul className="grid gap-1.5" aria-label="Nearby places">
+          {results.map((p) => (
+            <li key={p.osmUrl}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(p.address ? `${p.name}, ${p.address}` : p.name);
+                  setResults(null);
+                }}
+                className="w-full rounded-xl border border-stone-200 px-3 py-2 text-left hover:border-forest-500 hover:bg-forest-50 dark:border-forest-600 dark:hover:bg-forest-700"
+              >
+                <span className="block font-medium [overflow-wrap:anywhere]">{p.name}</span>
+                <span className="block text-sm text-stone-500 [overflow-wrap:anywhere]">
+                  {p.distanceKm !== undefined && `${formatDistance(p.distanceKm)}`}
+                  {p.distanceKm !== undefined && p.address ? ' · ' : ''}
+                  {p.address}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function currentPosition(): Promise<{ lat: number; lon: number }> {
+  if (window.__mockPosition) return Promise.resolve(window.__mockPosition);
+  return new Promise((resolve, reject) =>
+    navigator.geolocation.getCurrentPosition((p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }), reject, {
+      enableHighAccuracy: false,
+      timeout: 10_000,
+      maximumAge: 5 * 60_000,
+    }),
+  );
+}
+
+function findPlaces(text: string, near: { lat: number; lon: number }): Promise<Place[]> {
+  if (window.__mockPlaces) return Promise.resolve(window.__mockPlaces);
+  return searchPlaces(text, { near, limit: 5 });
+}
+
+declare global {
+  interface Window {
+    /** Browser tests stand in for location and OpenStreetMap, which have no emulator. */
+    __mockPosition?: { lat: number; lon: number };
+    __mockPlaces?: Place[];
+  }
+}
+
+/** "0.4 mi", "12 mi" in the US; "650 m", "3.1 km" elsewhere. */
+function formatDistance(km: number): string {
+  const miles = /^en-US$/i.test(navigator.language);
+  if (miles) {
+    const mi = km / 1.609;
+    return `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`;
+  }
+  return km < 1 ? `${Math.round(km * 100) * 10} m` : `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
+}
+
+/** "Today by 6:00 PM" → "today by 6:00 PM", for use mid-sentence; dates like "Tue, Jan 7" keep their case. */
+function lowerFirst(text: string): string {
+  return /^(Today|Tomorrow|Yesterday)\b/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
+}
+
+/** "18:00" → "6:00 PM" in the device's locale. */
+function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 function pad(n: number): string {

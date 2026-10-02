@@ -47,6 +47,11 @@ export const ALL_URGENCIES: Urgency[] = [URGENCY.NORMAL, URGENCY.URGENT, URGENCY
 
 export type ListIcon = 'grocery' | 'pantry' | 'bulk' | 'hardware' | 'notes' | 'chores';
 
+/** Lists of to-dos and errands rather than things to buy: no quantities or store aisles. */
+export function isTaskList(icon: ListIcon | undefined): boolean {
+  return icon === 'chores' || icon === 'notes';
+}
+
 export interface ShoppingList {
   id: string;
   name: string;
@@ -72,6 +77,8 @@ export interface ListItem {
   /** When it is due or scheduled, in ms since the epoch. With `allDay`, only the date matters. */
   dueAt?: number | null;
   allDay?: boolean;
+  /** A deadline ("by 6 PM", typed as "before 6") rather than an appointment ("at 6 PM"). */
+  dueBy?: boolean;
   location?: string;
   /** A link to open from the item, such as the appointment's Google Calendar event. */
   link?: string;
@@ -210,8 +217,8 @@ function startOfDay(t: number): number {
   return d.getTime();
 }
 
-/** "Today 10:00 AM", "Tomorrow", "Tue, Oct 14 · 2:30 PM" in the device's locale and time zone. */
-export function formatDue(item: Pick<ListItem, 'dueAt' | 'allDay'>, now: number): string {
+/** "Today · 10:00 AM", "Today · by 6:00 PM", "Tomorrow", "Tue, Oct 14 · 2:30 PM" in the device's locale and time zone. */
+export function formatDue(item: Pick<ListItem, 'dueAt' | 'allDay' | 'dueBy'>, now: number): string {
   if (!item.dueAt) return '';
   const days = Math.round((startOfDay(item.dueAt) - startOfDay(now)) / DAY_MS);
   const date =
@@ -228,7 +235,8 @@ export function formatDue(item: Pick<ListItem, 'dueAt' | 'allDay'>, now: number)
               ...(Math.abs(days) > 300 ? { year: 'numeric' } : {}),
             });
   if (item.allDay) return date;
-  return `${date} · ${new Date(item.dueAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  const time = new Date(item.dueAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return `${date} · ${item.dueBy ? 'by ' : ''}${time}`;
 }
 
 /** Past its date (or, for all-day items, past the end of that day) and not done. */
