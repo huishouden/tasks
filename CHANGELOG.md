@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/huishouden/tasks/compare/v1.6.0...v1.7.0) (2026-10-02)
+
+
+### Features
+
+* what you tell an assistant to add reaches the household's lists (Google Tasks) ([#38](https://github.com/huishouden/tasks/issues/38)) ([775a112](https://github.com/huishouden/tasks/commit/775a112f545ceb01af330681a47bf7d39b358dc4))
+
 ## [1.6.0](https://github.com/huishouden/tasks/compare/v1.5.0...v1.6.0) (2026-10-02)
 
 
