@@ -91,6 +91,17 @@ test('a dated task goes on the household calendar with a reminder, and leaves bo
   await expect.poll(async () => (await readHouseholdCollection('agenda')).length, { timeout: 15_000 }).toBe(0);
 });
 
+test('Today, above every list, leads with what is due today and can check it off', async ({ page }) => {
+  await page.getByLabel('New item').fill('Drycleaners dropoff before 6');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('button', { name: /^Groceries/ }).first().click();
+  const today = page.getByRole('region', { name: 'Today' });
+  await expect(today).toContainText('Drycleaners dropoff');
+  await expect(today).toContainText(/Today · by 6:00\s?PM · Chores & Notes/);
+  await today.getByRole('button', { name: 'Check off Drycleaners dropoff' }).click();
+  await expect(today).toHaveCount(0);
+});
+
 test('Find nearby fills in the place from the closest matches', async ({ page }) => {
   await addItem(page, 'Drycleaners dropoff');
   await page.getByRole('button', { name: 'Edit Drycleaners dropoff' }).click();

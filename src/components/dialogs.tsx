@@ -756,8 +756,8 @@ export function SettingsDialog({
         <section>
           <h3 className="mb-1 font-semibold">{household.name}</h3>
           <p className="mb-3 text-sm text-stone-500">
-            Everyone below can see and edit every list. Adding someone does not email them: send them the link, and they get in by
-            signing in with the Google account you added.
+            Everyone here sees and edits every list, in every Huishouden app. Add someone by the Google address they sign in with,
+            then send them the link.
           </p>
           <ul className="mb-3 grid gap-1.5">
             {household.members.map((m) => {
