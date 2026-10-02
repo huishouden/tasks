@@ -35,18 +35,18 @@ describe('groupForStore', () => {
 
 describe('nearestStore', () => {
   // Two points about 1.1 km apart on the same street in Denver.
-  const publix = store('Publix', { lat: 39.7392, lng: -104.9903 });
+  const grocer = store('Corner Grocer', { lat: 39.7392, lng: -104.9903 });
   const target = store('Target', { lat: 39.7392, lng: -104.9774 });
 
   it('measures distance in metres', () => {
-    expect(distanceMeters(publix.location!, target.location!)).toBeGreaterThan(1000);
-    expect(distanceMeters(publix.location!, target.location!)).toBeLessThan(1200);
+    expect(distanceMeters(grocer.location!, target.location!)).toBeGreaterThan(1000);
+    expect(distanceMeters(grocer.location!, target.location!)).toBeLessThan(1200);
   });
 
   it('picks the closest store within 400 m, and none when far from all', () => {
-    expect(nearestStore([publix, target], { lat: 39.7394, lng: -104.9901 })?.name).toBe('Publix');
-    expect(nearestStore([publix, target], { lat: 39.7392, lng: -104.9776 })?.name).toBe('Target');
-    expect(nearestStore([publix, target], { lat: 39.76, lng: -105.01 })).toBeNull();
+    expect(nearestStore([grocer, target], { lat: 39.7394, lng: -104.9901 })?.name).toBe('Corner Grocer');
+    expect(nearestStore([grocer, target], { lat: 39.7392, lng: -104.9776 })?.name).toBe('Target');
+    expect(nearestStore([grocer, target], { lat: 39.76, lng: -105.01 })).toBeNull();
   });
 
   it('skips stores without a saved location', () => {

@@ -9,7 +9,7 @@ function item(overrides: Partial<ListItem>): ListItem {
     category: CATEGORIES.DAIRY_EGGS,
     quantity: '1',
     notes: '',
-    addedBy: 'Caleb',
+    addedBy: 'Alex',
     completed: false,
     urgency: URGENCY.NORMAL,
     createdAt: 1,

@@ -31,12 +31,12 @@ test('a store layout changes the walking order and shows aisle labels', async ({
   await expect.poll(() => sectionOrder(page)).toEqual(['Produce & Greens', 'Dairy & Eggs', 'Frozen Foods']);
 
   await page.getByRole('button', { name: /Add store/ }).click();
-  await page.getByLabel('Store name').fill('Publix');
+  await page.getByLabel('Store name').fill('Corner Grocer');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  const editor = page.getByRole('region', { name: 'Publix layout' });
+  const editor = page.getByRole('region', { name: 'Corner Grocer layout' });
   await expect(editor).toBeVisible();
 
-  // Frozen moves from 8th to the top: this Publix is walked back to front.
+  // Frozen moves from 8th to the top: this Corner Grocer is walked back to front.
   await moveRow(page, 'Frozen Foods', -7);
   await editor.getByLabel('Aisle for Dairy & Eggs').fill('Aisle 12');
   await editor.getByRole('button', { name: 'Done', exact: true }).click();
@@ -54,7 +54,7 @@ test('opening Store mode at a saved store picks it automatically', async ({ cont
 
   await page.getByRole('button', { name: 'Store', exact: true }).click();
   await page.getByRole('button', { name: /Add store/ }).click();
-  await page.getByLabel('Store name').fill('Publix');
+  await page.getByLabel('Store name').fill('Corner Grocer');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await page.getByRole('button', { name: /save this spot/ }).click();
   await expect(page.getByText('Location saved.')).toBeVisible();
@@ -65,13 +65,13 @@ test('opening Store mode at a saved store picks it automatically', async ({ cont
   await context.setGeolocation({ latitude: 39.76, longitude: -105.01 });
   await page.getByRole('button', { name: 'Lists' }).click();
   await page.getByRole('button', { name: 'Store', exact: true }).click();
-  await expect(page.getByText(/Shopping at Publix/)).toHaveCount(0);
+  await expect(page.getByText(/Shopping at Corner Grocer/)).toHaveCount(0);
 
-  // Back in the car park: Publix is picked.
+  // Back in the car park: Corner Grocer is picked.
   await context.setGeolocation({ latitude: 39.7394, longitude: -104.9901 });
   await page.getByRole('button', { name: 'Lists' }).click();
   await page.getByRole('button', { name: 'Store', exact: true }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Shopping at Publix' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Shopping at Corner Grocer' })).toBeVisible();
 });
 
 test('lists can be reordered for everyone', async ({ page }) => {
@@ -88,9 +88,9 @@ test('the layout editor keeps section names readable on a phone', async ({ page 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Store', exact: true }).click();
   await page.getByRole('button', { name: /Add store/ }).click();
-  await page.getByLabel('Store name').fill('Publix');
+  await page.getByLabel('Store name').fill('Corner Grocer');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  const editor = page.getByRole('region', { name: 'Publix layout' });
+  const editor = page.getByRole('region', { name: 'Corner Grocer layout' });
   // Regression: the aisle box took the whole row and wrapped names one word per line.
   const name = editor.getByText('Pantry & Dry Goods', { exact: true });
   const box = (await name.boundingBox())!;

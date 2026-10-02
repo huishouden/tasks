@@ -23,7 +23,7 @@ function item(overrides: Partial<ListItem>): ListItem {
     category: CATEGORIES.OTHER,
     quantity: '1',
     notes: '',
-    addedBy: 'Caleb',
+    addedBy: 'Alex',
     completed: false,
     urgency: URGENCY.NORMAL,
     createdAt: 0,
@@ -137,7 +137,7 @@ describe('formatListForSharing', () => {
 
 describe('firstName', () => {
   it('uses the first word of the Google display name', () => {
-    expect(firstName('Caleb Piekstra', 'x@example.com')).toBe('Caleb');
+    expect(firstName('Alex Example', 'x@example.com')).toBe('Alex');
   });
 
   it('falls back to the email local part', () => {

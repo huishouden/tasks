@@ -24,9 +24,11 @@ async function shot(page: Page, name: string) {
 
 test('README screenshots', async ({ page }) => {
   test.setTimeout(120_000);
+  // An obviously invented date, so sample appointments never read as real ones.
+  await page.clock.install({ time: new Date(2031, 0, 6, 10, 0) });
   await page.setViewportSize({ width: 1280, height: 800 });
-  await signIn(page, 'caleb@example.com', 'Caleb Example');
-  await page.getByLabel('Household name').fill('Piekstra Household');
+  await signIn(page, 'alex@example.com', 'Alex Example');
+  await page.getByLabel('Household name').fill('Example Household');
   await createHousehold(page);
 
   // Bought this week (on the Costco list, so Groceries shows only what is still needed), for meal ideas.
@@ -55,7 +57,7 @@ test('README screenshots', async ({ page }) => {
   await addItem(page, 'Get car inspected at the dealer');
   await page.getByRole('button', { name: 'Edit Get car inspected at the dealer' }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Date', { exact: true }).fill('2026-10-08');
+  await dialog.getByLabel('Date', { exact: true }).fill('2031-01-09');
   await dialog.getByLabel('Time (optional)').fill('10:30');
   await dialog.getByLabel('Where').fill('Main St Service Center');
   await dialog.getByRole('button', { name: 'Save' }).click();
@@ -67,7 +69,7 @@ test('README screenshots', async ({ page }) => {
   for (const i of [0, 1, 2]) await page.getByRole('list', { name: 'Steps for Garage cleanout' }).getByRole('checkbox').nth(i).click();
   // Same clock on every run from here (after the data exists, so item order still follows when
   // each was added), so before/after and README screenshots differ only by real changes.
-  await page.clock.setFixedTime(new Date(2026, 9, 5, 10, 30));
+  await page.clock.setFixedTime(new Date(2031, 0, 6, 10, 30));
   await shot(page, 'tasks-checklist');
 
   await page.getByRole('button', { name: /Groceries/ }).first().click();
@@ -87,7 +89,7 @@ test('README screenshots', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Store', exact: true }).click();
   await page.getByRole('button', { name: /Add store/ }).click();
-  await page.getByLabel('Store name').fill('Publix');
+  await page.getByLabel('Store name').fill('Corner Grocer');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await page.getByLabel('Aisle for Dairy & Eggs').fill('Aisle 12');
   await page.getByLabel('Aisle for Household & Cleaning').fill('Aisle 15');

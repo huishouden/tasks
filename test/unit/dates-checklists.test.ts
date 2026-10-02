@@ -23,7 +23,7 @@ function item(overrides: Partial<ListItem>): ListItem {
     category: CATEGORIES.CHORES,
     quantity: '1',
     notes: '',
-    addedBy: 'Caleb',
+    addedBy: 'Alex',
     completed: false,
     urgency: URGENCY.NORMAL,
     createdAt: 0,

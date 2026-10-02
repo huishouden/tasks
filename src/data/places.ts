@@ -4,7 +4,7 @@ import { distanceMeters, type GeoPoint } from './stores';
 export interface NearbyPlace {
   osmId: string;
   name: string;
-  /** Short street, e.g. "Indiantown Rd", used to tell branches of a chain apart. */
+  /** Short street, e.g. "Main St", used to tell branches of a chain apart. */
   street: string;
   address: string;
   location: GeoPoint;
@@ -25,14 +25,14 @@ const STREET_WORDS: [RegExp, string][] = [
   [/\bparkway\b/i, 'Pkwy'],
 ];
 
-/** "West Indiantown Road" → "Indiantown Rd". */
+/** "West Main Street" → "Main St". */
 export function shortStreet(street: string): string {
   let s = street.trim();
   for (const [re, to] of STREET_WORDS) s = s.replace(re, to);
   return s.replace(/\s+/g, ' ').trim();
 }
 
-/** What the household sees: "Publix · Indiantown Rd". */
+/** What the household sees: "Corner Grocer · Main St". */
 export function placeLabel(place: Pick<NearbyPlace, 'name' | 'street'>): string {
   return place.street ? `${place.name} · ${place.street}` : place.name;
 }

@@ -17,7 +17,7 @@ function bought(name: string, daysAgo: number | null, listId = 'groceries'): Lis
     category: CATEGORIES.OTHER,
     quantity: '1',
     notes: '',
-    addedBy: 'Caleb',
+    addedBy: 'Alex',
     completed: daysAgo !== null,
     urgency: URGENCY.NORMAL,
     createdAt: 0,

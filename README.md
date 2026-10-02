@@ -12,7 +12,7 @@ Part of [Huishouden](https://huishouden-piekstra.web.app), a suite of small hous
 | **Meals** from what was bought | **Tasks** with an appointment and a checklist |
 | ![Meal ideas grouped by breakfast, lunch and dinner, with favorites](docs/screenshots/meals.png) | ![Weekend Projects list with a dated appointment and a 7-step checklist](docs/screenshots/tasks-checklist.png) |
 
-<img src="docs/screenshots/store-phone.png" alt="Store mode on a phone, walking Publix with aisle labels" width="260" align="right">
+<img src="docs/screenshots/store-phone.png" alt="Store mode on a phone, walking Corner Grocer with aisle labels" width="260" align="right">
 
 **Store** mode on a phone walks the list in the chosen store's order. In a shop, a one-line banner asks whether you are at the store it found nearby (OpenStreetMap). While shopping, checking an item off offers an optional "which aisle?" at the bottom of the screen; aisles are remembered per store for the household, items are then grouped by aisle, and a wrong aisle can be corrected from the item.
 

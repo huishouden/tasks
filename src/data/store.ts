@@ -8,8 +8,6 @@ import {
   type User,
 } from 'firebase/auth';
 import {
-  arrayRemove,
-  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -27,6 +25,7 @@ import {
   type Query,
   type QuerySnapshot,
 } from 'firebase/firestore';
+import { watchHousehold } from '@huishouden/pwa-kit/household';
 import { getFirebase } from '../lib/firebase';
 import { mealKey, type FavoriteMeal, type Meal, type Menu } from './menus';
 import type { GeoPoint, LearnedAisle, StoreLayout } from './stores';
@@ -104,32 +103,21 @@ export type HouseholdState =
   | { status: 'error'; message: string }
   | { status: 'ready'; household: Household };
 
+/**
+ * The household this person belongs to, chosen the same way in every Huishouden app (the kit's
+ * `watchHousehold`: the oldest, skipping one the server has not accepted yet).
+ */
 export function useHousehold(db: Firestore, email: string): HouseholdState {
   const [state, setState] = useState<HouseholdState>({ status: 'loading' });
-  useEffect(() => {
-    const q = query(collection(db, 'households'), where('members', 'array-contains', email));
-    // A household that exists only as a local, unacknowledged write is not usable yet: the rules
-    // check its membership on the server, so subscribing to its lists early is refused.
-    const confirmed = new Set<string>();
-    return onSnapshot(
-      q,
-      { includeMetadataChanges: true },
-      (snap) => {
-        for (const d of snap.docs) if (!d.metadata.hasPendingWrites) confirmed.add(d.id);
-        const households = snap.docs
-          .filter((d) => confirmed.has(d.id))
-          .map((d) => ({ id: d.id, ...d.data() }) as Household)
-          // A person belongs to one household; the oldest wins if they were ever added to two.
-          .sort((a, b) => a.createdAt - b.createdAt);
-        if (households.length > 0) setState({ status: 'ready', household: households[0] });
-        else if (snap.empty) setState({ status: 'none' });
-      },
-      (e) => setState({ status: 'error', message: e.message }),
-    );
-  }, [db, email]);
+  useEffect(
+    () => watchHousehold(db, email, (next) => setState(next.status === 'error' ? { status: 'error', message: next.error.message } : next)),
+    [db, email],
+  );
   return state;
 }
 
+/** Starts a household with the default lists. One batch, so the household never exists without them
+ * (the kit's createHousehold writes the household alone). */
 export async function createHousehold(db: Firestore, email: string, name: string): Promise<void> {
   const ref = doc(collection(db, 'households'));
   const now = Date.now();
@@ -140,18 +128,6 @@ export async function createHousehold(db: Firestore, email: string, name: string
     batch.set(doc(db, 'households', ref.id, 'lists', list.id), { ...list, createdAt: now });
   }
   await batch.commit();
-}
-
-export async function addMember(db: Firestore, householdId: string, email: string): Promise<void> {
-  await updateDoc(doc(db, 'households', householdId), { members: arrayUnion(email.trim().toLowerCase()) });
-}
-
-export async function markJoined(db: Firestore, householdId: string, email: string): Promise<void> {
-  await updateDoc(doc(db, 'households', householdId), { joined: arrayUnion(email) });
-}
-
-export async function removeMember(db: Firestore, householdId: string, email: string): Promise<void> {
-  await updateDoc(doc(db, 'households', householdId), { members: arrayRemove(email) });
 }
 
 export interface HouseholdData {

@@ -18,14 +18,14 @@ describe('parsePlaces', () => {
     const places = parsePlaces(
       {
         elements: [
-          { type: 'way', id: 2, center: { lat: 39.7400, lon: -104.9903 }, tags: { shop: 'supermarket', name: 'Publix Super Market', brand: 'Publix', 'addr:street': 'West Main Street', 'addr:housenumber': '10' } },
+          { type: 'way', id: 2, center: { lat: 39.7400, lon: -104.9903 }, tags: { shop: 'supermarket', name: 'Corner Grocer Super Market', brand: 'Corner Grocer', 'addr:street': 'West Main Street', 'addr:housenumber': '10' } },
           { type: 'node', id: 1, lat: 39.7393, lon: -104.9903, tags: { shop: 'convenience', name: 'Corner Shop' } },
           { type: 'node', id: 3, lat: 39.74, lon: -104.99, tags: { shop: 'supermarket' } },
         ],
       },
       here,
     );
-    expect(places.map((p) => placeLabel(p))).toEqual(['Corner Shop', 'Publix · Main St']);
+    expect(places.map((p) => placeLabel(p))).toEqual(['Corner Shop', 'Corner Grocer · Main St']);
     expect(places[1]).toMatchObject({ osmId: 'way/2', address: '10 West Main Street' });
   });
 });

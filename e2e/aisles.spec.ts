@@ -7,7 +7,7 @@ const HERE = { latitude: 39.7392, longitude: -104.9903 };
 async function storeNearby(page: Page) {
   await page.route('https://overpass-api.de/**', (route) =>
     route.fulfill({
-      json: { elements: [{ type: 'way', id: 42, center: { lat: HERE.latitude, lon: HERE.longitude }, tags: { shop: 'supermarket', brand: 'Publix', 'addr:street': 'West Main Street' } }] },
+      json: { elements: [{ type: 'way', id: 42, center: { lat: HERE.latitude, lon: HERE.longitude }, tags: { shop: 'supermarket', brand: 'Corner Grocer', 'addr:street': 'West Main Street' } }] },
     }),
   );
 }
@@ -35,8 +35,8 @@ test('a detected store is offered once; Not now keeps it away after a reload', a
   await atTheStore(context);
   await page.reload();
   const offer = page.getByRole('region', { name: 'Detected store' });
-  await expect(offer).toContainText('At Publix · Main St?');
-  await offer.getByRole('button', { name: 'Not at Publix · Main St' }).click();
+  await expect(offer).toContainText('At Corner Grocer · Main St?');
+  await offer.getByRole('button', { name: 'Not at Corner Grocer · Main St' }).click();
   await expect(offer).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Groceries', level: 1 })).toBeVisible();
@@ -48,11 +48,11 @@ test('shopping a detected store: optional aisles while checking off, then groupe
   await atTheStore(context);
   await page.reload();
   await page.getByRole('region', { name: 'Detected store' }).getByRole('button', { name: 'Yes' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Shopping at Publix · Main St' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Shopping at Corner Grocer · Main St' })).toBeVisible();
 
   // Checking off offers an aisle; answering is optional.
   await page.getByRole('button', { name: 'Mark Greek yogurt done' }).click();
-  const prompt = page.getByRole('region', { name: /^Aisle for Greek yogurt at Publix/ });
+  const prompt = page.getByRole('region', { name: /^Aisle for Greek yogurt at Corner Grocer/ });
   await expect(prompt).toContainText('Greek yogurt: which aisle?');
   await prompt.getByLabel('Aisle for Greek yogurt', { exact: true }).fill('12');
   await prompt.getByLabel('Aisle for Greek yogurt', { exact: true }).press('Enter');

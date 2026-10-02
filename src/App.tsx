@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Firestore } from 'firebase/firestore';
+import { inviteMember, markJoined, removeMember } from '@huishouden/pwa-kit/household';
 import { CloudOff, Home, ListChecks, Loader2, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 import type { AddRequest } from './components/AddBar';
 import { ErrorNotice } from './components/ErrorNotice';
@@ -12,10 +13,7 @@ import { CATEGORIES, firstName, removedMessage, type Household, type ListIcon, t
 const FOOD_LIST_ICONS: ListIcon[] = ['grocery', 'pantry', 'bulk'];
 import {
   HouseholdRepo,
-  addMember,
   createHousehold,
-  markJoined,
-  removeMember,
   signIn,
   signOut,
   useAuth,
@@ -232,7 +230,7 @@ function HouseholdApp({
 
   const hasJoined = (household.joined ?? []).includes(email);
   useEffect(() => {
-    if (!hasJoined) void markJoined(db, household.id, email).catch(() => {});
+    if (!hasJoined) void markJoined(db, { ...household, joined: household.joined ?? [] }, email).catch(() => {});
   }, [hasJoined, db, household.id, email]);
 
   // A shopping trip: aisle prompts only appear while one is running, and it ends on its own.
@@ -515,7 +513,7 @@ function HouseholdApp({
           theme={theme}
           setTheme={setTheme}
           install={install}
-          onAddMember={(e) => addMember(db, household.id, e)}
+          onAddMember={(e) => inviteMember(db, household.id, e)}
           onRemoveMember={(e) => removeMember(db, household.id, e)}
           onSignOut={() => void signOut()}
           onClose={() => setSettings(false)}

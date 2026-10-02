@@ -111,7 +111,7 @@ export function StoreView(props: Props) {
               setEditing(true);
             }}
           >
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Publix on Main St" className={inputClass} autoFocus aria-label="Store name" />
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Corner Grocer on Main St" className={inputClass} autoFocus aria-label="Store name" />
             <button type="submit" disabled={!newName.trim()} className={primaryButton}>
               Add
             </button>
