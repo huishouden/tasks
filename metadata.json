@@ -1,0 +1,6 @@
+{
+  "name": "HearthList",
+  "description": "Shared household notes, grocery, and pantry app designed for Pixel Tablet and phones with smart auto-complete suggestions and seamless sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
