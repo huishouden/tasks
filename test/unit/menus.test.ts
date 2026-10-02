@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ingredientSource, kitchenInventory, mealIngredients, mealKey, menuPrompt, menuSystemInstruction, plannedGroceries, validateMeals } from '../../src/data/menus';
+import { heatLimit, ingredientSource, kitchenInventory, mealIngredients, mealKey, menuPrompt, menuSystemInstruction, plannedGroceries, validateMeals } from '../../src/data/menus';
 import { CATEGORIES, URGENCY, type ListItem, type ShoppingList } from '../../src/data/model';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -161,6 +161,30 @@ describe('validateMeals', () => {
     expect(result.droppedDiet).toEqual([{ name: 'Steak and rice', reason: 'steak (Sam (vegetarian))' }]);
   });
 
+  it('caps heat at the mildest spice tolerance in the household, saying for whom', () => {
+    const food = {
+      people: [
+        { id: 'a', name: 'Sam', diets: [], avoid: [], spice: 'mild' as const },
+        { id: 'b', name: 'Alex', diets: [], avoid: [], spice: 'hot' as const },
+        { id: 'c', name: 'Robin', diets: [], avoid: [] },
+      ],
+    };
+    const result = validateMeals(
+      {
+        meals: [
+          { type: 'dinner', name: 'Spicy steak tacos', parts: [{ ingredients: ['steak', 'rice'], prep: 'Seared with chili' }], extras: [], heat: 2 },
+          { type: 'dinner', name: 'Pepper steak', parts: [{ ingredients: ['steak', 'rice'], prep: 'Seared' }], extras: [], heat: 1 },
+          { type: 'lunch', name: 'Mushroom rice', parts: [{ ingredients: ['mushrooms', 'rice'], prep: 'Sautéed' }], extras: [], heat: 0 },
+        ],
+      },
+      { ...ctx, food },
+    );
+    expect(result.meals.map((m) => m.name)).toEqual(['Pepper steak', 'Mushroom rice']);
+    expect(result.droppedDiet).toEqual([{ name: 'Spicy steak tacos', reason: 'too spicy for Sam' }]);
+    expect(heatLimit(food)).toEqual({ max: 1, who: 'Sam' });
+    expect(heatLimit({ people: [{ id: 'c', name: 'Robin', diets: [], avoid: [] }] })).toBeNull();
+  });
+
   it('returns nothing for a response without meals', () => {
     expect(validateMeals({ text: 'sorry' }, ctx).meals).toEqual([]);
     expect(validateMeals(null, ctx).meals).toEqual([]);
@@ -168,6 +192,15 @@ describe('validateMeals', () => {
 });
 
 describe('the prompt', () => {
+  it('states the heat cap as a rule, for whom, and leaves it out when anyone may have any heat', () => {
+    const base = { have: ['eggs'], onList: [], pantry: PANTRY };
+    const none = { people: [{ id: 'a', name: 'Sam', diets: [], avoid: [], spice: 'none' as const }, { id: 'b', name: 'Robin', diets: [], avoid: [], spice: 'none' as const }] };
+    expect(menuPrompt({ ...base, food: none })).toMatch(/HOUSEHOLD RULES[^]*- Heat: every meal not spicy at all, heat 0 of 3 or less \(for Sam and Robin\)\./);
+    const hot = { people: [{ id: 'a', name: 'Sam', diets: [], avoid: [], spice: 'hot' as const }] };
+    expect(menuPrompt({ ...base, food: hot })).not.toContain('- Heat:');
+  });
+
+
   it('names what is had and listed, the pantry, and the household rules as requirements', () => {
     const food = { people: [{ id: 'a', name: 'Sam', diets: ['gerd' as const, 'pregnant' as const], avoid: ['olives'] }] };
     const prompt = menuPrompt({ have: ['eggs'], onList: ['rice'], pantry: PANTRY, food });

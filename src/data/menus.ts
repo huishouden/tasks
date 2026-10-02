@@ -1,4 +1,4 @@
-import { DEFAULT_PANTRY, householdDietPreferences, householdDietRules, pantryText, type FoodPreferences } from '@huishouden/pwa-kit/food';
+import { DEFAULT_PANTRY, SPICE_MAX_HEAT, householdDietPreferences, householdDietRules, householdMaxHeat, pantryText, type FoodPreferences } from '@huishouden/pwa-kit/food';
 import { avoidCaffeine, dietProblems, levelScore, mealLevels, type MealLevels } from './diet';
 import type { ListItem, ShoppingList } from './model';
 
@@ -246,9 +246,27 @@ Each meal is made of parts (for example the salmon, the rice, the zucchini, the 
 Vary the meals: do not use the same main protein in more than two meals. Prefer combinations people commonly eat together; avoid novelty pairings.`;
 }
 
+/**
+ * Whose spice tolerance caps the household's meals: "Sam (A little)". Empty when nobody set one.
+ * The cap itself is `householdMaxHeat`: everyone eats the same meal, so the mildest tolerance wins.
+ */
+export function heatLimit(food: Pick<FoodPreferences, 'people'>): { max: number; who: string } | null {
+  const max = householdMaxHeat(food);
+  if (max === undefined) return null;
+  const who = food.people.filter((p) => p.spice && SPICE_MAX_HEAT[p.spice] === max).map((p) => p.name);
+  return { max, who: who.join(' and ') };
+}
+
+const HEAT_WORDS = ['not spicy at all', 'at most a little heat', 'at most medium heat', 'any heat'];
+
 export function menuPrompt(ctx: MealContext, perType = 3): string {
   // Strict diets are rules; gentle ones (GERD, low-sodium) are preferences (the kit's DIET_STRICT).
-  const rules = householdDietRules(ctx.food, { strictOnly: true });
+  // The household's lowest spice tolerance is a rule too: every meal is checked against it.
+  const limit = heatLimit(ctx.food);
+  const rules = [
+    ...householdDietRules(ctx.food, { strictOnly: true }),
+    ...(limit && limit.max < 3 ? [`Heat: every meal ${HEAT_WORDS[limit.max]}, heat ${limit.max} of 3 or less (for ${limit.who}).`] : []),
+  ];
   const prefs = householdDietPreferences(ctx.food);
   return [
     `HAVE: ${ctx.have.join(', ') || '(nothing yet)'}`,
@@ -306,6 +324,11 @@ export function validateMeals(raw: unknown, ctx: MealContext): ValidatedMeals {
       ...(realExtras.length ? { extras: realExtras } : {}),
     };
     meal.levels = mealLevels(meal, rated);
+    const limit = heatLimit(ctx.food);
+    if (limit && meal.levels.heat > limit.max) {
+      result.droppedDiet.push({ name: meal.name, reason: `too spicy for ${limit.who}` });
+      continue;
+    }
     const problems = dietProblems(meal, ctx.food);
     if (problems.length) {
       result.droppedDiet.push({ name: meal.name, reason: `${problems[0].term} (${problems[0].who})` });

@@ -281,6 +281,31 @@ test('strict diets drop ideas, with the reason; GERD orders and labels them inst
   await expect(dinners.nth(1).getByLabel('Spicy', { exact: true })).toBeVisible();
 });
 
+test('the mildest spice tolerance caps every idea, and says for whom', async ({ page }) => {
+  await signIn(page, 'alice@example.com', 'Alice Example');
+  await createHousehold(page);
+  await seedFood([
+    { id: 'alice@example.com', name: 'Alex', diets: [], avoid: [], spice: 'hot' },
+    { id: 'sam', name: 'Sam', diets: [], avoid: [], spice: 'mild' },
+  ]);
+  for (const item of ['Eggs', 'Mushrooms', 'Rice']) await addItem(page, item);
+  await page.getByRole('button', { name: 'Meals' }).click();
+  await expect(page.getByText('Only a little heat, for Sam')).toBeVisible();
+  await page.evaluate(
+    () =>
+      (window.__mockMenuResponse = {
+        meals: [
+          { type: 'dinner', name: 'Spicy mushroom rice', parts: [{ ingredients: ['mushrooms', 'rice'], prep: 'Sautéed with chili' }], extras: [], heat: 2, acidity: 0, richness: 1, sweetness: 0 },
+          { type: 'dinner', name: 'Mushroom rice bowl', parts: [{ ingredients: ['mushrooms', 'rice', 'eggs'], prep: 'Sautéed in a little oil' }], extras: [], heat: 0, acidity: 0, richness: 1, sweetness: 0 },
+        ],
+      }),
+  );
+  await page.getByRole('button', { name: 'Suggest meals' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Left out 1 idea' })).toContainText('Spicy mushroom rice (too spicy for Sam)');
+  await expect(page.locator('article')).toHaveCount(1);
+  await expect(page.locator('article')).toContainText('Mushroom rice bowl');
+});
+
 test('deleting a batch of ideas can be undone', async ({ page }) => {
   await signIn(page, 'alice@example.com', 'Alice Example');
   await createHousehold(page);
