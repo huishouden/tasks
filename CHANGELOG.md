@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0](https://github.com/huishouden/tasks/compare/v1.0.0...v1.1.0) (2026-10-02)
+
+
+### Features
+
+* Find nearby shows hours, warns when closed, and hands off to Google Maps ([#21](https://github.com/huishouden/tasks/issues/21)) ([aa916b7](https://github.com/huishouden/tasks/commit/aa916b772c28dac2542c6ae6f27c48541f253b0f))
+* meal ideas plan from the list, suggest extras, and follow the household's diets ([#22](https://github.com/huishouden/tasks/issues/22)) ([ac13949](https://github.com/huishouden/tasks/commit/ac13949a602414dd99c5d40d2dae9f55e0236dc4))
+* plan meal ideas into a shared week ([#23](https://github.com/huishouden/tasks/issues/23)) ([db65559](https://github.com/huishouden/tasks/commit/db655599ebf747a3e23d66e74f3224dfe5dc9774))
+* task details fit the task: typed times, nearby places, fewer fields ([#17](https://github.com/huishouden/tasks/issues/17)) ([2ac4a4d](https://github.com/huishouden/tasks/commit/2ac4a4de35014e57a08c1d82950fae31ee4b1549))
+
+
+### Bug Fixes
+
+* dates typed into a task become its due date ([#24](https://github.com/huishouden/tasks/issues/24)) ([b1ad460](https://github.com/huishouden/tasks/commit/b1ad460f7809a41c2776cd9a5f5d853e78643494))
+
 ## 1.0.0 (2026-10-02)
 
 
