@@ -1,0 +1,51 @@
+@import 'tailwindcss';
+@import '@huishouden/pwa-kit/theme.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Colours and font come from the shared Huishouden theme, so every app in the suite matches. */
+  --color-forest-50: var(--hh-forest-50);
+  --color-forest-100: var(--hh-forest-100);
+  --color-forest-200: var(--hh-forest-200);
+  --color-forest-300: var(--hh-forest-300);
+  --color-forest-400: var(--hh-forest-400);
+  --color-forest-500: var(--hh-forest-500);
+  --color-forest-600: var(--hh-forest-600);
+  --color-forest-700: var(--hh-forest-700);
+  --color-forest-800: var(--hh-forest-800);
+  --color-forest-900: var(--hh-forest-900);
+  --color-cream: var(--hh-cream);
+  --color-terracotta: var(--hh-terracotta);
+  --color-terracotta-light: var(--hh-terracotta-light);
+  --color-terracotta-dark: var(--hh-terracotta-dark);
+  --font-sans: var(--hh-font);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-cream text-stone-800 antialiased dark:bg-forest-900 dark:text-stone-100;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* Installed PWAs draw under the status bar on Android tablets. */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+/* Keeps the normal bottom padding and grows it only where the device has a gesture bar. */
+.safe-bottom {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
