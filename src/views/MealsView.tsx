@@ -9,7 +9,7 @@ import { DIET_LABELS, householdDiets, type FoodPreferences } from '@huishouden/p
 import { MEAL_LABELS, groupMeals, kitchenInventory, mealIngredients, mealKey, pantryOf, plannedGroceries, type FavoriteMeal, type Meal, type MealContext, type Menu, type ValidatedMeals } from '../data/menus';
 import type { ListItem, ShoppingList } from '../data/model';
 import { PLAN_TYPES, firstFreeDay, type PlanType, type PlannedMeal } from '../data/mealPlan';
-import type { Ymd } from '@huishouden/pwa-kit/time';
+import { WEEKDAYS, daysBetween, relativeDay, shortDate, toYmd, weekday, ymdToTime, type Ymd } from '@huishouden/pwa-kit/time';
 
 interface Props {
   lists: ShoppingList[];
@@ -29,7 +29,7 @@ interface Props {
   planWeek: Ymd[];
   plan: PlannedMeal[];
   onPlan: (day: Ymd, type: PlanType, meal: Meal) => Promise<void>;
-  onUnplan: (day: Ymd, type: PlanType) => void;
+  onUnplan: (day: Ymd, type: PlanType) => Promise<void>;
 }
 
 const MIN_INGREDIENTS = 3;
@@ -203,7 +203,7 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
         )}
       </section>
 
-      <WeekPlan days={planWeek} plan={plan} onUnplan={onUnplan} />
+      <WeekPlan days={planWeek} plan={plan} onUnplan={(day, type) => onUnplan(day, type).catch((e: unknown) => setSaveError(friendlyError(e, 'save')))} />
 
       {shown && (
         <section className="grid gap-4" aria-label="Meal ideas">
@@ -398,23 +398,19 @@ function MealCard({
   );
 }
 
-/** "Today", "Tomorrow", "Wed, Jan 8". */
+/** "Today", "Tomorrow", "Wed, Jan 8", from the kit's day helpers. */
 function dayName(day: Ymd, now: number = Date.now()): string {
-  const [y, m, d] = day.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((date.getTime() - today.getTime()) / 86_400_000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  const today = toYmd(now);
+  const ahead = daysBetween(today, day);
+  if (ahead === 0 || ahead === 1) return relativeDay(ymdToTime(day), now);
+  return `${WEEKDAYS[weekday(day)].slice(0, 3)}, ${shortDate(day, today)}`;
 }
 
 /**
  * The week ahead, shared with the household: each day's breakfast, lunch and dinner. Empty slots
  * stay quiet; ideas are planned from their cards. Planned dinners also show in the portal.
  */
-function WeekPlan({ days, plan, onUnplan }: { days: Ymd[]; plan: PlannedMeal[]; onUnplan: (day: Ymd, type: PlanType) => void }) {
+function WeekPlan({ days, plan, onUnplan }: { days: Ymd[]; plan: PlannedMeal[]; onUnplan: (day: Ymd, type: PlanType) => Promise<void> }) {
   if (plan.length === 0) {
     return (
       <section aria-label="This week" className="rounded-2xl border border-dashed border-stone-300 p-4 text-sm text-stone-500 dark:border-forest-600">
@@ -425,12 +421,12 @@ function WeekPlan({ days, plan, onUnplan }: { days: Ymd[]; plan: PlannedMeal[]; 
   }
   const slot = (day: Ymd, type: PlanType) => {
     const p = plan.find((x) => x.day === day && x.type === type);
-    if (!p) return <span className="text-stone-400">–</span>;
+    if (!p) return <span className="text-stone-500" aria-label="Nothing planned">–</span>;
     return (
       <span className="flex items-center gap-1">
         <span className="min-w-0 flex-1">{p.name}</span>
         <button
-          onClick={() => onUnplan(day, type)}
+          onClick={() => void onUnplan(day, type)}
           className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-stone-400 hover:bg-stone-100 dark:hover:bg-forest-700"
           aria-label={`Remove ${p.name} from ${dayName(day)} ${type}`}
         >
@@ -444,6 +440,7 @@ function WeekPlan({ days, plan, onUnplan }: { days: Ymd[]; plan: PlannedMeal[]; 
       <h2 className="text-sm font-semibold tracking-wider text-stone-500 uppercase">This week</h2>
       {/* Tablet and up: a table, days down, meals across. */}
       <table className="hidden w-full table-fixed overflow-hidden rounded-2xl border border-stone-200 bg-white text-left text-sm sm:table dark:border-forest-700 dark:bg-forest-800">
+        <caption className="sr-only">This week</caption>
         <thead className="text-stone-500">
           <tr>
             <th scope="col" className="w-36 px-3 py-2 font-medium">

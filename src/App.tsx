@@ -417,7 +417,7 @@ function HouseholdApp({
             planWeek={planWeek}
             plan={plan}
             onPlan={(day, type, meal) => planMeal(db, household.id, day, type, meal, email)}
-            onUnplan={(day, type) => void unplanMeal(db, household.id, day, type)}
+            onUnplan={(day, type) => unplanMeal(db, household.id, day, type)}
             suggest={suggestMeals}
             onSave={(ingredients, meals) => repo.saveMenu(ingredients, meals, addedAs)}
             onDelete={(id) => {

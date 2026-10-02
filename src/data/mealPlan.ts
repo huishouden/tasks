@@ -1,5 +1,5 @@
-import { collection, deleteDoc, doc, query, setDoc, where, type Firestore } from 'firebase/firestore';
-import { allDayStart, removeAgenda, replaceAgenda } from '@huishouden/pwa-kit/agenda';
+import { collection, doc, query, where, writeBatch, type Firestore } from 'firebase/firestore';
+import { agendaDoc, agendaId, allDayStart } from '@huishouden/pwa-kit/agenda';
 import { addDays, toYmd, type Ymd } from '@huishouden/pwa-kit/time';
 import type { Meal } from './menus';
 
@@ -40,19 +40,32 @@ export function planQuery(db: Firestore, householdId: string, from: Ymd, to: Ymd
   return query(planCollection(db, householdId), where('day', '>=', from), where('day', '<=', to));
 }
 
-/** Plans (or replaces) one slot; a dinner is published to the household agenda. */
+const agendaCollection = (db: Firestore, householdId: string) => collection(db, 'households', householdId, 'agenda');
+
+/** The agenda document a planned dinner on `day` is published as (one per day, idempotent). */
+const dinnerAgendaId = (day: Ymd) => agendaId(TASKS_APP, agendaRef(day), allDayStart(day));
+
+/**
+ * Plans (or replaces) one slot. A dinner is published to the household agenda in the same batch,
+ * so the plan and the agenda can never disagree after a failure.
+ */
 export async function planMeal(db: Firestore, householdId: string, day: Ymd, type: PlanType, meal: Meal, by: string): Promise<void> {
   const planned: PlannedMeal = { day, type, name: meal.name.slice(0, 120), meal, by, updatedAt: Date.now() };
-  await setDoc(doc(planCollection(db, householdId), slotId(day, type)), planned);
+  const batch = writeBatch(db);
+  batch.set(doc(planCollection(db, householdId), slotId(day, type)), planned);
   if (type === 'dinner') {
-    await replaceAgenda(db, householdId, TASKS_APP, agendaRef(day), [{ kind: 'other', title: `Dinner: ${meal.name}`.slice(0, 120), start: allDayStart(day), allDay: true, url: MEALS_URL }], { by });
+    const entry = agendaDoc(TASKS_APP, { ref: agendaRef(day), kind: 'other', title: `Dinner: ${meal.name}`.slice(0, 120), start: allDayStart(day), allDay: true, url: MEALS_URL }, by);
+    batch.set(doc(agendaCollection(db, householdId), dinnerAgendaId(day)), entry);
   }
+  await batch.commit();
 }
 
-/** Clears one slot, and its agenda entry for a dinner. */
+/** Clears one slot, and a dinner's agenda entry with it, in one batch. */
 export async function unplanMeal(db: Firestore, householdId: string, day: Ymd, type: PlanType): Promise<void> {
-  await deleteDoc(doc(planCollection(db, householdId), slotId(day, type)));
-  if (type === 'dinner') await removeAgenda(db, householdId, TASKS_APP, agendaRef(day));
+  const batch = writeBatch(db);
+  batch.delete(doc(planCollection(db, householdId), slotId(day, type)));
+  if (type === 'dinner') batch.delete(doc(agendaCollection(db, householdId), dinnerAgendaId(day)));
+  await batch.commit();
 }
 
 /** The slot a new idea goes to by default: its own type on the first day that is still free. */
