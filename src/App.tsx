@@ -230,8 +230,9 @@ function HouseholdApp({
 
   const hasJoined = (household.joined ?? []).includes(email);
   useEffect(() => {
+    // The latest snapshot, so the kit's own membership check never sees a stale member list.
     if (!hasJoined) void markJoined(db, { ...household, joined: household.joined ?? [] }, email).catch(() => {});
-  }, [hasJoined, db, household.id, email]);
+  }, [hasJoined, db, household, email]);
 
   // A shopping trip: aisle prompts only appear while one is running, and it ends on its own.
   const [session, setSession] = usePref<{ storeId: string; until: number } | null>('shopping', null);
