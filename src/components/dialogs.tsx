@@ -516,7 +516,7 @@ function WhereField({
         </div>
       </div>
       {hours && (
-        <p className="text-sm text-stone-600 dark:text-stone-300">
+        <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
           {parseOpeningHours(hours) ? hoursToday(hours) : `Hours: ${hours}`}
         </p>
       )}
