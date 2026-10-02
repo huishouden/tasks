@@ -9,22 +9,18 @@ import {
 } from 'firebase/auth';
 import {
   collection,
-  deleteDoc,
   doc,
   getDocs,
-  increment,
   limit,
   onSnapshot,
   orderBy,
   query,
-  setDoc,
-  updateDoc,
   where,
-  writeBatch,
   type Firestore,
   type Query,
   type QuerySnapshot,
 } from 'firebase/firestore';
+import { deleteDoc, increment, setDoc, updateDoc, writeBatch } from '@huishouden/pwa-kit/firestore';
 import { watchFood, type FoodPreferences } from '@huishouden/pwa-kit/food';
 import { watchHousehold } from '@huishouden/pwa-kit/household';
 import { forgetSilentSignIn } from '@huishouden/pwa-kit/auth';
