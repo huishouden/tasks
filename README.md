@@ -23,8 +23,8 @@ The screenshots come from a sample household in the emulators. After a change to
 ## How it works
 
 - **Sign-in:** Google accounts through Firebase Auth. A household is a list of member emails; anyone in it can see and edit every list. Members are added in Settings.
-- **Data:** Cloud Firestore, cached on each device so the app opens instantly and works without a connection. Access is enforced by `firestore.rules`.
-- **Hosting:** the `huishouden-tasks` site in the shared `huishouden-piekstra` Firebase project, with the portal and Spending. This repo deploys the project's single `firestore.rules`; the other apps send their blocks here.
+- **Data:** Cloud Firestore, cached on each device so the app opens instantly and works without a connection. Access is enforced by the household's Firestore rules, which live in [huishouden/rules](https://github.com/huishouden/rules); changes to what Tasks stores go there as a PR.
+- **Hosting:** the `huishouden-tasks` site in the shared `huishouden-piekstra` Firebase project, with the other Huishouden apps.
 - **Config:** CI builds read the Firebase web config from the repo's `VITE_FIREBASE_*` variables (public by design); local previews fall back to `/__/firebase/init.json`, which Hosting serves.
 - **Updates:** every push to `main` runs the checks and deploys. Installed copies pick up a new version on their next launch, and the always-on tablet checks hourly.
 
@@ -38,9 +38,9 @@ Requires [Bun](https://bun.sh), and Java 21+ for the Firestore emulator.
 
 ```sh
 bun install                        # also enables the pre-commit leak scan (.githooks)
-bunx firebase emulators:start --only auth,firestore --project demo-huishouden-tasks   # terminal 1
+sh e2e/emulators/fetch-rules.sh && bunx firebase emulators:start --config e2e/emulators/firebase.json --only auth,firestore --project demo-huishouden-tasks   # terminal 1
 VITE_USE_EMULATORS=true bun run dev                                                     # terminal 2
-bun run verify       # types, design check, unit tests, security-rules tests, build
+bun run verify       # types, design check, unit tests, build
 bun run e2e:local    # signed-in browser flows against the emulators (starts them itself)
 bun run e2e          # smoke tests of the deployed site (read-only)
 bun run e2e:ai       # real Gemini through the app's code (needs an App Check debug token, see below)
@@ -54,6 +54,6 @@ Against the emulators, the app exposes `window.__testSignIn(email, name)`, which
 
 ## CI/CD and releases
 
-`.github/workflows/ci.yml` calls the kit's shared pipeline (`pwa.yml`): leak scan, design check, lint, unit tests and build on every pull request and push; on `main`, a keyless deploy of Hosting and smoke tests against the live site. This repo adds `app-tests` (rules and emulator browser flows) and, on `main`, deploys `firestore.rules`. Releases come from the kit's `release.yml` (release-please): Conventional Commit PR titles become `CHANGELOG.md` and tagged versions, and Settings shows the running version and build.
+`.github/workflows/ci.yml` calls the kit's shared pipeline (`pwa.yml`): leak scan, design check, lint, unit tests and build on every pull request and push; on `main`, a keyless deploy of Hosting and smoke tests against the live site. This repo adds `app-tests`: the signed-in browser flows against the Auth and Firestore emulators, using the current rules from huishouden/rules main (`RULES_REF=<branch>` tries a rules PR). Releases come from the kit's `release.yml` (release-please): Conventional Commit PR titles become `CHANGELOG.md` and tagged versions, and Settings shows the running version and build.
 
 Deploys authenticate through Workload Identity Federation (no stored keys) with the repo variables `GCP_WIF_PROVIDER` and `GCP_DEPLOY_SA`, set by the kit's `infra/bootstrap.sh`.

@@ -10,3 +10,4 @@ playwright-report
 .env
 .DS_Store
 .twapp-asks.json
+e2e/emulators/firestore.rules

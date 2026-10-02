@@ -27,8 +27,8 @@ jobs:
       hosting-target: tasks
       site-url: https://huishouden-tasks.web.app
 
-  # What only this app has: the household's Firestore rules (tested against the emulator) and the
-  # signed-in browser flows, which need the Auth and Firestore emulators.
+  # What only this app has: the signed-in browser flows, run against the Auth and Firestore
+  # emulators with the household's real rules from huishouden/rules main.
   app-tests:
     runs-on: ubuntu-latest
     steps:
@@ -46,7 +46,6 @@ jobs:
             ~/.cache/ms-playwright
           key: ${{ runner.os }}-app-tests-${{ hashFiles('bun.lock') }}
       - run: bun install --frozen-lockfile
-      - run: bun run test:rules
       - run: bunx playwright install --with-deps chromium
       - run: bun run e2e:local
       - uses: actions/upload-artifact@v7
@@ -57,25 +56,6 @@ jobs:
             playwright-report
             test-results
           retention-days: 7
-
-  # This repo owns the project's single rules file and its indexes (the other apps send their blocks here).
-  firestore-rules:
-    needs: [pwa, app-tests]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: production
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SA }}
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bunx firebase deploy --only firestore:rules,firestore:indexes --project huishouden-piekstra --non-interactive --message "${{ github.sha }}"
 
   release:
     uses: huishouden/pwa-kit/.github/workflows/release.yml@v0
