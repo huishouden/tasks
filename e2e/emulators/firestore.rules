@@ -1,0 +1,743 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true;
+    }
+
+    function myEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    match /households/{householdId} {
+      function isMember() {
+        return signedIn()
+          && myEmail() in get(/databases/$(database)/documents/households/$(householdId)).data.members;
+      }
+
+      allow read: if signedIn() && myEmail() in resource.data.members;
+
+      // A new household starts with only its creator; others are invited from inside.
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name', 'members', 'createdAt'])
+        && request.resource.data.members == [myEmail()]
+        && request.resource.data.name is string
+        && request.resource.data.createdAt is int;
+
+      // Members may invite or remove others but cannot edit themselves out by accident.
+      // Separately, each member records their own first sign-in in `joined`, and only their own.
+      allow update: if signedIn()
+        && myEmail() in resource.data.members
+        && (
+          (myEmail() in request.resource.data.members
+            && request.resource.data.members.size() <= 12
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'members']))
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joined'])
+            && request.resource.data.joined == resource.data.get('joined', []).concat([myEmail()]))
+        );
+
+      allow delete: if false;
+
+      // Lists are written in the same batch that creates the household, so membership is
+      // checked against the state after the write.
+      function isMemberAfter() {
+        return signedIn()
+          && myEmail() in getAfter(/databases/$(database)/documents/households/$(householdId)).data.members;
+      }
+
+      match /lists/{listId} {
+        allow read: if isMember();
+        allow write: if isMemberAfter();
+      }
+
+      match /items/{itemId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 200
+          && request.resource.data.listId is string
+          && request.resource.data.completed is bool
+          && (!('subtasks' in request.resource.data) || request.resource.data.subtasks.size() <= 50);
+      }
+
+      match /staples/{stapleId} {
+        allow read, write: if isMember();
+      }
+
+      match /stores/{storeId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.categoryOrder is list
+          && request.resource.data.categoryOrder.size() <= 20;
+
+        match /aisles/{itemKey} {
+          allow read, delete: if isMember();
+          allow create, update: if isMember()
+            && request.resource.data.aisle is string
+            && request.resource.data.aisle.size() > 0
+            && request.resource.data.aisle.size() <= 24;
+        }
+      }
+
+      // Huishouden Spending: the household's card spending, written by members' browsers (statement
+      // files, card alert emails, category edits). A household's legacy Apps Script also writes
+      // spendingTransactions with its owner's IAM credentials, which bypass these rules. Field lists
+      // match TRANSACTION_FIELDS, SETTINGS_FIELDS, CARD_FIELDS, CSV_FIELDS and RULE_FIELDS in the
+      // app's src/data/model.ts.
+      function spStr(d, k, lo, hi) {
+        return d[k] is string && d[k].size() >= lo && d[k].size() <= hi;
+      }
+      function spOptStr(d, k, hi) {
+        return !(k in d) || spStr(d, k, 0, hi);
+      }
+      function spWords(d, k, maxItems) {
+        return d[k] is list && d[k].size() <= maxItems;
+      }
+
+      match /spendingTransactions/{txId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['date', 'description', 'amount', 'category', 'card', 'type', 'source', 'last4', 'emailId', 'createdAt', 'updatedAt', 'by'])
+          && isYmd(request.resource.data.date)
+          && spStr(request.resource.data, 'description', 1, 200)
+          && request.resource.data.amount is number
+          && request.resource.data.amount >= -10000000 && request.resource.data.amount <= 10000000
+          && spStr(request.resource.data, 'category', 0, 60)
+          && spStr(request.resource.data, 'card', 0, 60)
+          && spStr(request.resource.data, 'type', 0, 20)
+          && request.resource.data.source in ['statement', 'alert']
+          && (!('last4' in request.resource.data) || (request.resource.data.last4 is string && request.resource.data.last4.matches('^[0-9]{4}$')))
+          && spOptStr(request.resource.data, 'emailId', 64)
+          && request.resource.data.createdAt is int
+          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is int)
+          && spStr(request.resource.data, 'by', 1, 200);
+      }
+
+      // One document, `main`: budget, currency, words never counted, Gmail labels, last email check.
+      match /spendingSettings/{docId} {
+        allow read: if isMember();
+        allow delete: if false;
+        allow create, update: if isMember()
+          && docId == 'main'
+          && request.resource.data.keys().hasOnly(['monthlyBudget', 'currencySymbol', 'ignoredKeywords', 'alertLabels', 'emailCheckedAt', 'emailCheckedBy', 'updatedAt', 'updatedBy'])
+          && (!('monthlyBudget' in request.resource.data) || (request.resource.data.monthlyBudget is number
+            && request.resource.data.monthlyBudget >= 0 && request.resource.data.monthlyBudget <= 100000000))
+          && spOptStr(request.resource.data, 'currencySymbol', 4)
+          && (!('ignoredKeywords' in request.resource.data) || spWords(request.resource.data, 'ignoredKeywords', 100))
+          && (!('alertLabels' in request.resource.data) || spWords(request.resource.data, 'alertLabels', 20))
+          && (!('emailCheckedAt' in request.resource.data) || request.resource.data.emailCheckedAt is int)
+          && spOptStr(request.resource.data, 'emailCheckedBy', 200)
+          && request.resource.data.updatedAt is int
+          && spStr(request.resource.data, 'updatedBy', 1, 200);
+      }
+
+      match /spendingCards/{cardId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['name', 'last4', 'issuer', 'alertWords', 'csv', 'createdAt', 'updatedAt', 'by'])
+          && spStr(request.resource.data, 'name', 1, 60)
+          && (!('last4' in request.resource.data) || (request.resource.data.last4 is string && request.resource.data.last4.matches('^[0-9]{4}$')))
+          && spOptStr(request.resource.data, 'issuer', 40)
+          && spWords(request.resource.data, 'alertWords', 20)
+          && (!('csv' in request.resource.data) || (request.resource.data.csv is map
+            && request.resource.data.csv.keys().hasOnly(['date', 'description', 'amount', 'debit', 'credit', 'category', 'type', 'card', 'purchases', 'dayFirst'])
+            && request.resource.data.csv.purchases in ['negative', 'positive']
+            && request.resource.data.csv.dayFirst is bool))
+          && request.resource.data.createdAt is int
+          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is int)
+          && spStr(request.resource.data, 'by', 1, 200);
+      }
+
+      // "When the merchant contains X, the category is Y."
+      match /spendingRules/{ruleId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['contains', 'category', 'createdAt', 'updatedAt', 'by'])
+          && spStr(request.resource.data, 'contains', 1, 80)
+          && spStr(request.resource.data, 'category', 1, 60)
+          && request.resource.data.createdAt is int
+          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is int)
+          && spStr(request.resource.data, 'by', 1, 200);
+      }
+
+      // Huishouden Baby: the household's shared baby log, checklists and appointments.
+      match /babyProfile/{docId} {
+        allow read: if isMember();
+        allow write: if isMember()
+          && docId == 'main'
+          && request.resource.data.keys().hasOnly(['name', 'dueDate', 'birthDate', 'updatedAt', 'updatedBy'])
+          && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 60));
+      }
+
+      match /babyEvents/{eventId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['kind', 'at', 'endAt', 'side', 'method', 'amountMl', 'diaper', 'note', 'by', 'createdAt', 'updatedAt'])
+          && request.resource.data.kind in ['feed', 'sleep', 'diaper', 'pump']
+          && request.resource.data.at is int
+          && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 500));
+      }
+
+      match /babyChecklists/{itemId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 200;
+      }
+
+      match /babyAppointments/{appointmentId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.at is int;
+      }
+
+      // Huishouden Car: the household's cars, their service schedules, odometer readings,
+      // renewals, service history and service appointments. Shops are shared contacts.
+      function carStr(d, k, max) {
+        return !(k in d) || (d[k] is string && d[k].size() <= max);
+      }
+      function carName(d, k, max) {
+        return d[k] is string && d[k].size() > 0 && d[k].size() <= max;
+      }
+      function carInt(d, k, lo, hi) {
+        return !(k in d) || (d[k] is int && d[k] >= lo && d[k] <= hi);
+      }
+      function carYmd(d, k) {
+        return d[k] is string && d[k].matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      }
+      function carStamp(d) {
+        return d.createdAt is int && d.by is string && d.by.size() <= 120 && carInt(d, 'updatedAt', 0, 9007199254740991);
+      }
+
+      match /carVehicles/{vehicleId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['name', 'make', 'model', 'year', 'notes', 'createdAt', 'updatedAt', 'by'])
+          && carName(request.resource.data, 'name', 60)
+          && carStr(request.resource.data, 'make', 40)
+          && carStr(request.resource.data, 'model', 40)
+          && carInt(request.resource.data, 'year', 1900, 2100)
+          && carStr(request.resource.data, 'notes', 500)
+          && carStamp(request.resource.data);
+      }
+
+      match /carServiceItems/{itemId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['vehicleId', 'name', 'everyMonths', 'everyDistance', 'lastDate', 'lastOdometer', 'notes', 'createdAt', 'updatedAt', 'by'])
+          && carName(request.resource.data, 'vehicleId', 128)
+          && carName(request.resource.data, 'name', 80)
+          && ('everyMonths' in request.resource.data || 'everyDistance' in request.resource.data)
+          && carInt(request.resource.data, 'everyMonths', 1, 240)
+          && carInt(request.resource.data, 'everyDistance', 1, 1000000)
+          && (!('lastDate' in request.resource.data) || carYmd(request.resource.data, 'lastDate'))
+          && carInt(request.resource.data, 'lastOdometer', 0, 9999999)
+          && carStr(request.resource.data, 'notes', 500)
+          && carStamp(request.resource.data);
+      }
+
+      match /carOdometer/{readingId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['vehicleId', 'date', 'reading', 'note', 'createdAt', 'updatedAt', 'by'])
+          && carName(request.resource.data, 'vehicleId', 128)
+          && carYmd(request.resource.data, 'date')
+          && request.resource.data.reading is int
+          && carInt(request.resource.data, 'reading', 0, 9999999)
+          && carStr(request.resource.data, 'note', 200)
+          && carStamp(request.resource.data);
+      }
+
+      match /carRenewals/{renewalId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['vehicleId', 'kind', 'name', 'dueDate', 'everyMonths', 'notes', 'createdAt', 'updatedAt', 'by'])
+          && carStr(request.resource.data, 'vehicleId', 128)
+          && request.resource.data.kind in ['registration', 'insurance', 'inspection', 'toll', 'other']
+          && carName(request.resource.data, 'name', 80)
+          && carYmd(request.resource.data, 'dueDate')
+          && carInt(request.resource.data, 'everyMonths', 1, 120)
+          && carStr(request.resource.data, 'notes', 500)
+          && carStamp(request.resource.data);
+      }
+
+      match /carServiceLog/{entryId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['vehicleId', 'date', 'odometer', 'what', 'serviceItemIds', 'shopId', 'costCents', 'notes', 'createdAt', 'updatedAt', 'by'])
+          && carName(request.resource.data, 'vehicleId', 128)
+          && carYmd(request.resource.data, 'date')
+          && carInt(request.resource.data, 'odometer', 0, 9999999)
+          && carName(request.resource.data, 'what', 120)
+          && (!('serviceItemIds' in request.resource.data) || (request.resource.data.serviceItemIds is list && request.resource.data.serviceItemIds.size() <= 20))
+          && carStr(request.resource.data, 'shopId', 128)
+          && carInt(request.resource.data, 'costCents', 0, 100000000)
+          && carStr(request.resource.data, 'notes', 1000)
+          && carStamp(request.resource.data);
+      }
+
+      match /carAppointments/{appointmentId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['vehicleId', 'title', 'at', 'location', 'notes', 'shopId', 'calendarEventId', 'calendarLink', 'createdAt', 'updatedAt', 'by'])
+          && carStr(request.resource.data, 'vehicleId', 128)
+          && carName(request.resource.data, 'title', 120)
+          && request.resource.data.at is int
+          && carStr(request.resource.data, 'location', 200)
+          && carStr(request.resource.data, 'notes', 500)
+          && carStr(request.resource.data, 'shopId', 128)
+          && carStr(request.resource.data, 'calendarEventId', 1024)
+          && (!('calendarLink' in request.resource.data) || (request.resource.data.calendarLink is string
+            && request.resource.data.calendarLink.matches('https://.*') && request.resource.data.calendarLink.size() <= 2000))
+          && carStamp(request.resource.data);
+      }
+
+      // One document, `main`: the unit the household's odometers read in.
+      match /carSettings/{docId} {
+        allow read: if isMember();
+        allow write: if isMember()
+          && docId == 'main'
+          && request.resource.data.keys().hasOnly(['distanceUnit', 'updatedAt', 'updatedBy'])
+          && request.resource.data.distanceUnit in ['mi', 'km']
+          && request.resource.data.updatedAt is int
+          && request.resource.data.updatedBy is string;
+      }
+
+      // Huishouden Home: the house's upkeep jobs with their schedules, the service history, and
+      // warranties. Field lists match TASK_KEYS, SERVICE_KEYS and WARRANTY_KEYS in the app's model.
+      function isYmd(v) {
+        return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      }
+
+      function optString(d, key, max) {
+        return !(key in d) || (d[key] is string && d[key].size() <= max);
+      }
+
+      function optYmd(d, key) {
+        return !(key in d) || isYmd(d[key]);
+      }
+
+      function optLink(d, key) {
+        return !(key in d) || (d[key] is string && d[key].size() <= 500 && d[key].matches('https://.+'));
+      }
+
+      function stamped(d) {
+        return d.createdAt is int
+          && d.by is string && d.by.size() <= 200
+          && (!('updatedAt' in d) || d.updatedAt is int);
+      }
+
+      function isSchedule(s) {
+        return s is map
+          && s.keys().hasOnly(['kind', 'every', 'unit', 'anchor'])
+          && s.kind in ['after-done', 'fixed']
+          && s.every is int && s.every >= 1 && s.every <= 99
+          && s.unit in ['day', 'week', 'month', 'year']
+          && (s.kind == 'after-done' ? !('anchor' in s) : isYmd(s.get('anchor', null)));
+      }
+
+      match /homeTasks/{taskId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['title', 'category', 'schedule', 'due', 'lastDone', 'contactId', 'notes', 'calendarEventId', 'calendarLink', 'createdAt', 'updatedAt', 'by'])
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.category in ['hvac', 'pest', 'lawn', 'gutters', 'plumbing', 'electrical', 'appliances', 'safety', 'pool', 'paperwork', 'other']
+          && isSchedule(request.resource.data.schedule)
+          && isYmd(request.resource.data.due)
+          && optYmd(request.resource.data, 'lastDone')
+          && optString(request.resource.data, 'contactId', 100)
+          && optString(request.resource.data, 'notes', 1000)
+          && optString(request.resource.data, 'calendarEventId', 1024)
+          && optLink(request.resource.data, 'calendarLink')
+          && stamped(request.resource.data);
+      }
+
+      match /homeServiceLog/{entryId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['date', 'title', 'taskId', 'contactId', 'who', 'costCents', 'notes', 'calendarEventId', 'calendarLink', 'createdAt', 'updatedAt', 'by'])
+          && isYmd(request.resource.data.date)
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && optString(request.resource.data, 'taskId', 100)
+          && optString(request.resource.data, 'contactId', 100)
+          && optString(request.resource.data, 'who', 120)
+          && (!('costCents' in request.resource.data) || (request.resource.data.costCents is int
+            && request.resource.data.costCents >= 0 && request.resource.data.costCents <= 100000000))
+          && optString(request.resource.data, 'notes', 1000)
+          && optString(request.resource.data, 'calendarEventId', 1024)
+          && optLink(request.resource.data, 'calendarLink')
+          && stamped(request.resource.data);
+      }
+
+      match /homeWarranties/{warrantyId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['item', 'details', 'purchaseDate', 'warrantyEnd', 'receiptUrl', 'manualUrl', 'contactId', 'notes', 'createdAt', 'updatedAt', 'by'])
+          && request.resource.data.item is string
+          && request.resource.data.item.size() > 0
+          && request.resource.data.item.size() <= 120
+          && optString(request.resource.data, 'details', 200)
+          && optYmd(request.resource.data, 'purchaseDate')
+          && optYmd(request.resource.data, 'warrantyEnd')
+          && optLink(request.resource.data, 'receiptUrl')
+          && optLink(request.resource.data, 'manualUrl')
+          && optString(request.resource.data, 'contactId', 100)
+          && optString(request.resource.data, 'notes', 1000)
+          && stamped(request.resource.data);
+      }
+
+      // Huishouden Bills: bill sources (which emails are whose bills), bills (bill/v1), and each
+      // member's last email check. Field lists match the app's src/lib/model.ts.
+      function billKinds() {
+        return ['electric', 'gas', 'water', 'internet', 'phone', 'mortgage', 'hoa', 'insurance', 'other'];
+      }
+
+      function billMoney(v) {
+        return v == null
+          || (v is map && v.keys().hasOnly(['amount', 'currency'])
+            && v.amount is string && v.amount.matches('^-?[0-9]{1,12}[.][0-9]{2}$')
+            && v.currency is string && v.currency.matches('^[A-Z]{3}$'));
+      }
+
+      function billAutopay(v) {
+        return v == null
+          || (v is map && v.keys().hasOnly(['enrolled', 'nextDraft'])
+            && v.enrolled is bool
+            && (!('nextDraft' in v) || isYmd(v.nextDraft)));
+      }
+
+      match /billSources/{sourceId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['name', 'kind', 'from', 'subject', 'label', 'payUrl', 'autopay', 'createdAt', 'createdBy', 'updatedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 60
+          && request.resource.data.kind in billKinds()
+          && optString(request.resource.data, 'from', 200)
+          && optString(request.resource.data, 'subject', 200)
+          && optString(request.resource.data, 'label', 200)
+          && ('from' in request.resource.data || 'subject' in request.resource.data || 'label' in request.resource.data)
+          && optLink(request.resource.data, 'payUrl')
+          && (request.resource.data.autopay == null || request.resource.data.autopay is bool)
+          && request.resource.data.createdAt is int
+          && request.resource.data.createdBy is string
+          && request.resource.data.updatedAt is int;
+      }
+
+      match /bills/{billId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['schema', 'source', 'sourceId', 'kind', 'label', 'due', 'amountDue', 'status', 'autopay', 'period', 'payUrl', 'repeat', 'emailId', 'paidAt', 'paidBy', 'paidVia', 'dismissed', 'createdAt', 'createdBy', 'updatedAt', 'observedAt'])
+          && request.resource.data.schema == 'bill/v1'
+          && request.resource.data.source in ['email', 'manual']
+          && optString(request.resource.data, 'sourceId', 100)
+          && request.resource.data.kind in billKinds()
+          && request.resource.data.label is string
+          && request.resource.data.label.size() > 0
+          && request.resource.data.label.size() <= 60
+          && (request.resource.data.due == null || isYmd(request.resource.data.due))
+          && billMoney(request.resource.data.amountDue)
+          && request.resource.data.status in ['due', 'paid', 'credit', 'unknown']
+          && billAutopay(request.resource.data.autopay)
+          && (!('period' in request.resource.data) || (request.resource.data.period is map
+            && request.resource.data.period.keys().hasOnly(['start', 'end'])
+            && isYmd(request.resource.data.period.start) && isYmd(request.resource.data.period.end)))
+          && optLink(request.resource.data, 'payUrl')
+          && (!('repeat' in request.resource.data) || request.resource.data.repeat in ['monthly', 'quarterly', 'yearly'])
+          && optString(request.resource.data, 'emailId', 200)
+          && (!('paidAt' in request.resource.data) || request.resource.data.paidAt is int)
+          && optString(request.resource.data, 'paidBy', 200)
+          && (!('paidVia' in request.resource.data) || request.resource.data.paidVia in ['member', 'email'])
+          && (!('dismissed' in request.resource.data) || request.resource.data.dismissed is bool)
+          && request.resource.data.createdAt is int
+          && request.resource.data.createdBy is string
+          && request.resource.data.updatedAt is int
+          && (!('observedAt' in request.resource.data) || request.resource.data.observedAt is int);
+      }
+
+      // One per member, keyed by their email: only they record their own check.
+      match /billSync/{email} {
+        allow read: if isMember();
+        allow create, update: if isMember()
+          && email == myEmail()
+          && request.resource.data.keys().hasOnly(['checkedAt', 'by', 'sources', 'emails', 'bills', 'errors'])
+          && request.resource.data.by == myEmail()
+          && request.resource.data.checkedAt is int
+          && request.resource.data.sources is int
+          && request.resource.data.emails is int
+          && request.resource.data.bills is int
+          && request.resource.data.errors is list
+          && request.resource.data.errors.size() <= 20;
+        allow delete: if isMember() && email == myEmail();
+      }
+
+      // Huishouden Pet: pets, care reminders and the doses given, appointments, weights, records, the
+      // daily feeding board and medicine courses.
+      // Field lists match FIELDS in huishouden/pet src/lib/model.ts; keep them in step.
+      function petStr(d, k, min, max) {
+        return d[k] is string && d[k].size() >= min && d[k].size() <= max;
+      }
+      function petOptStr(d, k, max) {
+        return !(k in d) || petStr(d, k, 0, max);
+      }
+      function petOptInt(d, k) {
+        return !(k in d) || d[k] is int;
+      }
+      function petYmd(d, k) {
+        return d[k] is string && d[k].matches('[0-9]{4}-[0-9]{2}-[0-9]{2}');
+      }
+      function petAuthored(d) {
+        return d.createdAt is int && petOptInt(d, 'updatedAt') && petStr(d, 'by', 3, 254);
+      }
+
+      match /petProfiles/{petId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['name', 'species', 'breed', 'birthDate', 'weightUnit', 'notes', 'createdAt', 'updatedAt', 'by'])
+          && petStr(request.resource.data, 'name', 1, 60)
+          && request.resource.data.species in ['dog', 'cat', 'rabbit', 'bird', 'fish', 'reptile', 'small pet', 'other']
+          && request.resource.data.weightUnit in ['kg', 'lb']
+          && petOptStr(request.resource.data, 'breed', 60)
+          && (!('birthDate' in request.resource.data) || petYmd(request.resource.data, 'birthDate'))
+          && petOptStr(request.resource.data, 'notes', 1000)
+          && petAuthored(request.resource.data);
+      }
+
+      match /petReminders/{reminderId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['petId', 'kind', 'title', 'every', 'unit', 'due', 'lastDoneAt', 'notes', 'createdAt', 'updatedAt', 'by'])
+          && petStr(request.resource.data, 'petId', 1, 128)
+          && request.resource.data.kind in ['flea-tick', 'heartworm', 'vaccine', 'deworming', 'medication', 'other']
+          && petStr(request.resource.data, 'title', 1, 80)
+          && ('every' in request.resource.data) == ('unit' in request.resource.data)
+          && (!('every' in request.resource.data) || (request.resource.data.every is int
+            && request.resource.data.every >= 1 && request.resource.data.every <= 365
+            && request.resource.data.unit in ['day', 'week', 'month', 'year']))
+          && petYmd(request.resource.data, 'due')
+          && petOptInt(request.resource.data, 'lastDoneAt')
+          && petOptStr(request.resource.data, 'notes', 500)
+          && petAuthored(request.resource.data);
+      }
+
+      match /petDoses/{doseId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['petId', 'reminderId', 'title', 'at', 'by', 'createdAt'])
+          && petStr(request.resource.data, 'petId', 1, 128)
+          && petStr(request.resource.data, 'reminderId', 1, 128)
+          && petStr(request.resource.data, 'title', 1, 80)
+          && request.resource.data.at is int
+          && petAuthored(request.resource.data);
+      }
+
+      match /petAppointments/{appointmentId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['petIds', 'kind', 'title', 'at', 'location', 'notes', 'contactId', 'calendarEventId', 'calendarLink', 'createdAt', 'by'])
+          && request.resource.data.petIds is list
+          && request.resource.data.petIds.size() <= 10
+          && request.resource.data.kind in ['vet', 'grooming', 'boarding', 'other']
+          && petStr(request.resource.data, 'title', 1, 120)
+          && request.resource.data.at is int
+          && petOptStr(request.resource.data, 'location', 200)
+          && petOptStr(request.resource.data, 'notes', 500)
+          && petOptStr(request.resource.data, 'contactId', 128)
+          && petOptStr(request.resource.data, 'calendarEventId', 1024)
+          && (!('calendarLink' in request.resource.data) || (petStr(request.resource.data, 'calendarLink', 9, 2000)
+            && request.resource.data.calendarLink.matches('https://.*')))
+          && petAuthored(request.resource.data);
+      }
+
+      match /petWeights/{weightId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['petId', 'at', 'value', 'unit', 'by', 'createdAt'])
+          && petStr(request.resource.data, 'petId', 1, 128)
+          && request.resource.data.at is int
+          && request.resource.data.value is number
+          && request.resource.data.value > 0
+          && request.resource.data.value < 2000
+          && request.resource.data.unit in ['kg', 'lb']
+          && petAuthored(request.resource.data);
+      }
+
+      match /petRecords/{recordId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['petId', 'title', 'date', 'text', 'createdAt', 'updatedAt', 'by'])
+          && petStr(request.resource.data, 'petId', 1, 128)
+          && petStr(request.resource.data, 'title', 1, 120)
+          && petYmd(request.resource.data, 'date')
+          && petOptStr(request.resource.data, 'text', 2000)
+          && petAuthored(request.resource.data);
+      }
+
+      // The daily feeding board: each pet's meals (AM, PM, ...) and the feeds that tick them.
+      match /petMeals/{mealId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['petId', 'name', 'time', 'food', 'portion', 'note', 'createdAt', 'updatedAt', 'by'])
+          && petStr(request.resource.data, 'petId', 1, 128)
+          && petStr(request.resource.data, 'name', 1, 40)
+          && request.resource.data.time is string
+          && request.resource.data.time.matches('([01][0-9]|2[0-3]):[0-5][0-9]')
+          && petOptStr(request.resource.data, 'food', 80)
+          && petOptStr(request.resource.data, 'portion', 40)
+          && petOptStr(request.resource.data, 'note', 200)
+          && petAuthored(request.resource.data);
+      }
+
+      match /petFeedings/{feedingId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['petId', 'mealId', 'at', 'portion', 'note', 'by', 'createdAt', 'updatedAt'])
+          && petStr(request.resource.data, 'petId', 1, 128)
+          && petOptStr(request.resource.data, 'mealId', 128)
+          && request.resource.data.at is int
+          && petOptStr(request.resource.data, 'portion', 40)
+          && petOptStr(request.resource.data, 'note', 200)
+          && petAuthored(request.resource.data);
+      }
+
+      // Short medicine courses ("1 tablet twice a day for 7 days") and the doses given.
+      match /petMedCourses/{courseId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['petId', 'name', 'dose', 'timesPerDay', 'times', 'startDate', 'days', 'withFood', 'notes', 'createdAt', 'updatedAt', 'by'])
+          && petStr(request.resource.data, 'petId', 1, 128)
+          && petStr(request.resource.data, 'name', 1, 80)
+          && petStr(request.resource.data, 'dose', 0, 80)
+          && request.resource.data.timesPerDay is int
+          && request.resource.data.timesPerDay >= 1
+          && request.resource.data.timesPerDay <= 6
+          && request.resource.data.times is list
+          && request.resource.data.times.size() == request.resource.data.timesPerDay
+          && petYmd(request.resource.data, 'startDate')
+          && request.resource.data.days is int
+          && request.resource.data.days >= 1
+          && request.resource.data.days <= 365
+          && request.resource.data.withFood is bool
+          && petOptStr(request.resource.data, 'notes', 500)
+          && petAuthored(request.resource.data);
+      }
+
+      match /petMedDoses/{doseId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['petId', 'courseId', 'slot', 'at', 'by', 'createdAt'])
+          && petStr(request.resource.data, 'petId', 1, 128)
+          && petStr(request.resource.data, 'courseId', 1, 128)
+          && request.resource.data.slot is int
+          && request.resource.data.slot >= 0
+          && request.resource.data.slot <= 5
+          && request.resource.data.at is int
+          && petAuthored(request.resource.data);
+      }
+
+      // Each member's own name and photo (@huishouden/pwa-kit/household saveMyProfile), keyed by
+      // their email; only that member writes it.
+      match /profiles/{email} {
+        allow read: if isMember();
+        allow write: if isMember()
+          && email == myEmail()
+          && request.resource.data.keys().hasOnly(['name', 'photoURL', 'updatedAt'])
+          && request.resource.data.updatedAt is int
+          && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 100))
+          && (!('photoURL' in request.resource.data) || (request.resource.data.photoURL is string
+            && request.resource.data.photoURL.matches('https://.*') && request.resource.data.photoURL.size() <= 500));
+        allow delete: if isMember() && email == myEmail();
+      }
+
+      // The household's contacts, shared by every app (@huishouden/pwa-kit/contacts; fields match
+      // CONTACT_FIELDS there).
+      match /contacts/{contactId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['name', 'role', 'phone', 'email', 'website', 'address', 'mapsUrl', 'notes', 'apps', 'createdAt', 'updatedAt', 'by'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.apps is list
+          && request.resource.data.apps.size() <= 20
+          && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000))
+          && (!('address' in request.resource.data) || (request.resource.data.address is string && request.resource.data.address.size() <= 300));
+      }
+
+      // Reminders any app schedules for the household (@huishouden/pwa-kit/reminders; fields match
+      // REMINDER_FIELDS there). The shared sender (huishouden/notify) finds due, unsent ones with a
+      // service account, pushes them and marks them sent.
+      function hhStr(d, k, lo, hi) {
+        return d[k] is string && d[k].size() >= lo && d[k].size() <= hi;
+      }
+
+      match /reminders/{reminderId} {
+        allow read, delete: if isMember();
+        allow create, update: if isMember()
+          && request.resource.data.keys().hasOnly(['app', 'title', 'body', 'at', 'url', 'recipients', 'ref', 'sent', 'sentAt', 'createdAt', 'by'])
+          && hhStr(request.resource.data, 'app', 1, 40)
+          && hhStr(request.resource.data, 'title', 1, 120)
+          && hhStr(request.resource.data, 'body', 0, 500)
+          && request.resource.data.at is int
+          && hhStr(request.resource.data, 'url', 1, 2000)
+          && request.resource.data.url.matches('https://.*')
+          && (request.resource.data.recipients == 'all'
+            || (request.resource.data.recipients is list
+              && request.resource.data.recipients.size() >= 1
+              && request.resource.data.recipients.size() <= 12))
+          && (!('ref' in request.resource.data) || hhStr(request.resource.data, 'ref', 0, 200))
+          && request.resource.data.sent is bool
+          && (!('sentAt' in request.resource.data) || request.resource.data.sentAt is int)
+          && request.resource.data.createdAt is int
+          && hhStr(request.resource.data, 'by', 0, 120);
+      }
+
+      // Each member's Web Push subscriptions, one per device and app (@huishouden/pwa-kit/push;
+      // fields match PUSH_SUBSCRIPTION_FIELDS there). A member sees and manages only their own;
+      // the keys are read only by the shared sender (huishouden/notify, a service account).
+      match /pushSubscriptions/{subId} {
+        allow read, delete: if isMember() && resource.data.email == myEmail();
+        allow create, update: if isMember()
+          && (resource == null || resource.data.email == myEmail())
+          && request.resource.data.keys().hasOnly(['email', 'app', 'endpoint', 'keys', 'ua', 'createdAt'])
+          && request.resource.data.email == myEmail()
+          && hhStr(request.resource.data, 'app', 1, 40)
+          && hhStr(request.resource.data, 'endpoint', 1, 1000)
+          && request.resource.data.endpoint.matches('https://.*')
+          && request.resource.data['keys'] is map
+          && request.resource.data['keys'].keys().hasOnly(['p256dh', 'auth'])
+          && hhStr(request.resource.data['keys'], 'p256dh', 1, 200)
+          && hhStr(request.resource.data['keys'], 'auth', 1, 100)
+          && (!('ua' in request.resource.data) || hhStr(request.resource.data, 'ua', 0, 300))
+          && request.resource.data.createdAt is int;
+      }
+
+      match /favorites/{favoriteId} {
+        allow read, write: if isMember();
+      }
+
+      match /menus/{menuId} {
+        allow read, delete: if isMember();
+        allow create: if isMember()
+          && request.resource.data.meals is list
+          && request.resource.data.meals.size() <= 30;
+      }
+    }
+  }
+}

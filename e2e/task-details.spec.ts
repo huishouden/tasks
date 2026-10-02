@@ -145,3 +145,17 @@ test.describe('with location allowed', () => {
     await expect(page.getByRole('dialog').getByRole('list', { name: 'Nearby places' })).toHaveCount(0);
   });
 });
+
+test('when the free map has nothing nearby, Google Maps is one tap away', async ({ page }) => {
+  await addItem(page, 'Drycleaners dropoff');
+  await page.getByRole('button', { name: 'Edit Drycleaners dropoff' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit task' });
+  await page.evaluate(() => {
+    window.__mockPosition = { lat: 40, lon: -75 };
+    window.__mockPlaces = [];
+  });
+  await dialog.getByLabel('Where').fill('drycleaners');
+  await dialog.getByRole('button', { name: 'Find nearby' }).click();
+  await expect(dialog.getByRole('status')).toContainText('The free map has nothing like "drycleaners" near you');
+  await expect(dialog.getByRole('link', { name: 'Search Google Maps' })).toHaveAttribute('href', 'https://www.google.com/maps/search/?api=1&query=drycleaners');
+});

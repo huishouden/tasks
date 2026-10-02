@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, LogOut, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
-import { placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
+import { mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '../lib/calendar';
 import {
   ALL_CATEGORIES,
@@ -24,6 +24,7 @@ import {
 import type { ThemeMode } from '../lib/prefs';
 import { parseWhen } from '../data/when';
 import { currentPosition, locationPermission } from '../lib/location';
+import { formatDistance } from '../lib/units';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { ErrorNotice } from './ErrorNotice';
 import { Dialog, LIST_ICONS, ListIconBadge, ghostButton, inputClass, primaryButton } from './ui';
@@ -449,6 +450,14 @@ function WhereField({
   onPick: (place: Place, text: string) => void;
 }) {
   const inputId = useId();
+  const query = value.trim() || name.trim();
+  // Google Maps searches near the device by itself and knows far more businesses than
+  // OpenStreetMap; pick one there and paste or type it in.
+  const mapsLink = (label: string) => (
+    <a href={mapsSearchUrl(query)} target="_blank" rel="noreferrer" className="font-medium text-forest-700 underline underline-offset-2 dark:text-forest-300">
+      {label}
+    </a>
+  );
   const [results, setResults] = useState<Place[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -471,11 +480,11 @@ function WhereField({
     setResults(null);
     try {
       const here = await currentPosition();
-      setResults(await findPlaces(value.trim() || name, { lat: here.lat, lon: here.lng }));
+      setResults(await findPlaces(query, { lat: here.lat, lon: here.lng }));
     } catch (e) {
       if (quiet) return;
       const denied = (e as GeolocationPositionError)?.code === 1;
-      setError(denied ? 'Location is off for this app, so nearby places can’t be found. Type the place instead.' : 'Couldn’t look up places right now. Type the place, or try again in a moment.');
+      setError(denied ? 'Location is off for this app, so nearby places can’t be found here.' : 'Couldn’t look up places right now.');
     } finally {
       setBusy(false);
     }
@@ -494,12 +503,12 @@ function WhereField({
       </div>
       {error && (
         <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
-          {error}
+          {error} {query && mapsLink('Search Google Maps')}
         </p>
       )}
       {results && results.length === 0 && (
-        <p className="text-sm text-stone-500" role="status">
-          Nothing like "{value.trim() || name.trim()}" nearby. Try a simpler word, such as "dry cleaner" or "pharmacy".
+        <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
+          The free map has nothing like "{query}" near you; it misses many businesses. {mapsLink('Search Google Maps')}
         </p>
       )}
       {results && results.length > 0 && (
@@ -530,6 +539,7 @@ function WhereField({
           ))}
         </ul>
       )}
+      {results && results.length > 0 && <p className="text-sm">{mapsLink('More in Google Maps')}</p>}
     </div>
   );
 }
@@ -544,16 +554,6 @@ declare global {
     /** Browser tests stand in for OpenStreetMap, which has no emulator. */
     __mockPlaces?: Place[];
   }
-}
-
-/** "0.4 mi", "12 mi" in the US; "650 m", "3.1 km" elsewhere. */
-function formatDistance(km: number): string {
-  const miles = /^en-US$/i.test(navigator.language);
-  if (miles) {
-    const mi = km / 1.609;
-    return `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`;
-  }
-  return km < 1 ? `${Math.round(km * 100) * 10} m` : `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
 }
 
 /** "Today by 6:00 PM" → "today by 6:00 PM", for use mid-sentence; dates like "Tue, Jan 7" keep their case. */
