@@ -1,5 +1,5 @@
 import { devices } from '@playwright/test';
-import { addItem, createHousehold, expect, signIn, test } from './fixtures';
+import { addItem, createHousehold, expect, seedFood, signIn, test } from './fixtures';
 
 // Gemini has no emulator, so these tests stand in a fixed response; the prompt itself is
 // exercised against the real model with scripts/menu-probe.ts.
@@ -206,4 +206,96 @@ test("Add to Groceries offers a meal's ingredients, leaving out what is on the l
   await expect(added.filter({ hasText: 'Eggs' })).toHaveCount(1);
   // Matched by item name: the added items' note ("…with orange juice") also contains the words.
   await expect(page.getByRole('button', { name: 'Mark Orange juice done' })).toHaveCount(1);
+});
+
+test('plans from the list too, and suggests a few extras to get', async ({ page }) => {
+  await signIn(page, 'alice@example.com', 'Alice Example');
+  await createHousehold(page);
+  for (const item of ['Eggs', 'Mushrooms']) {
+    await addItem(page, item);
+    await page.getByRole('button', { name: `Mark ${item} done` }).click();
+  }
+  // Still to buy: planning before shopping.
+  for (const item of ['Spinach', 'Rice']) await addItem(page, item);
+
+  await page.getByRole('button', { name: 'Meals' }).click();
+  await expect(page.getByRole('group', { name: 'On the list' }).or(page.getByLabel('On the list'))).toContainText('Spinach');
+  await page.evaluate(
+    () =>
+      (window.__mockMenuResponse = {
+        meals: [
+          {
+            type: 'breakfast',
+            name: 'Spinach and feta omelet',
+            parts: [{ ingredients: ['eggs', 'spinach', 'feta', 'cumin'], prep: 'Folded with a little butter' }],
+            extras: ['feta'],
+          },
+          // Uses an extra it did not declare: dropped.
+          { type: 'dinner', name: 'Mushroom risotto', parts: [{ ingredients: ['rice', 'mushrooms', 'parmesan'], prep: 'Stirred' }], extras: [] },
+        ],
+      }),
+  );
+  await page.getByRole('button', { name: 'Suggest meals' }).click();
+  const card = page.locator('article', { hasText: 'Spinach and feta omelet' });
+  await expect(card).toContainText('Have: Eggs');
+  await expect(card).toContainText('On the list: Spinach');
+  await expect(card).toContainText('To get: Feta');
+  await expect(card).not.toContainText('Cumin');
+  await expect(page.locator('article', { hasText: 'Mushroom risotto' })).toHaveCount(0);
+
+  await card.getByRole('button', { name: 'Add Feta to Groceries' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Added 1 item to Groceries' })).toBeVisible();
+  await page.getByRole('button', { name: 'Lists' }).click();
+  await expect(page.locator('main li', { hasText: 'Feta' })).toContainText('for Spinach and feta omelet');
+});
+
+test('strict diets drop ideas, with the reason; GERD orders and labels them instead', async ({ page }) => {
+  await signIn(page, 'alice@example.com', 'Alice Example');
+  await createHousehold(page);
+  await seedFood([{ id: 'alice@example.com', name: 'Alex', diets: ['vegetarian', 'gerd'], avoid: [] }]);
+  for (const item of ['Eggs', 'Mushrooms', 'Steak', 'Rice']) await addItem(page, item);
+
+  await page.getByRole('button', { name: 'Meals' }).click();
+  await expect(page.getByText('Every idea fits Alex (vegetarian)')).toBeVisible();
+  await expect(page.getByText(/^Gentler ideas first for Alex's GERD \(reflux\)/)).toBeVisible();
+  await page.evaluate(
+    () =>
+      (window.__mockMenuResponse = {
+        meals: [
+          { type: 'dinner', name: 'Steak and rice', parts: [{ ingredients: ['steak', 'rice'], prep: 'Seared' }], extras: [], heat: 0, acidity: 0, richness: 1, sweetness: 0 },
+          { type: 'dinner', name: 'Spicy mushroom rice', parts: [{ ingredients: ['mushrooms', 'rice'], prep: 'Sautéed with chili' }], extras: [], heat: 2, acidity: 0, richness: 1, sweetness: 0 },
+          { type: 'dinner', name: 'Mushroom rice bowl', parts: [{ ingredients: ['mushrooms', 'rice', 'eggs'], prep: 'Sautéed in a little oil' }], extras: [], heat: 0, acidity: 0, richness: 1, sweetness: 0 },
+        ],
+      }),
+  );
+  await page.getByRole('button', { name: 'Suggest meals' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Left out 1 idea' })).toContainText('Steak and rice (steak (Alex (vegetarian)))');
+
+  // Both vegetarian dinners stay; the gentler one comes first and says so.
+  const dinners = page.locator('article');
+  await expect(dinners).toHaveCount(2);
+  await expect(dinners.nth(0)).toContainText('Mushroom rice bowl');
+  await expect(dinners.nth(0).getByRole('list', { name: 'About Mushroom rice bowl' })).toContainText('Gentle on reflux');
+  await expect(dinners.nth(0)).toContainText('Vegetarian');
+  await expect(dinners.nth(1)).toContainText('Spicy mushroom rice');
+  await expect(dinners.nth(1).getByLabel('Spicy', { exact: true })).toBeVisible();
+});
+
+test('deleting a batch of ideas can be undone', async ({ page }) => {
+  await signIn(page, 'alice@example.com', 'Alice Example');
+  await createHousehold(page);
+  for (const item of ['Eggs', 'Mushrooms', 'Rice']) await addItem(page, item);
+  await page.getByRole('button', { name: 'Meals' }).click();
+  await page.evaluate(
+    () =>
+      (window.__mockMenuResponse = {
+        meals: [{ type: 'breakfast', name: 'Mushroom omelet', parts: [{ ingredients: ['eggs', 'mushrooms'], prep: 'Folded' }], extras: [], heat: 0, acidity: 0, richness: 1, sweetness: 0 }],
+      }),
+  );
+  await page.getByRole('button', { name: 'Suggest meals' }).click();
+  await expect(page.locator('article', { hasText: 'Mushroom omelet' })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete these ideas' }).click();
+  await expect(page.locator('article', { hasText: 'Mushroom omelet' })).toHaveCount(0);
+  await page.getByRole('status').filter({ hasText: 'Deleted 1 meal idea' }).getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('article', { hasText: 'Mushroom omelet' })).toBeVisible();
 });

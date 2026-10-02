@@ -29,6 +29,31 @@ export async function resetEmulators(): Promise<void> {
   await emulatorRequest(`http://127.0.0.1:9099/emulator/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
 }
 
+/**
+ * Writes the household's food settings as the portal would, bypassing the rules (the emulator's
+ * admin access), for the one household in the emulator. People follow @huishouden/pwa-kit/food.
+ */
+export async function seedFood(people: { id: string; name: string; diets: string[]; avoid: string[] }[]): Promise<void> {
+  const base = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`;
+  const headers = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
+  const list = (await (await fetch(`${base}/households`, { headers })).json()) as { documents?: { name: string }[] };
+  const household = list.documents?.[0]?.name.split('/').pop();
+  if (!household) throw new Error('seedFood: no household yet');
+  const str = (v: string) => ({ stringValue: v });
+  const arr = (vs: string[]) => ({ arrayValue: { values: vs.map(str) } });
+  const fields = {
+    people: {
+      arrayValue: {
+        values: people.map((p) => ({ mapValue: { fields: { id: str(p.id), name: str(p.name), diets: arr(p.diets), avoid: arr(p.avoid) } } })),
+      },
+    },
+    pantryAssumed: arr(['salt', 'black pepper', 'common dried herbs and spices', 'cooking oil', 'cooking spray', 'butter']),
+    updatedAt: { integerValue: String(Date.now()) },
+    by: str('alice@example.com'),
+  };
+  await emulatorRequest(`${base}/households/${household}/settings/food`, { method: 'PATCH', headers, body: JSON.stringify({ fields }) });
+}
+
 export async function signIn(page: Page, email: string, name: string): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();

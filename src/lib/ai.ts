@@ -1,5 +1,5 @@
 import { GoogleAIBackend, getAI, getGenerativeModel, type SchemaRequest } from 'firebase/ai';
-import { MENU_FALLBACK_MODEL, MENU_MODEL, MENU_RESPONSE_SCHEMA, MENU_SYSTEM_INSTRUCTION, menuPrompt, validateMeals, type Meal } from '../data/menus';
+import { MENU_FALLBACK_MODEL, MENU_MODEL, MENU_RESPONSE_SCHEMA, menuPrompt, menuSystemInstruction, validateMeals, type MealContext, type ValidatedMeals } from '../data/menus';
 import { ALL_CATEGORIES, CATEGORIES, type Category } from '../data/model';
 import { EmptyResultError, friendlyError, withTimeout } from './errors';
 import { getFirebase, useEmulators } from './firebase';
@@ -17,17 +17,18 @@ declare global {
 const ATTEMPT_TIMEOUT_MS = 45_000;
 
 /**
- * Asks Gemini for meal ideas and keeps only those that use what was bought plus kitchen basics.
+ * Asks Gemini for meal ideas and keeps only those that use what is bought or listed (plus a few
+ * declared extras and the pantry) and fit every household diet.
  * Busy or rate-limited models are retried once, then the lighter model is tried; the last error
  * is rethrown unchanged so the screen can explain it (see friendlyError).
  */
-export async function suggestMeals(available: string[]): Promise<Meal[]> {
+export async function suggestMeals(ctx: MealContext): Promise<ValidatedMeals> {
   if (useEmulators) {
     if (window.__mockMenuError) throw new Error(window.__mockMenuError);
     if (window.__mockMenuResponse === undefined) throw new Error('Meal ideas need Gemini, which is not available against the emulators.');
-    const meals = validateMeals(window.__mockMenuResponse, available);
-    if (meals.length === 0) throw new EmptyResultError();
-    return meals;
+    const result = validateMeals(window.__mockMenuResponse, ctx);
+    if (result.meals.length === 0) throw new EmptyResultError();
+    return result;
   }
   const { app } = await getFirebase();
   const ai = getAI(app, { backend: new GoogleAIBackend() });
@@ -35,14 +36,14 @@ export async function suggestMeals(available: string[]): Promise<Meal[]> {
     const result = await withTimeout(
       getGenerativeModel(ai, {
         model,
-        systemInstruction: MENU_SYSTEM_INSTRUCTION,
+        systemInstruction: menuSystemInstruction(ctx.food),
         generationConfig: { responseMimeType: 'application/json', responseSchema: MENU_RESPONSE_SCHEMA as unknown as SchemaRequest },
-      }).generateContent(menuPrompt(available)),
+      }).generateContent(menuPrompt(ctx)),
       ATTEMPT_TIMEOUT_MS,
     );
-    const meals = validateMeals(JSON.parse(result.response.text()), available);
-    if (meals.length === 0) throw new EmptyResultError();
-    return meals;
+    const kept = validateMeals(JSON.parse(result.response.text()), ctx);
+    if (kept.meals.length === 0) throw new EmptyResultError();
+    return kept;
   };
   const pause = () => new Promise((r) => setTimeout(r, 1500));
   let model = MENU_MODEL;

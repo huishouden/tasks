@@ -58,10 +58,26 @@ export const primaryButton =
 export const ghostButton =
   'inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 font-medium text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-forest-700';
 
-export function Chip({ active, onClick, children }: { active?: boolean; onClick: () => void; children: ReactNode }) {
+export function Chip({
+  active,
+  onClick,
+  children,
+  pressed,
+  label,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  /** For an on/off chip: its state, announced to assistive technology. */
+  pressed?: boolean;
+  /** Accessible name when the visible text is not enough ("Remove bread"). */
+  label?: string;
+}) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={pressed}
+      aria-label={label}
       className={`shrink-0 rounded-full border px-3 py-1.5 text-sm whitespace-nowrap transition ${
         active
           ? 'border-forest-700 bg-forest-700 text-white dark:border-forest-300 dark:bg-forest-300 dark:text-forest-900'
@@ -70,5 +86,15 @@ export function Chip({ active, onClick, children }: { active?: boolean; onClick:
     >
       {children}
     </button>
+  );
+}
+
+/** A small label beside an item, as a menu prints "Vegetarian" or a spice rating: quiet stone text. */
+export function Badge({ children, tone = 'stone', label }: { children: ReactNode; tone?: 'stone' | 'forest'; label?: string }) {
+  const colour = tone === 'forest' ? 'border-forest-200 text-forest-700 dark:text-forest-300' : 'border-stone-200 text-stone-600 dark:text-stone-300';
+  return (
+    <li className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs dark:border-forest-600 ${colour}`} aria-label={label}>
+      {children}
+    </li>
   );
 }

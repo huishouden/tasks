@@ -25,6 +25,7 @@ import {
   type Query,
   type QuerySnapshot,
 } from 'firebase/firestore';
+import { watchFood, type FoodPreferences } from '@huishouden/pwa-kit/food';
 import { watchHousehold } from '@huishouden/pwa-kit/household';
 import { getFirebase } from '../lib/firebase';
 import { mealKey, type FavoriteMeal, type Meal, type Menu } from './menus';
@@ -255,6 +256,17 @@ export function useStores(db: Firestore, householdId: string): StoreLayout[] | n
     [db, householdId],
   );
   return stores;
+}
+
+/**
+ * The household's food preferences (people, diets, pantry) from the portal's settings, or null
+ * until the first read. A failed read leaves null, and meal ideas then use the default pantry and
+ * no diets, so they still work.
+ */
+export function useFood(db: Firestore, householdId: string): FoodPreferences | null {
+  const [food, setFood] = useState<FoodPreferences | null>(null);
+  useEffect(() => watchFood(db, householdId, setFood, () => {}), [db, householdId]);
+  return food;
 }
 
 /** Saved meal ideas, newest first. */
@@ -496,6 +508,12 @@ export class HouseholdRepo {
     const ref = doc(this.col('menus'));
     await setDoc(ref, { createdAt: Date.now(), createdBy, ingredients, meals } satisfies Omit<Menu, 'id'>);
     return ref.id;
+  }
+
+  /** Puts a deleted batch of ideas back under its old id (for Undo). */
+  async restoreMenu(menu: Menu): Promise<void> {
+    const { id, ...data } = menu;
+    await setDoc(doc(this.col('menus'), id), data);
   }
 
   deleteMenu(id: string): void {

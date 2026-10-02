@@ -19,6 +19,7 @@ import {
   useAuth,
   useHousehold,
   useFavorites,
+  useFood,
   useHouseholdData,
   useMenus,
   useStoreAisles,
@@ -214,6 +215,7 @@ function HouseholdApp({
   const [storeId, setStoreId] = usePref<string | null>('store', null);
 
   const favorites = useFavorites(db, household.id);
+  const food = useFood(db, household.id);
   const repo = useMemo(() => new HouseholdRepo(db, household.id), [db, household.id]);
   const [savedMode, setMode] = usePref<Mode>('mode', 'lists');
   const [urlMode, setUrlMode] = useState<Mode | null>(initialMode);
@@ -407,9 +409,17 @@ function HouseholdApp({
             items={data.items}
             menus={menus}
             favorites={favorites}
+            food={food}
             suggest={suggestMeals}
             onSave={(ingredients, meals) => repo.saveMenu(ingredients, meals, addedAs)}
-            onDelete={(id) => repo.deleteMenu(id)}
+            onDelete={(id) => {
+              const menu = menus.find((m) => m.id === id);
+              repo.deleteMenu(id);
+              if (menu) {
+                const undoId = ++undoCount.current;
+                setUndoAction({ id: undoId, message: menu.meals.length === 1 ? "Deleted 1 meal idea" : `Deleted ${menu.meals.length} meal ideas`, undo: () => void repo.restoreMenu(menu) });
+              }
+            }}
             onSaveFavorite={(meal) => repo.saveFavorite(meal, addedAs)}
             onRemoveFavorite={(id) => repo.removeFavorite(id)}
             onAddItems={(listId, names, notes) => names.forEach((name) => repo.addItem({ listId, name, notes, addedBy: addedAs }))}
