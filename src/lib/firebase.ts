@@ -1,5 +1,6 @@
 import { initializeApp, type FirebaseApp, type FirebaseOptions } from 'firebase/app';
 import { firebaseConfigFromEnv } from '@huishouden/pwa-kit/firebase';
+import { configureGoogleTokens } from '@huishouden/pwa-kit/google-token';
 import { ReCaptchaEnterpriseProvider, initializeAppCheck } from 'firebase/app-check';
 import { GoogleAuthProvider, connectAuthEmulator, getAuth, signInWithCredential, type Auth } from 'firebase/auth';
 import {
@@ -17,6 +18,11 @@ export interface FirebaseHandles {
 }
 
 export const useEmulators = import.meta.env.VITE_USE_EMULATORS === 'true';
+
+/** The OAuth web client: silent sign-in (One Tap) and Google API tokens (Calendar) use it. */
+export const googleClientId: string | undefined = import.meta.env.VITE_GOOGLE_CLIENT_ID || undefined;
+// Google API tokens come from Google Identity Services with this client, never from Firebase sign-in.
+configureGoogleTokens({ clientId: googleClientId, preload: !useEmulators });
 
 /** The "Tasks" web app in huishouden-piekstra. Public, like the rest of the web config. */
 const APP_ID = '1:865471112898:web:88de281c1be2181a4afd5b';

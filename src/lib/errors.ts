@@ -1,3 +1,5 @@
+import { calendarError } from '@huishouden/pwa-kit/calendar';
+import { popupCancelled } from '@huishouden/pwa-kit/feedback';
 /** What went wrong, phrased for the household rather than for a developer. */
 export interface FriendlyError {
   kind: 'offline' | 'busy' | 'quota' | 'timeout' | 'verification' | 'permission' | 'empty' | 'cancelled' | 'unknown';
@@ -49,9 +51,11 @@ export function friendlyError(e: unknown, context: ErrorContext, online = typeof
       true,
     );
   }
-  if (/popup-closed-by-user|cancelled-popup-request|access_denied/.test(all)) {
-    return make('cancelled', context === 'calendar' ? 'Calendar access was not allowed, so nothing was searched.' : 'Sign-in was cancelled.', true);
+  if (context === 'calendar') {
+    // Google's permission window (Google Identity Services) in the kit's words, like every other app.
+    return make(popupCancelled(e) || /access_denied/.test(all) ? 'cancelled' : 'unknown', calendarError(e), true);
   }
+  if (/popup-closed-by-user|cancelled-popup-request|access_denied/.test(all)) return make('cancelled', 'Sign-in was cancelled.', true);
   if (/user-mismatch/.test(all)) {
     return make('verification', 'Pick the same Google account you are signed in with.', true);
   }

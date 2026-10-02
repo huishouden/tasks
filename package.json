@@ -14,7 +14,8 @@
     "verify": "bun run lint && bunx pwa-design-check && bun run test && vite build",
     "e2e:local": "playwright test --project=local",
     "screenshots:local": "playwright test --project=screenshots",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "icons": "pwa-logo check public/icon.svg && pwa-icons --background=#1b4332"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -26,7 +27,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.30.0",
+    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.36.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.14.0",

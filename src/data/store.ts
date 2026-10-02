@@ -27,6 +27,8 @@ import {
 } from 'firebase/firestore';
 import { watchFood, type FoodPreferences } from '@huishouden/pwa-kit/food';
 import { watchHousehold } from '@huishouden/pwa-kit/household';
+import { forgetSilentSignIn } from '@huishouden/pwa-kit/auth';
+import { forgetGoogleToken } from '@huishouden/pwa-kit/google-token';
 import { getFirebase } from '../lib/firebase';
 import { mealKey, type FavoriteMeal, type Meal, type Menu } from './menus';
 import type { GeoPoint, LearnedAisle, StoreLayout } from './stores';
@@ -96,8 +98,11 @@ export async function signIn(): Promise<void> {
   }
 }
 
+/** Signs out here, stops silent sign-in from undoing it, and forgets this device's Google API tokens. */
 export async function signOut(): Promise<void> {
   const { auth } = await getFirebase();
+  await forgetSilentSignIn();
+  forgetGoogleToken();
   await fbSignOut(auth);
 }
 

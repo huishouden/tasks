@@ -1,9 +1,14 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import { pwaApp } from '@huishouden/pwa-kit/vite';
 
 export default defineConfig({
+  test: {
+    // The kit ships extensionless ESM imports (resolved by bundlers and bun, not by Node), so the unit
+    // tests run it through Vite like the app does.
+    server: { deps: { inline: [/@huishouden\/pwa-kit/] } },
+  },
   server: {
     // Against the real project in development, Firebase's config comes from the deployed site.
     proxy: { '/__/firebase': { target: 'https://huishouden-tasks.web.app', changeOrigin: true } },
@@ -14,10 +19,11 @@ export default defineConfig({
     pwaApp({
       name: 'Huishouden Tasks',
       shortName: 'Tasks',
-      description: 'Shared groceries, lists, chores and meal ideas for the kitchen tablet and phones.',
+      description: 'Shared lists and chores',
+      url: 'https://huishouden-tasks.web.app',
       themeColor: '#1b4332',
       backgroundColor: '#faf9f5',
-      includeAssets: ['icon.svg', 'favicon.png', 'apple-touch-icon.png'],
+      includeAssets: ['icon.svg', 'favicon.png', 'apple-touch-icon.png', 'og.png'],
       overrides: {
         manifest: {
           categories: ['productivity', 'lifestyle'],

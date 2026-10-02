@@ -54,7 +54,8 @@ export default defineConfig({
         },
         {
           command: 'bunx vite --port 5173 --strictPort',
-          env: { VITE_USE_EMULATORS: 'true' },
+          // A stand-in OAuth client, so Google API flows reach the kit's Google Identity Services stub.
+          env: { VITE_USE_EMULATORS: 'true', VITE_GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com' },
           url: 'http://localhost:5173',
           reuseExistingServer: !process.env.CI,
           timeout: 60_000,
