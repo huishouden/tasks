@@ -1,4 +1,4 @@
-import { addItem, createHousehold, expect, signIn, test } from './fixtures';
+import { addItem, createHousehold, expect, readHouseholdCollection, signIn, test } from './fixtures';
 
 // A task list asks for the details a task has (when, where, steps), not a shopping list's.
 test.beforeEach(async ({ page }) => {
@@ -68,6 +68,27 @@ test('a date typed into a task becomes its due date, and an old name with a date
   dialog = page.getByRole('dialog', { name: 'Edit task' });
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(page.locator('main li', { hasText: 'Renew library card' })).toContainText('Wed, Jan 15');
+});
+
+test('a dated task goes on the household calendar with a reminder, and leaves both when done and cleared', async ({ page }) => {
+  await page.getByLabel('New item').fill('Drycleaners dropoff before 6');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect.poll(async () => (await readHouseholdCollection('agenda')).map((a) => [a.title, a.kind, a.url]), { timeout: 15_000 }).toEqual([
+    ['Drycleaners dropoff', 'task', expect.stringMatching(/^https:\/\/huishouden-tasks\.web\.app\/\?list=chores&item=/)],
+  ]);
+  await expect.poll(async () => (await readHouseholdCollection('reminders')).map((r) => [r.title, r.body]), { timeout: 15_000 }).toEqual([['Drycleaners dropoff', expect.stringMatching(/^By 6:00\s?PM$/)]]);
+
+  // The calendar's link opens the task in its list.
+  const link = String((await readHouseholdCollection('agenda'))[0].url).replace('https://huishouden-tasks.web.app', '');
+  await page.goto(link);
+  await expect(page.getByRole('dialog', { name: 'Edit task' }).getByLabel('Task', { exact: true })).toHaveValue('Drycleaners dropoff');
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Mark Drycleaners dropoff done' }).click();
+  await expect.poll(async () => (await readHouseholdCollection('agenda')).map((a) => a.status), { timeout: 15_000 }).toEqual(['done']);
+  await expect.poll(async () => (await readHouseholdCollection('reminders')).length, { timeout: 15_000 }).toBe(0);
+  await page.getByRole('button', { name: /Clear done/ }).click();
+  await expect.poll(async () => (await readHouseholdCollection('agenda')).length, { timeout: 15_000 }).toBe(0);
 });
 
 test('Find nearby fills in the place from the closest matches', async ({ page }) => {
