@@ -16,7 +16,7 @@ Part of [Huishouden](https://huishouden-piekstra.web.app), a suite of small hous
 
 **Store** mode on a phone walks the list in the chosen store's order. In a shop, a one-line banner asks whether you are at the store it found nearby (OpenStreetMap). While shopping, checking an item off offers an optional "which aisle?" at the bottom of the screen; aisles are remembered per store for the household, items are then grouped by aisle, and a wrong aisle can be corrected from the item.
 
-The screenshots come from a sample household in the emulators. After a change to how the app looks, run `bun run screenshots:local` and commit the updated files in `docs/screenshots/`.
+Signed out, Tasks opens on an invented household (`src/data/demo.ts`): the real app on a Firestore that never goes online, so it can be tried without an account and nothing is saved. The screenshots are of that household; CI refreshes them after every deploy (`bun run screenshots`) and posts before/after images of the same scenes on every pull request.
 
 <br clear="right">
 
@@ -61,7 +61,7 @@ bun run verify       # types, design check, unit tests, build
 bun run e2e:local    # signed-in browser flows against the emulators (starts them itself)
 bun run e2e          # smoke tests of the deployed site (read-only)
 bun run e2e:ai       # real Gemini through the app's code (needs an App Check debug token, see below)
-bun run screenshots:local   # regenerate docs/screenshots from a sample household
+BASE_URL=http://localhost:5173 bun run screenshots   # the README scenes of the signed-out sample household
 bun scripts/menu-probe.ts "eggs, steak, rice"   # try the menu prompt against Gemini
 ```
 

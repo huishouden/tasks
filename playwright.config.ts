@@ -22,10 +22,10 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173', viewport: { width: 1280, height: 800 } },
     },
     {
-      // Regenerates docs/screenshots from a sample household; `bun run screenshots`.
+      // README images and CI's before/after: the signed-out sample household at BASE_URL; `bun run screenshots`.
       name: 'screenshots',
       testMatch: /screenshots\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' },
+      use: { ...devices['Desktop Chrome'], baseURL: LIVE_URL, viewport: { width: 1280, height: 800 } },
     },
     {
       // Real Gemini through the app's own code, App Check satisfied by a local debug token.

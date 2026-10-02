@@ -13,10 +13,10 @@
     "e2e:ai": "PW_AI=1 playwright test --project=ai",
     "verify": "bun run lint && bunx pwa-design-check && bun run test && vite build",
     "e2e:local": "playwright test --project=local",
-    "screenshots:local": "playwright test --project=screenshots",
     "prepare": "git config core.hooksPath .githooks || true",
     "icons": "pwa-logo check public/icon.svg && pwa-icons --background=#1b4332",
-    "e2e:signed-in": "PW_LIVE_ONLY=1 playwright test --project=signed-in"
+    "e2e:signed-in": "PW_LIVE_ONLY=1 playwright test --project=signed-in",
+    "screenshots": "PW_LIVE_ONLY=1 playwright test --project=screenshots"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -30,3 +30,16 @@ test('a shared link shows a preview', async ({ page, request }) => {
   expect(image).toBe('https://huishouden-tasks.web.app/og.png');
   expect((await request.get('/og.png')).ok()).toBe(true);
 });
+
+test('signed out, it opens on the invented sample household', async ({ page }) => {
+  const firestore: string[] = [];
+  page.on('request', (r) => r.url().includes('firestore.googleapis.com') && firestore.push(r.url()));
+  await page.goto('/');
+  await expect(page.getByText('Sample data')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { name: 'Groceries' })).toBeVisible();
+  await page.getByLabel('New item').fill('Sample oats');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.locator('main li', { hasText: 'Sample oats' })).toBeVisible();
+  // The sample never reaches a server.
+  expect(firestore).toEqual([]);
+});
