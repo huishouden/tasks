@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/huishouden/tasks/compare/v1.4.0...v1.5.0) (2026-10-02)
+
+
+### Features
+
+* signed out, Tasks opens on an invented household to try ([#34](https://github.com/huishouden/tasks/issues/34)) ([2bb7012](https://github.com/huishouden/tasks/commit/2bb7012becd8df69636e5d25765a784c4cee0f61))
+
 ## [1.4.0](https://github.com/huishouden/tasks/compare/v1.3.0...v1.4.0) (2026-10-02)
 
 
