@@ -319,7 +319,8 @@ export class HouseholdRepo {
     // "Drycleaners dropoff before 6" is saved as "Drycleaners dropoff", due today by 6 PM.
     const when = parseWhen(typed, now);
     const name = when?.rest ?? typed;
-    const urgency = when ? URGENCY.NORMAL : (input.urgency ?? URGENCY.NORMAL);
+    // An explicit Need today stays; rows show the due time instead of the badge.
+    const urgency = input.urgency ?? URGENCY.NORMAL;
     const category =
       input.category && input.category !== CATEGORIES.OTHER ? input.category : guessCategory(name, input.listIcon);
     const quantity = input.quantity?.trim() || '1';

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, LogOut, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
 import { placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '../lib/calendar';
@@ -448,6 +448,7 @@ function WhereField({
   onChange: (text: string) => void;
   onPick: (place: Place, text: string) => void;
 }) {
+  const inputId = useId();
   const [results, setResults] = useState<Place[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -482,15 +483,15 @@ function WhereField({
 
   return (
     <div className="grid gap-2">
-      <label className="text-sm text-stone-500">
-        Where
+      <div className="text-sm text-stone-500">
+        <label htmlFor={inputId}>Where</label>
         <div className="mt-1 flex gap-2">
-          <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Place or address" className={inputClass} />
+          <input id={inputId} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Place or address" className={inputClass} />
           <button type="button" onClick={() => void findNearby()} disabled={busy || !(value.trim() || name.trim())} className={`${ghostButton} shrink-0 border border-stone-200 dark:border-forest-600`}>
             {busy ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />} {busy ? 'Looking…' : 'Find nearby'}
           </button>
         </div>
-      </label>
+      </div>
       {error && (
         <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
           {error}
@@ -499,6 +500,11 @@ function WhereField({
       {results && results.length === 0 && (
         <p className="text-sm text-stone-500" role="status">
           Nothing like "{value.trim() || name.trim()}" nearby. Try a simpler word, such as "dry cleaner" or "pharmacy".
+        </p>
+      )}
+      {results && results.length > 0 && (
+        <p className="sr-only" role="status">
+          {results.length === 1 ? 'Found 1 place nearby' : `Found ${results.length} places nearby`}
         </p>
       )}
       {results && results.length > 0 && (

@@ -58,12 +58,17 @@ export function NearbyErrand({ items, onDone }: { items: ListItem[]; onDone: (it
         Near <strong>{item.place!.name}</strong>: {item.name}
         {others > 0 && <span className="text-stone-500"> and {others} more</span>}
       </span>
-      <button onClick={() => onDone(item)} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-forest-700 px-3 py-1 font-semibold text-white dark:bg-forest-400 dark:text-forest-900">
+      <button onClick={() => onDone(item)} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl bg-forest-700 px-3 font-semibold text-white dark:bg-forest-400 dark:text-forest-900">
         <Check size={14} /> Done
       </button>
       <button
-        onClick={() => setSnoozed({ ...snoozed, [item.id]: Date.now() + SNOOZE_MS })}
-        className="shrink-0 rounded-lg p-1 text-stone-500 hover:bg-stone-100 dark:hover:bg-forest-700"
+        onClick={() => {
+          // Keep only snoozes still running, so the stored list does not grow forever.
+          const t = Date.now();
+          const live = Object.fromEntries(Object.entries(snoozed).filter(([, until]) => until > t));
+          setSnoozed({ ...live, [item.id]: t + SNOOZE_MS });
+        }}
+        className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-forest-700"
         aria-label={`Not now: ${item.name}`}
       >
         <X size={16} />
