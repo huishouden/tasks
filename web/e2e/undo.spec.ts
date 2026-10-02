@@ -74,7 +74,7 @@ test('undoing Clear done restores the items as done', async ({ page }) => {
 });
 
 test('undoing a clear in Store mode restores the checked items', async ({ page }) => {
-  await page.getByRole('button', { name: 'Store' }).click();
+  await page.getByRole('button', { name: 'Store', exact: true }).click();
   await page.getByRole('button', { name: 'Mark Bread done' }).click();
   await page.getByRole('button', { name: 'Clear 1 checked item' }).click();
   await expect(undoBar(page)).toContainText('Cleared 1 done item');

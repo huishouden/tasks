@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('store mode walks aisles in store order and tracks progress', async ({ page }) => {
-  await page.getByRole('button', { name: 'Store' }).click();
+  await page.getByRole('button', { name: 'Store', exact: true }).click();
   await expect(page.locator('main h2, h2').filter({ hasText: /left/ })).toHaveText([
     /Produce & Greens/,
     /Dairy & Eggs/,

@@ -63,10 +63,18 @@ export function watchErrors(page: Page): string[] {
   return errors;
 }
 
-export const test = base.extend<{ fresh: void }>({
+export const test = base.extend<{ fresh: void; noMapLookups: void }>({
   fresh: [
     async ({}, use) => {
       await resetEmulators();
+      await use();
+    },
+    { auto: true },
+  ],
+  // Tests never reach the real OpenStreetMap service: no shops nearby unless a test routes one in.
+  noMapLookups: [
+    async ({ context }, use) => {
+      await context.route('https://overpass-api.de/**', (route) => route.fulfill({ json: { elements: [] } }));
       await use();
     },
     { auto: true },

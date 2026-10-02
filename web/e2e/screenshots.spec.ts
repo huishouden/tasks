@@ -83,13 +83,13 @@ test('README screenshots', async ({ page }) => {
 
   // Store mode on a phone, with a saved store layout.
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Store' }).click();
+  await page.getByRole('button', { name: 'Store', exact: true }).click();
   await page.getByRole('button', { name: /Add store/ }).click();
   await page.getByLabel('Store name').fill('Publix');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await page.getByLabel('Aisle for Dairy & Eggs').fill('Aisle 12');
   await page.getByLabel('Aisle for Household & Cleaning').fill('Aisle 15');
-  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await page.getByRole('button', { name: 'Mark Watermelon done' }).click();
   await page.getByRole('button', { name: 'Mark Sourdough bread done' }).click();
   await shot(page, 'store-phone');

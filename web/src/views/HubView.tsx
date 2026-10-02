@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AddBar, type AddRequest } from '../components/AddBar';
-import { ItemRow } from '../components/ItemRow';
+import { ItemRow, aisleRowProps, type AisleProps } from '../components/ItemRow';
 import { SortableItems } from '../components/SortableItems';
 import { StaplesShelf } from '../components/StaplesShelf';
 import { ListIconBadge } from '../components/ui';
@@ -18,6 +18,7 @@ interface Props {
   onAddStaple: (s: Staple) => void;
   onToggle: (item: ListItem) => void;
   onToggleSubtask: (item: ListItem, subtaskId: string) => void;
+  aisle?: AisleProps;
   onEdit: (item: ListItem) => void;
   onMove: (ordered: ListItem[], from: number, to: number) => void;
 }
@@ -107,13 +108,13 @@ export function HubView(props: Props) {
             items={pending}
             onMove={(from, to) => props.onMove(pending, from, to)}
             renderItem={(item, drag) => (
-              <ItemRow key={item.id} item={item} drag={drag} large showCategory onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} onEdit={() => props.onEdit(item)} />
+              <ItemRow key={item.id} item={item} drag={drag} large showCategory onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} onEdit={() => props.onEdit(item)} />
             )}
           />
           {recentlyDone.length > 0 && (
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
               {recentlyDone.map((item) => (
-                <ItemRow key={item.id} item={item} large onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} />
+                <ItemRow key={item.id} item={item} large onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} />
               ))}
             </ul>
           )}

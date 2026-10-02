@@ -14,7 +14,7 @@ The web app is in `web/`. The Android project in `app/` is the original prototyp
 
 <img src="docs/screenshots/store-phone.png" alt="Store mode on a phone, walking Publix with aisle labels" width="260" align="right">
 
-**Store** mode on a phone walks the list in the chosen store's section order, with its aisle labels, and picks the store automatically when you are there.
+**Store** mode on a phone walks the list in the chosen store's order. In a shop, a one-line banner asks whether you are at the store it found nearby (OpenStreetMap). While shopping, checking an item off offers an optional "which aisle?" at the bottom of the screen; aisles are remembered per store for the household, items are then grouped by aisle, and a wrong aisle can be corrected from the item.
 
 The screenshots come from a sample household in the emulators. After a change to how the app looks, run `bun run screenshots` in `web/` and commit the updated files in `docs/screenshots/`.
 
