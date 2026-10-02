@@ -5,6 +5,7 @@ import { ReCaptchaEnterpriseProvider, initializeAppCheck } from 'firebase/app-ch
 import { GoogleAuthProvider, connectAuthEmulator, getAuth, signInWithCredential, type Auth } from 'firebase/auth';
 import { connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 import { initFirestore } from '@huishouden/pwa-kit/firestore';
+import { startObservability } from '@huishouden/pwa-kit/observability';
 
 export interface FirebaseHandles {
   app: FirebaseApp;
@@ -52,6 +53,8 @@ export function getFirebase(): Promise<FirebaseHandles> {
       initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
     }
     const auth = getAuth(app);
+    // Error, speed and anonymous usage reports (the portal's /privacy page); off without VITE_NEWRELIC_*.
+    startObservability({ app: 'tasks', env: import.meta.env });
     // Persistent cache; writes from @huishouden/pwa-kit/firestore, so one made just before the app closes is kept.
     const db = initFirestore(app, { auth });
     if (useEmulators) {

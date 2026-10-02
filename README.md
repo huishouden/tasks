@@ -35,6 +35,20 @@ Four layouts share the same data: **Lists** for managing everything, **Kitchen**
 
 **Meals** asks Gemini (through Firebase AI Logic, on the free Gemini Developer API tier) for breakfast, lunch, dinner and snack ideas built from groceries checked off in the last 10 days. The prompt, response schema and model live in `src/data/menus.ts`. Every suggested ingredient is checked in code against what was bought plus a short list of kitchen basics, and meals that use anything else are dropped. Saved ideas are shared with the household. AI Logic only accepts requests carrying an App Check token (reCAPTCHA Enterprise), so the API cannot be used from outside this site.
 
+## Privacy
+
+Household data lives in the household's own Firestore documents, visible only to its members.
+To catch problems early, the app sends reports to New Relic (free tier) through
+`@huishouden/pwa-kit/observability`: errors (emails, ids, query strings and long numbers removed),
+Core Web Vitals and page loads, the app version, device type, and the country and region New Relic
+derives from the request; and anonymous usage counts per visit: `add item`, `check item`, `clear completed`, `create list`, `add store`, `note aisle`, `save meal ideas`, `save favorite meal`, and which view is open. Households are counted by a
+hash of the id. No names, emails, entries, free text or precise location, and no cookie or stored
+id: nothing links one visit to the next. When the browser sends Global Privacy Control or Do Not
+Track, usage counts are skipped; errors and speed still go. Builds without the `VITE_NEWRELIC_*`
+repo variables (local, staging) send nothing. The page people see is
+[huishouden-piekstra.web.app/privacy](https://huishouden-piekstra.web.app/privacy); details in pwa-kit
+[docs/observability.md](https://github.com/huishouden/pwa-kit/blob/main/docs/observability.md).
+
 ## Develop
 
 Requires [Bun](https://bun.sh), and Java 21+ for the Firestore emulator.
