@@ -5,6 +5,7 @@ import {
   formatDue,
   googleCalendarLink,
   isOverdue,
+  needsDoing,
   splitIntoChecklist,
   toggleSubtask,
   upcomingItems,
@@ -122,5 +123,24 @@ describe('toggleSubtask', () => {
     const done = toggleSubtask(steps, 'b');
     expect(done.allDone).toBe(true);
     expect(toggleSubtask(done.subtasks, 'a').allDone).toBe(false);
+  });
+});
+
+describe('needsDoing', () => {
+  it('overdue first, then the rest of today, then Need today; never done or later items', () => {
+    const items = [
+      item({ name: 'Late', dueAt: at(2026, 10, 2, 8, 0) }),
+      item({ name: 'Yesterday', dueAt: at(2026, 10, 1), allDay: true }),
+      item({ name: 'Tonight', dueAt: at(2026, 10, 2, 19, 0) }),
+      item({ name: 'All day today', dueAt: at(2026, 10, 2), allDay: true }),
+      item({ name: 'Tomorrow', dueAt: at(2026, 10, 3, 9, 0) }),
+      item({ name: 'Eggs', urgency: URGENCY.URGENT }),
+      item({ name: 'Done', urgency: URGENCY.URGENT, completed: true }),
+      item({ name: 'Bread' }),
+    ];
+    const n = needsDoing(items, NOW);
+    expect(n.overdue.map((i) => i.name)).toEqual(['Yesterday', 'Late']);
+    expect(n.today.map((i) => i.name)).toEqual(['All day today', 'Tonight']);
+    expect(n.urgent.map((i) => i.name)).toEqual(['Eggs']);
   });
 });

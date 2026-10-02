@@ -1,6 +1,6 @@
 import { DEFAULT_PANTRY, SPICE_MAX_HEAT, householdDietPreferences, householdDietRules, householdMaxHeat, pantryText, type FoodPreferences } from '@huishouden/pwa-kit/food';
 import { avoidCaffeine, dietProblems, levelScore, mealLevels, type MealLevels } from './diet';
-import type { ListItem, ShoppingList } from './model';
+import { CATEGORIES, type ListItem, type ShoppingList } from './model';
 
 export const MENU_MODEL = 'gemini-3.8-flash';
 /** Used when the main model is overloaded, which happens on the free tier at busy times. */
@@ -147,6 +147,9 @@ export function mealIngredients(meal: Meal, ctx: Pick<MealContext, 'have' | 'onL
 /** Lists whose checked-off items count as food now in the kitchen. */
 const FOOD_LIST_ICONS = new Set(['grocery', 'pantry', 'bulk']);
 
+/** Sections that are never ingredients, even on a food list (paper towels at Costco). */
+const NOT_FOOD: ReadonlySet<string> = new Set([CATEGORIES.HOUSEHOLD, CATEGORIES.PERSONAL_CARE, CATEGORIES.HARDWARE_HOME, CATEGORIES.CHORES]);
+
 /** Food checked off (bought) in the last `days`, newest first, one entry per name. */
 export function kitchenInventory(items: ListItem[], lists: ShoppingList[], now: number, days = 10): string[] {
   const foodLists = new Set(lists.filter((l) => FOOD_LIST_ICONS.has(l.icon)).map((l) => l.id));
@@ -154,7 +157,7 @@ export function kitchenInventory(items: ListItem[], lists: ShoppingList[], now: 
   const seen = new Set<string>();
   const names: string[] = [];
   for (const item of [...items].sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))) {
-    if (!item.completed || !item.completedAt || item.completedAt < since || !foodLists.has(item.listId)) continue;
+    if (!item.completed || !item.completedAt || item.completedAt < since || !foodLists.has(item.listId) || NOT_FOOD.has(item.category)) continue;
     const key = item.name.trim().toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -169,7 +172,7 @@ export function plannedGroceries(items: ListItem[], lists: ShoppingList[]): stri
   const seen = new Set<string>();
   const names: string[] = [];
   for (const item of items) {
-    if (item.completed || !foodLists.has(item.listId)) continue;
+    if (item.completed || !foodLists.has(item.listId) || NOT_FOOD.has(item.category)) continue;
     const key = item.name.trim().toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);

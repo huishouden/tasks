@@ -53,6 +53,16 @@ describe('plannedGroceries', () => {
   });
 });
 
+describe('what counts as food', () => {
+  it('leaves household goods on food lists out of the kitchen and the list', () => {
+    const lists = [list('groceries', 'grocery'), list('costco', 'bulk')];
+    const towels = { ...bought('Paper towels', null, 'costco'), category: CATEGORIES.HOUSEHOLD };
+    const soap = { ...bought('Dish soap', 1, 'costco'), category: CATEGORIES.HOUSEHOLD };
+    expect(plannedGroceries([towels, bought('Zucchini', null)], lists)).toEqual(['Zucchini']);
+    expect(kitchenInventory([soap, bought('Eggs', 1)], lists, NOW)).toEqual(['Eggs']);
+  });
+});
+
 describe('ingredientSource', () => {
   const ctx = { have: ['chicken tenderloins', 'potatoes', 'string cheese'], onList: ['zucchini', 'rice'], pantry: PANTRY };
 

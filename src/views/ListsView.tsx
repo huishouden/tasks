@@ -6,7 +6,8 @@ import { ItemRow, aisleRowProps, type AisleProps } from '../components/ItemRow';
 import { SortableItems } from '../components/SortableItems';
 import { StaplesShelf } from '../components/StaplesShelf';
 import { Chip, ListIconBadge, ghostButton } from '../components/ui';
-import { AISLE_ORDER, formatListForSharing, isTaskList, sortItems, type ListItem, type ShoppingList, type Staple } from '../data/model';
+import { AISLE_ORDER, formatListForSharing, isTaskList, needsDoing, sortItems, type ListItem, type ShoppingList, type Staple } from '../data/model';
+import { TodayPanel } from '../components/TodayPanel';
 
 interface Props {
   /** The shopping banner (detected store, or the store being shopped), shown above the list. */
@@ -54,6 +55,8 @@ export function ListsView(props: Props) {
     ([, n]) => n > 0,
   );
   const pendingCount = (listId: string) => items.filter((i) => i.listId === listId && !i.completed).length;
+  const now = Date.now();
+  const today = needsDoing(items, now);
 
   async function share() {
     const text = formatListForSharing(selectedList.name, listItems);
@@ -109,13 +112,14 @@ export function ListsView(props: Props) {
         </div>
 
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-4 p-4 sm:p-6">
+          <TodayPanel today={today} lists={lists} now={now} onToggle={props.onToggle} onOpen={props.onEdit} onSelectList={props.onSelectList} />
           {props.banner}
           <header className="flex items-center gap-3">
             <ListIconBadge icon={selectedList.icon} color={selectedList.color} size="lg" />
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-2xl font-bold">{selectedList.name}</h1>
               <p className="text-sm text-stone-500">
-                {listItems.filter((i) => !i.completed).length} to get · {listItems.filter((i) => i.completed).length} done
+                {listItems.filter((i) => !i.completed).length} {task ? 'to do' : 'to get'} · {listItems.filter((i) => i.completed).length} done
               </p>
             </div>
             <button onClick={() => void share()} className={ghostButton} aria-label="Share list">

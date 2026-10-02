@@ -258,6 +258,27 @@ export function isOverdue(item: Pick<ListItem, 'dueAt' | 'allDay' | 'completed'>
   return item.allDay ? startOfDay(item.dueAt) + DAY_MS <= now : item.dueAt < now;
 }
 
+export interface NeedsDoing {
+  /** Past its date or time and not done. */
+  overdue: ListItem[];
+  /** Due later today. */
+  today: ListItem[];
+  /** Marked "Need today", with no date. */
+  urgent: ListItem[];
+}
+
+/** What the household has to get to today, from every list: overdue first, then today's, then "Need today". */
+export function needsDoing(items: ListItem[], now: number): NeedsDoing {
+  const endOfToday = startOfDay(now) + DAY_MS;
+  const open = items.filter((i) => !i.completed);
+  const dated = open.filter((i) => i.dueAt).sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
+  return {
+    overdue: dated.filter((i) => isOverdue(i, now)),
+    today: dated.filter((i) => !isOverdue(i, now) && (i.dueAt ?? 0) < endOfToday),
+    urgent: sortItems(open.filter((i) => !i.dueAt && i.urgency === URGENCY.URGENT)),
+  };
+}
+
 /** Dated, unfinished items from every list due within `days`, overdue ones included, soonest first. */
 export function upcomingItems(items: ListItem[], now: number, days = 14): ListItem[] {
   const until = startOfDay(now) + (days + 1) * DAY_MS;
