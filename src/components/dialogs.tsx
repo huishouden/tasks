@@ -44,15 +44,20 @@ export function EditItemDialog({
   onDelete: () => void;
   onClose: () => void;
 }) {
-  const [name, setName] = useState(item.name);
+  // A date or time still in the name ("Cancel trial by October 4th") fills the empty date fields.
+  const [readFromName] = useState(() => (item.dueAt ? null : parseWhen(item.name)));
+  const [showRead, setShowRead] = useState(readFromName !== null);
+  const [name, setName] = useState(readFromName?.rest ?? item.name);
   const [quantity, setQuantity] = useState(item.quantity);
   const [notes, setNotes] = useState(item.notes);
   const [category, setCategory] = useState<Category>(item.category);
   const [urgency, setUrgency] = useState<Urgency>(item.urgency);
   const [listId, setListId] = useState(item.listId);
-  const [date, setDate] = useState(item.dueAt ? toDateInput(item.dueAt) : '');
-  const [time, setTime] = useState(item.dueAt && !item.allDay ? toTimeInput(item.dueAt) : '');
-  const [dueBy, setDueBy] = useState(!!item.dueBy);
+  const [date, setDate] = useState(item.dueAt ? toDateInput(item.dueAt) : readFromName ? toDateInput(readFromName.dueAt) : '');
+  const [time, setTime] = useState(
+    item.dueAt && !item.allDay ? toTimeInput(item.dueAt) : readFromName && !readFromName.allDay ? toTimeInput(readFromName.dueAt) : '',
+  );
+  const [dueBy, setDueBy] = useState(item.dueAt ? !!item.dueBy : !!readFromName?.by);
   const [location, setLocation] = useState(item.location ?? '');
   const [place, setPlace] = useState<ItemPlace | null>(item.place ?? null);
   const [link, setLink] = useState(item.link ?? '');
@@ -274,7 +279,7 @@ export function EditItemDialog({
             listId,
             dueAt,
             allDay: dueAt !== null && !time,
-            dueBy: dueAt !== null && !!time && dueBy,
+            dueBy: dueAt !== null && dueBy,
             location: location.trim(),
             place: location.trim() ? place : null,
             link: link.trim(),
@@ -287,7 +292,26 @@ export function EditItemDialog({
           {task ? 'Task' : 'Item'}
           <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} mt-1`} autoFocus />
         </label>
-        {inferred && (
+        {showRead && readFromName && date && (
+          <p className="-mt-1 flex flex-wrap items-center gap-x-2 text-sm text-stone-600 dark:text-stone-300" role="status">
+            <CalendarClock size={16} className="shrink-0 text-forest-700 dark:text-forest-300" aria-hidden />
+            <span>Read “{readFromName.phrase}” from the name.</span>
+            <button
+              type="button"
+              onClick={() => {
+                setName(item.name);
+                setDate('');
+                setTime('');
+                setDueBy(false);
+                setShowRead(false);
+              }}
+              className="min-h-11 font-medium text-forest-700 underline underline-offset-2 dark:text-forest-300"
+            >
+              Undo
+            </button>
+          </p>
+        )}
+        {inferred && !showRead && (
           <button
             type="button"
             onClick={applyInferred}
@@ -589,7 +613,7 @@ function hoursToday(hours: string): string {
 
 /** "Today by 6:00 PM" → "today by 6:00 PM", for use mid-sentence; dates like "Tue, Jan 7" keep their case. */
 function lowerFirst(text: string): string {
-  return /^(Today|Tomorrow|Yesterday)\b/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
+  return /^(Today|Tomorrow|Yesterday|By)\b/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
 }
 
 /** "18:00" → "6:00 PM" in the device's locale. */

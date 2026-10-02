@@ -40,6 +40,34 @@ test('an existing task offers its typed time with one tap', async ({ page }) => 
   await expect(page.locator('main li', { hasText: 'Pick up prescription' })).toContainText(/Today · by 5:00\s?PM/);
 });
 
+test('a date typed into a task becomes its due date, and an old name with a date fills the editor', async ({ page }) => {
+  await page.getByLabel('New item').fill('Cancel streaming trial by January 20th');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  const row = page.locator('main li', { hasText: 'Cancel streaming trial' });
+  await expect(row.getByText('Cancel streaming trial', { exact: true })).toBeVisible();
+  await expect(row).toContainText('By Mon, Jan 20');
+
+  // A task saved before dates were read keeps the date in its name; the editor reads it.
+  await addItem(page, 'Renew library card');
+  await page.getByRole('button', { name: 'Edit Renew library card' }).click();
+  let dialog = page.getByRole('dialog', { name: 'Edit task' });
+  await dialog.getByLabel('Task', { exact: true }).fill('Renew library card on 1/15');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Edit Renew library card on 1/15' }).click();
+  dialog = page.getByRole('dialog', { name: 'Edit task' });
+  await expect(dialog.getByLabel('Task', { exact: true })).toHaveValue('Renew library card');
+  await expect(dialog.getByLabel('Date', { exact: true })).toHaveValue('2031-01-15');
+  await expect(dialog.getByRole('status').filter({ hasText: 'Read “on 1/15” from the name.' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Undo' }).click();
+  await expect(dialog.getByLabel('Task', { exact: true })).toHaveValue('Renew library card on 1/15');
+  await expect(dialog.getByLabel('Date', { exact: true })).toHaveValue('');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Edit Renew library card on 1/15' }).click();
+  dialog = page.getByRole('dialog', { name: 'Edit task' });
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('main li', { hasText: 'Renew library card' })).toContainText('Wed, Jan 15');
+});
+
 test('Find nearby fills in the place from the closest matches', async ({ page }) => {
   await addItem(page, 'Drycleaners dropoff');
   await page.getByRole('button', { name: 'Edit Drycleaners dropoff' }).click();

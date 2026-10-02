@@ -227,7 +227,10 @@ function startOfDay(t: number): number {
   return d.getTime();
 }
 
-/** "Today · 10:00 AM", "Today · by 6:00 PM", "Tomorrow", "Tue, Oct 14 · 2:30 PM" in the device's locale and time zone. */
+/**
+ * "Today · 10:00 AM", "Today · by 6:00 PM", "Tomorrow", "Tue, Oct 14 · 2:30 PM", and for an all-day
+ * deadline "By Sun, Oct 4" or "By tomorrow", in the device's locale and time zone.
+ */
 export function formatDue(item: Pick<ListItem, 'dueAt' | 'allDay' | 'dueBy'>, now: number): string {
   if (!item.dueAt) return '';
   const days = Math.round((startOfDay(item.dueAt) - startOfDay(now)) / DAY_MS);
@@ -244,7 +247,7 @@ export function formatDue(item: Pick<ListItem, 'dueAt' | 'allDay' | 'dueBy'>, no
               day: 'numeric',
               ...(Math.abs(days) > 300 ? { year: 'numeric' } : {}),
             });
-  if (item.allDay) return date;
+  if (item.allDay) return item.dueBy ? `By ${/^(Today|Tomorrow|Yesterday)$/.test(date) ? date.toLowerCase() : date}` : date;
   const time = new Date(item.dueAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   return `${date} · ${item.dueBy ? 'by ' : ''}${time}`;
 }

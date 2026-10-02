@@ -39,6 +39,11 @@ describe('formatDue', () => {
     expect(formatDue({ dueAt: at(2026, 10, 3), allDay: true }, NOW)).toBe('Tomorrow');
   });
 
+  it('says "By" for an all-day deadline', () => {
+    expect(formatDue({ dueAt: at(2026, 10, 4), allDay: true, dueBy: true }, NOW)).toMatch(/^By Sun, Oct 4$/);
+    expect(formatDue({ dueAt: at(2026, 10, 3), allDay: true, dueBy: true }, NOW)).toBe('By tomorrow');
+  });
+
   it('uses a short date further out', () => {
     expect(formatDue({ dueAt: at(2026, 10, 14), allDay: true }, NOW)).toMatch(/Oct 14/);
   });
