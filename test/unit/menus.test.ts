@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ingredientAvailable, ingredientChoices, kitchenInventory, mealKey, validateMeals, type Meal } from '../../src/data/menus';
+import { ingredientSource, kitchenInventory, mealIngredients, mealKey, menuPrompt, menuSystemInstruction, plannedGroceries, validateMeals } from '../../src/data/menus';
 import { CATEGORIES, URGENCY, type ListItem, type ShoppingList } from '../../src/data/model';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -42,34 +42,53 @@ describe('kitchenInventory', () => {
   });
 });
 
-describe('ingredientAvailable', () => {
-  const available = ['chicken tenderloins', 'potatoes', 'string cheese', 'orange juice', 'berries'];
+const PANTRY = ['salt', 'black pepper', 'common dried herbs and spices', 'cooking oil', 'cooking spray', 'butter'];
+const nobody = { people: [] };
+
+describe('plannedGroceries', () => {
+  it('lists unchecked items on food lists only, once per name', () => {
+    const lists = [list('groceries', 'grocery'), list('costco', 'bulk'), list('hardware', 'hardware')];
+    const items = [bought('Zucchini', null), bought('zucchini', null, 'costco'), bought('Feta', 2), bought('Light bulbs', null, 'hardware')];
+    expect(plannedGroceries(items, lists)).toEqual(['Zucchini']);
+  });
+});
+
+describe('ingredientSource', () => {
+  const ctx = { have: ['chicken tenderloins', 'potatoes', 'string cheese'], onList: ['zucchini', 'rice'], pantry: PANTRY };
 
   it.each([
-    ['chicken tenderloins', true],
-    ['chicken', true],
-    ['potato', true],
-    ['Potatoes', true],
-    ['berry', true],
-    ['olive oil', true],
-    ['salt', true],
-    ['salmon', false],
-    ['bread', false],
-    ['cheese', true],
-    ['black pepper', true],
-    ['bell pepper', false],
-    ['peanut butter', false],
-    ['garlic', false],
+    ['chicken', 'have'],
+    ['Potatoes', 'have'],
+    ['cheese', 'have'],
+    ['zucchini', 'list'],
+    ['rice', 'list'],
+    ['olive oil', 'basic'],
+    ['salt', 'basic'],
+    ['black pepper', 'basic'],
+    ['cooking spray', 'basic'],
+    ['cumin', 'basic'],
+    ['dried oregano', 'basic'],
+    ['butter', 'basic'],
+    ['bell pepper', null],
+    ['peanut butter', null],
+    ['garlic', null],
+    ['gochujang', null],
+    ['fresh basil', null],
+    ['soy sauce', null],
   ])('%s -> %s', (ingredient, expected) => {
-    expect(ingredientAvailable(ingredient, available)).toBe(expected);
+    expect(ingredientSource(ingredient, ctx)).toBe(expected);
+  });
+
+  it('spices are basics only when the pantry includes them', () => {
+    expect(ingredientSource('cumin', { have: [], onList: [], pantry: ['salt'] })).toBeNull();
   });
 });
 
 describe('validateMeals', () => {
-  const available = ['eggs', 'mushrooms', 'steak', 'rice', 'zucchini'];
+  const ctx = { have: ['eggs', 'mushrooms', 'steak'], onList: ['rice', 'zucchini'], pantry: PANTRY, food: nobody };
 
-  it('keeps meals made from what was bought plus basics', () => {
-    const meals = validateMeals(
+  it('keeps meals made from what is bought or listed, plus basics', () => {
+    const { meals } = validateMeals(
       {
         meals: [
           {
@@ -78,35 +97,97 @@ describe('validateMeals', () => {
             parts: [
               { ingredients: ['steak', 'butter'], prep: 'Pan-seared in butter with salt and pepper' },
               { ingredients: ['rice'], prep: 'Cooked in a rice cooker' },
-              { ingredients: ['zucchini'], prep: 'Sliced and pan-fried in oil with seasoning' },
+              { ingredients: ['zucchini'], prep: 'Sliced and sautéed in oil with garlic powder' },
             ],
+            extras: [],
           },
         ],
       },
-      available,
+      ctx,
     );
     expect(meals.map((m) => m.name)).toEqual(['Steak with rice and zucchini']);
+    expect(meals[0].extras).toBeUndefined();
   });
 
-  it('drops meals that use something not bought, of an unknown type, or malformed', () => {
-    const meals = validateMeals(
+  it('allows up to three declared extras and records them', () => {
+    const { meals } = validateMeals(
+      { meals: [{ type: 'breakfast', name: 'Mushroom and feta omelet', parts: [{ ingredients: ['eggs', 'mushrooms', 'feta', 'chives'], prep: 'Folded' }], extras: ['feta', 'chives', 'salt'] }] },
+      ctx,
+    );
+    expect(meals).toHaveLength(1);
+    expect(meals[0].extras).toEqual(['feta', 'chives']);
+    expect(mealIngredients(meals[0], ctx)).toEqual({ have: ['Eggs', 'Mushrooms'], list: [], extra: ['Feta', 'Chives'] });
+  });
+
+  it('counts an extra named only in extras, not in the parts', () => {
+    const { meals } = validateMeals(
+      { meals: [{ type: 'lunch', name: 'Spinach toast', parts: [{ ingredients: ['eggs', 'spinach'], prep: 'Sautéed' }], extras: ['feta cheese'] }] },
+      { ...ctx, onList: ['spinach'] },
+    );
+    expect(meals[0].extras).toEqual(['feta cheese']);
+    expect(mealIngredients(meals[0], { ...ctx, onList: ['spinach'] }).extra).toEqual(['Feta cheese']);
+  });
+
+  it('drops meals with undeclared or too many extras, of an unknown type, or malformed', () => {
+    const result = validateMeals(
       {
         meals: [
-          { type: 'breakfast', name: 'Eggs Benedict', parts: [{ ingredients: ['eggs', 'english muffin'], prep: 'Poached' }] },
+          { type: 'breakfast', name: 'Eggs Benedict', parts: [{ ingredients: ['eggs', 'english muffin'], prep: 'Poached' }], extras: [] },
+          { type: 'dinner', name: 'Loaded steak', parts: [{ ingredients: ['steak', 'feta', 'olives', 'capers', 'pesto'], prep: 'Grilled' }], extras: ['feta', 'olives', 'capers', 'pesto'] },
           { type: 'brunch', name: 'Mushroom eggs', parts: [{ ingredients: ['eggs', 'mushrooms'], prep: 'Scrambled' }] },
           { type: 'lunch', name: 'Rice bowl', parts: [{ ingredients: 'rice', prep: 'Cooked' }] },
           { type: 'lunch', name: '', parts: [{ ingredients: ['rice'], prep: 'Cooked' }] },
           { type: 'breakfast', name: 'Mushroom omelet', parts: [{ ingredients: ['eggs', 'mushrooms'], prep: 'Folded over sautéed mushrooms' }] },
         ],
       },
-      available,
+      ctx,
     );
-    expect(meals.map((m) => m.name)).toEqual(['Mushroom omelet']);
+    expect(result.meals.map((m) => m.name)).toEqual(['Mushroom omelet']);
+    expect(result.droppedUnlisted).toBe(2);
+  });
+
+  it('drops meals that break a diet, saying why', () => {
+    const food = { people: [{ id: 'a', name: 'Sam', diets: ['vegetarian' as const], avoid: [] }] };
+    const result = validateMeals(
+      {
+        meals: [
+          { type: 'dinner', name: 'Steak and rice', parts: [{ ingredients: ['steak', 'rice'], prep: 'Seared' }], extras: [] },
+          { type: 'dinner', name: 'Mushroom rice', parts: [{ ingredients: ['mushrooms', 'rice'], prep: 'Sautéed' }], extras: [] },
+        ],
+      },
+      { ...ctx, food },
+    );
+    expect(result.meals.map((m) => m.name)).toEqual(['Mushroom rice']);
+    expect(result.droppedDiet).toEqual([{ name: 'Steak and rice', reason: 'steak (Sam (vegetarian))' }]);
   });
 
   it('returns nothing for a response without meals', () => {
-    expect(validateMeals({ text: 'sorry' }, available)).toEqual([]);
-    expect(validateMeals(null, available)).toEqual([]);
+    expect(validateMeals({ text: 'sorry' }, ctx).meals).toEqual([]);
+    expect(validateMeals(null, ctx).meals).toEqual([]);
+  });
+});
+
+describe('the prompt', () => {
+  it('names what is had and listed, the pantry, and the household rules as requirements', () => {
+    const food = { people: [{ id: 'a', name: 'Sam', diets: ['gerd' as const, 'pregnant' as const], avoid: ['olives'] }] };
+    const prompt = menuPrompt({ have: ['eggs'], onList: ['rice'], pantry: PANTRY, food });
+    expect(prompt).toContain('HAVE: eggs');
+    expect(prompt).toContain('ON THE LIST: rice');
+    expect(prompt).toContain('PANTRY: Assume the kitchen already has salt');
+    expect(prompt).toContain('HOUSEHOLD RULES (must all hold for every meal):');
+    expect(prompt).toContain('Sam is pregnant');
+    expect(prompt).toContain('Sam avoids olives');
+    // GERD is a preference, not a rule.
+    expect(prompt).toContain('HOUSEHOLD PREFERENCES (most meals, not all):');
+    expect(prompt.split('HOUSEHOLD PREFERENCES')[0]).not.toContain('GERD');
+    expect(prompt.split('HOUSEHOLD PREFERENCES')[1]).toContain('Sam: GERD (reflux)');
+  });
+
+  it('only pushes coffee at breakfast when nobody avoids caffeine', () => {
+    expect(menuSystemInstruction(nobody)).toContain('Include coffee as the drink');
+    const gerd = { people: [{ id: 'a', name: 'Sam', diets: ['gerd' as const], avoid: [] }] };
+    expect(menuSystemInstruction(gerd)).not.toContain('Include coffee');
+    expect(menuSystemInstruction(gerd)).toContain('Do not suggest coffee');
   });
 });
 
@@ -122,63 +203,5 @@ describe('mealKey', () => {
 
   it('stays within a reasonable document ID length', () => {
     expect(mealKey({ name: 'a'.repeat(500) })).toHaveLength(120);
-  });
-});
-
-describe('ingredientChoices', () => {
-  const meal: Meal = {
-    type: 'dinner',
-    name: 'Steak fajitas',
-    parts: [
-      { ingredients: ['steak', 'bell pepper', 'olive oil', 'salt'], prep: 'Seared in olive oil with salt' },
-      { ingredients: ['tortillas', 'Steak', 'garlic', 'sour cream'], prep: 'Warmed in a pan' },
-      { ingredients: ['peanut butter', 'black pepper', ' '], prep: 'On the side' },
-    ],
-  };
-
-  it('ticks everything that is neither on the list nor bought recently', () => {
-    expect(ingredientChoices(meal, [], [])).toEqual([
-      { name: 'Steak', selected: true, note: null },
-      { name: 'Bell pepper', selected: true, note: null },
-      { name: 'Tortillas', selected: true, note: null },
-      { name: 'Garlic', selected: true, note: null },
-      { name: 'Sour cream', selected: true, note: null },
-      { name: 'Peanut butter', selected: true, note: null },
-    ]);
-  });
-
-  it('unticks what is already on the list, allowing plurals and partial names', () => {
-    const choices = ingredientChoices(meal, ['Tortilla', 'Sour cream (light)', 'Milk'], []);
-    expect(choices.filter((c) => !c.selected)).toEqual([
-      { name: 'Tortillas', selected: false, note: 'on list' },
-      { name: 'Sour cream', selected: false, note: 'on list' },
-    ]);
-  });
-
-  it('unticks what was bought recently, and prefers "on list" when both apply', () => {
-    const choices = ingredientChoices(meal, ['Garlic'], ['Steak', 'garlic']);
-    expect(choices.find((c) => c.name === 'Steak')).toEqual({ name: 'Steak', selected: false, note: 'bought recently' });
-    expect(choices.find((c) => c.name === 'Garlic')).toEqual({ name: 'Garlic', selected: false, note: 'on list' });
-    expect(choices.find((c) => c.name === 'Bell pepper')?.selected).toBe(true);
-  });
-
-  it('skips kitchen basics but keeps groceries whose names contain a basic', () => {
-    const names = ingredientChoices(meal, [], []).map((c) => c.name);
-    expect(names).not.toContain('Olive oil');
-    expect(names).not.toContain('Salt');
-    expect(names).not.toContain('Black pepper');
-    expect(names).toEqual(expect.arrayContaining(['Bell pepper', 'Garlic', 'Peanut butter']));
-  });
-
-  it('collapses duplicates across parts, including case and plural differences', () => {
-    const doubled: Meal = {
-      type: 'breakfast',
-      name: 'Eggs two ways',
-      parts: [
-        { ingredients: ['eggs', 'toast'], prep: 'Fried' },
-        { ingredients: ['Egg', 'EGGS'], prep: 'Boiled' },
-      ],
-    };
-    expect(ingredientChoices(doubled, [], []).map((c) => c.name)).toEqual(['Eggs', 'Toast']);
   });
 });

@@ -1,10 +1,12 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { ChevronDown, ListPlus, Loader2, Plus, Sparkles, Star, Trash2, X } from 'lucide-react';
+import { Candy, ChevronDown, Citrus, Droplet, Flame, Leaf, ListPlus, Loader2, Plus, Sparkles, Star, Trash2, X } from 'lucide-react';
+import { GENTLE_DIETS, dietTags, gentleOnReflux, isStrict, mealLevels, type MealLevels } from '../data/diet';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Chip, Dialog, ghostButton, inputClass, primaryButton } from '../components/ui';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { useOnline, usePref } from '../lib/prefs';
-import { MEAL_LABELS, groupMeals, ingredientChoices, kitchenInventory, mealKey, type FavoriteMeal, type Meal, type Menu } from '../data/menus';
+import { DIET_LABELS, householdDiets, type FoodPreferences } from '@huishouden/pwa-kit/food';
+import { MEAL_LABELS, groupMeals, kitchenInventory, mealIngredients, mealKey, pantryOf, plannedGroceries, type FavoriteMeal, type Meal, type MealContext, type Menu, type ValidatedMeals } from '../data/menus';
 import type { ListItem, ShoppingList } from '../data/model';
 
 interface Props {
@@ -12,7 +14,9 @@ interface Props {
   items: ListItem[];
   menus: Menu[];
   favorites: FavoriteMeal[];
-  suggest: (ingredients: string[]) => Promise<Meal[]>;
+  /** The household's diets and pantry (portal settings); null until read or when unavailable. */
+  food: FoodPreferences | null;
+  suggest: (ctx: MealContext) => Promise<ValidatedMeals>;
   onSave: (ingredients: string[], meals: Meal[]) => Promise<string>;
   onDelete: (id: string) => void;
   onSaveFavorite: (meal: Meal) => Promise<void>;
@@ -23,9 +27,20 @@ interface Props {
 
 const MIN_INGREDIENTS = 3;
 
-/** Meal ideas from what was recently bought: groceries checked off in the last 10 days. */
-export function MealsView({ lists, items, menus, favorites, suggest, onSave, onDelete, onSaveFavorite, onRemoveFavorite, onAddItems }: Props) {
+/**
+ * Meal ideas from what is in the kitchen (bought in the last 10 days) and what is still on the food
+ * lists, so a week can be planned before shopping, within the household's diets.
+ */
+export function MealsView({ lists, items, menus, favorites, food, suggest, onSave, onDelete, onSaveFavorite, onRemoveFavorite, onAddItems }: Props) {
   const bought = useMemo(() => kitchenInventory(items, lists, Date.now()), [items, lists]);
+  const planned = useMemo(() => plannedGroceries(items, lists).filter((p) => !bought.some((b) => b.toLowerCase() === p.toLowerCase())), [items, lists, bought]);
+  const pantry = pantryOf(food);
+  const people = food?.people ?? [];
+  const diets = householdDiets({ people });
+  const strictDiets = diets.filter(isStrict);
+  const gentleDiets = diets.filter((d) => GENTLE_DIETS.includes(d));
+  const reflux = gentleDiets.includes('gerd');
+  const [dropped, setDropped] = useState<ValidatedMeals['droppedDiet']>([]);
   const [usedUp, setUsedUp] = useState<Set<string>>(new Set());
   const [extras, setExtras] = useState<string[]>([]);
   const [extra, setExtra] = useState('');
@@ -38,7 +53,10 @@ export function MealsView({ lists, items, menus, favorites, suggest, onSave, onD
   const [adding, setAdding] = useState<Meal | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const available = [...bought.filter((b) => !usedUp.has(b)), ...extras];
+  const have = [...bought.filter((b) => !usedUp.has(b)), ...extras];
+  const onList = planned.filter((p) => !usedUp.has(p));
+  const available = [...have, ...onList];
+  const ctx: MealContext = { have, onList, pantry, food: { people } };
   const shown = menus.find((m) => m.id === selectedId) ?? menus[0];
   const savedIds = new Set(favorites.map((f) => f.id));
   const groceries = lists.find((l) => l.icon === 'grocery') ?? lists[0];
@@ -64,8 +82,15 @@ export function MealsView({ lists, items, menus, favorites, suggest, onSave, onD
         label={label}
         saved={savedIds.has(mealKey(meal))}
         listName={groceries?.name}
+        sources={mealIngredients(meal, ctx)}
+        reflux={reflux}
         onToggleSaved={() => toggleFavorite(meal)}
         onAdd={() => setAdding(meal)}
+        onAddExtras={(names) => {
+          if (!groceries) return;
+          onAddItems(groceries.id, names, `for ${meal.name}`);
+          setNotice(`Added ${names.length} ${names.length === 1 ? 'item' : 'items'} to ${groceries.name}`);
+        }}
       />
     );
   }
@@ -82,9 +107,11 @@ export function MealsView({ lists, items, menus, favorites, suggest, onSave, onD
   async function run() {
     setBusy(true);
     setError(null);
+    setDropped([]);
     try {
-      const meals = await suggest(available);
-      setSelectedId(await onSave(available, meals));
+      const result = await suggest(ctx);
+      setDropped(result.droppedDiet);
+      setSelectedId(await onSave(available, result.meals));
     } catch (e) {
       setError(friendlyError(e, 'meals'));
     } finally {
@@ -98,9 +125,20 @@ export function MealsView({ lists, items, menus, favorites, suggest, onSave, onD
         <div>
           <h1 className="text-2xl font-bold">What can we make?</h1>
           <p className="text-sm text-stone-500">
-            In the kitchen: groceries checked off in the last 10 days. Tap anything that's used up; add what isn't on a list.
+            From what you have (bought in the last 10 days) and what's still on your lists. Tap anything used up or not wanted.
           </p>
+          {strictDiets.length > 0 && (
+            <p className="mt-1 text-sm font-medium text-forest-700 dark:text-forest-300">
+              Every idea fits {whoHas(people, (d) => isStrict(d)).join(', ')}
+            </p>
+          )}
+          {gentleDiets.length > 0 && (
+            <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">
+              Gentler ideas first for {whoHas(people, (d) => !isStrict(d), true).join(', ')}; each shows how hot, acidic, rich and sweet it is.
+            </p>
+          )}
         </div>
+        {bought.length + extras.length > 0 && <h2 className="text-sm font-semibold text-stone-600 dark:text-stone-300">Have</h2>}
         <div className="flex flex-wrap gap-2" aria-label="Ingredients">
           {bought.map((name) => (
             <Chip key={name} active={!usedUp.has(name)} onClick={() => toggle(name)}>
@@ -112,10 +150,22 @@ export function MealsView({ lists, items, menus, favorites, suggest, onSave, onD
               {name} <X size={12} className="ml-0.5 inline" />
             </Chip>
           ))}
-          {bought.length === 0 && extras.length === 0 && (
-            <p className="text-sm text-stone-500">Nothing checked off recently. Add ingredients below.</p>
+          {bought.length === 0 && extras.length === 0 && planned.length === 0 && (
+            <p className="text-sm text-stone-500">Nothing bought recently or on a food list. Add ingredients below.</p>
           )}
         </div>
+        {planned.length > 0 && (
+          <>
+            <h2 className="text-sm font-semibold text-stone-600 dark:text-stone-300">On the list</h2>
+            <div className="flex flex-wrap gap-2" aria-label="On the list">
+              {planned.map((name) => (
+                <Chip key={`list-${name}`} active={!usedUp.has(name)} onClick={() => toggle(name)}>
+                  <span className={usedUp.has(name) ? 'line-through' : ''}>{name}</span>
+                </Chip>
+              ))}
+            </div>
+          </>
+        )}
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -137,6 +187,11 @@ export function MealsView({ lists, items, menus, favorites, suggest, onSave, onD
         {available.length < MIN_INGREDIENTS && <p className="text-sm text-stone-500">Needs at least {MIN_INGREDIENTS} ingredients.</p>}
         {!online && !error && <ErrorNotice error={friendlyError(new Error('offline'), 'meals', false)} />}
         {error && <ErrorNotice error={error} retrying={busy} onRetry={online ? () => void run() : undefined} />}
+        {dropped.length > 0 && (
+          <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
+            Left out {dropped.length === 1 ? '1 idea' : `${dropped.length} ideas`} that didn't fit: {dropped.map((d) => `${d.name} (${d.reason})`).join('; ')}.
+          </p>
+        )}
       </section>
 
       {shown && (
@@ -161,7 +216,7 @@ export function MealsView({ lists, items, menus, favorites, suggest, onSave, onD
               <Trash2 size={18} />
             </button>
           </div>
-          {groupMeals(shown.meals).map(([type, meals]) => (
+          {groupMeals(shown.meals, reflux).map(([type, meals]) => (
             <div key={type}>
               <h2 className="mb-2 text-sm font-semibold tracking-wider text-stone-500 uppercase">{MEAL_LABELS[type]}</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{meals.map((meal) => card(meal, meal.name))}</div>
@@ -197,6 +252,7 @@ export function MealsView({ lists, items, menus, favorites, suggest, onSave, onD
           onList={items.filter((i) => i.listId === groceries.id && !i.completed).map((i) => i.name)}
           // Used-up chips are not in the kitchen any more, so they are worth buying again.
           recentlyBought={bought.filter((b) => !usedUp.has(b))}
+          pantry={pantry}
           onAdd={(names) => {
             onAddItems(groceries.id, names, `for ${adding.name}`);
             setNotice(`Added ${names.length} ${names.length === 1 ? 'item' : 'items'} to ${groceries.name}`);
@@ -223,17 +279,31 @@ function MealCard({
   label,
   saved,
   listName,
+  sources,
+  reflux,
   onToggleSaved,
   onAdd,
+  onAddExtras,
 }: {
   meal: Meal;
   /** Shown above the name where the meal type is not already a heading. */
   label?: string;
   saved: boolean;
   listName?: string;
+  /** The meal's ingredients by where they come from. */
+  sources: Record<'have' | 'list' | 'extra', string[]>;
+  /** Someone in the household has GERD: mark the meals that are easy on it. */
+  reflux: boolean;
   onToggleSaved: () => void;
   onAdd: () => void;
+  onAddExtras: (names: string[]) => void;
 }) {
+  const row = (title: string, names: string[]) =>
+    names.length > 0 && (
+      <p>
+        <span className="font-medium text-stone-700 dark:text-stone-200">{title}:</span> {names.join(', ')}
+      </p>
+    );
   const iconButton = 'shrink-0 rounded-lg p-1.5 hover:bg-stone-100 dark:hover:bg-forest-700';
   return (
     <article className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-forest-700 dark:bg-forest-800">
@@ -262,6 +332,25 @@ function MealCard({
           </button>
         )}
       </div>
+      <MealBadges meal={meal} reflux={reflux} />
+      <div className="mb-2 grid gap-0.5 text-sm text-stone-600 dark:text-stone-300">
+        {row('Have', sources.have)}
+        {row('On the list', sources.list)}
+        {sources.extra.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-2">
+            {row('To get', sources.extra)}
+            {listName && (
+              <button
+                onClick={() => onAddExtras(sources.extra)}
+                className="inline-flex min-h-11 items-center gap-1 rounded-xl px-2 font-medium text-forest-700 hover:bg-forest-50 dark:text-forest-300 dark:hover:bg-forest-700"
+                aria-label={`Add ${sources.extra.join(', ')} to ${listName}`}
+              >
+                <ListPlus size={16} /> Add to list
+              </button>
+            )}
+          </div>
+        )}
+      </div>
       <ul className="grid gap-1.5 text-sm">
         {meal.parts.map((part, i) => (
           <li key={i}>
@@ -274,11 +363,67 @@ function MealCard({
   );
 }
 
+/** "Alex (vegetarian, pregnant)", or with `possessive`, "Alex's GERD (reflux)": who has which diets. */
+function whoHas(people: FoodPreferences['people'], keep: (d: FoodPreferences['people'][number]['diets'][number]) => boolean, possessive = false): string[] {
+  return people
+    .map((p) => ({ name: p.name, diets: p.diets.filter(keep).map((d) => DIET_LABELS[d]) }))
+    .filter((p) => p.diets.length)
+    .map((p) => (possessive ? `${p.name}'s ${p.diets.join(' and ')}` : `${p.name} (${p.diets.map((d) => d.toLowerCase()).join(', ')})`));
+}
+
+const LEVEL_WORDS: Record<Exclude<keyof MealLevels, 'heat'>, [string, string, string]> = {
+  acidity: ['A little acidic', 'Acidic', 'Very acidic'],
+  richness: ['A little rich', 'Rich', 'Fried or greasy'],
+  sweetness: ['A little sweet', 'Sweet', 'Very sweet'],
+};
+
+/**
+ * What a menu would print beside a dish: Vegetarian or Vegan, flames for heat, and words for
+ * acidity, richness and sweetness when there is any. Quiet stone text; heat in terracotta.
+ */
+function MealBadges({ meal, reflux }: { meal: Meal; reflux: boolean }) {
+  const levels = meal.levels ?? mealLevels(meal);
+  const tags = dietTags(meal);
+  const badge = 'inline-flex items-center gap-1 rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-600 dark:border-forest-600 dark:text-stone-300';
+  const icons = { acidity: Citrus, richness: Droplet, sweetness: Candy } as const;
+  const words = (Object.keys(LEVEL_WORDS) as (keyof typeof LEVEL_WORDS)[]).filter((k) => levels[k] > 0);
+  if (!tags.length && !levels.heat && !words.length && !reflux) return null;
+  return (
+    <ul className="mb-2 flex flex-wrap gap-1.5" aria-label={`About ${meal.name}`}>
+      {reflux && gentleOnReflux(levels) && (
+        <li className={`${badge} border-forest-200 text-forest-700 dark:text-forest-300`}>Gentle on reflux</li>
+      )}
+      {tags.map((t) => (
+        <li key={t} className={badge}>
+          <Leaf size={12} /> {t}
+        </li>
+      ))}
+      {levels.heat > 0 && (
+        <li className={`${badge} text-terracotta`} aria-label={['', 'A little spicy', 'Spicy', 'Very spicy'][levels.heat]}>
+          {Array.from({ length: levels.heat }, (_, i) => (
+            <Flame key={i} size={12} aria-hidden />
+          ))}
+          <span aria-hidden>{['', 'Mild heat', 'Spicy', 'Very spicy'][levels.heat]}</span>
+        </li>
+      )}
+      {words.map((k) => {
+        const Icon = icons[k];
+        return (
+          <li key={k} className={badge}>
+            <Icon size={12} /> {LEVEL_WORDS[k][levels[k] - 1] ?? LEVEL_WORDS[k][2]}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function AddIngredientsDialog({
   meal,
   list,
   onList,
   recentlyBought,
+  pantry,
   onAdd,
   onClose,
 }: {
@@ -286,11 +431,20 @@ function AddIngredientsDialog({
   list: ShoppingList;
   onList: string[];
   recentlyBought: string[];
+  pantry: readonly string[];
   onAdd: (names: string[]) => void;
   onClose: () => void;
 }) {
-  // Computed once on open, so the ticks don't shift if the list changes while choosing.
-  const [choices, setChoices] = useState(() => ingredientChoices(meal, onList, recentlyBought));
+  // Computed once on open, so the ticks don't shift if the list changes while choosing. What is
+  // neither listed nor bought is ticked.
+  const [choices, setChoices] = useState(() => {
+    const s = mealIngredients(meal, { have: recentlyBought, onList, pantry });
+    return [
+      ...s.extra.map((name) => ({ name, selected: true, note: null as string | null })),
+      ...s.list.map((name) => ({ name, selected: false, note: 'on list' })),
+      ...s.have.map((name) => ({ name, selected: false, note: 'bought recently' })),
+    ];
+  });
   const idPrefix = useId();
   const picked = choices.filter((c) => c.selected).map((c) => c.name);
   return (

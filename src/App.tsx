@@ -19,6 +19,7 @@ import {
   useAuth,
   useHousehold,
   useFavorites,
+  useFood,
   useHouseholdData,
   useMenus,
   useStoreAisles,
@@ -214,6 +215,7 @@ function HouseholdApp({
   const [storeId, setStoreId] = usePref<string | null>('store', null);
 
   const favorites = useFavorites(db, household.id);
+  const food = useFood(db, household.id);
   const repo = useMemo(() => new HouseholdRepo(db, household.id), [db, household.id]);
   const [savedMode, setMode] = usePref<Mode>('mode', 'lists');
   const [urlMode, setUrlMode] = useState<Mode | null>(initialMode);
@@ -407,6 +409,7 @@ function HouseholdApp({
             items={data.items}
             menus={menus}
             favorites={favorites}
+            food={food}
             suggest={suggestMeals}
             onSave={(ingredients, meals) => repo.saveMenu(ingredients, meals, addedAs)}
             onDelete={(id) => repo.deleteMenu(id)}
