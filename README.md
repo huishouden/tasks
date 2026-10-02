@@ -2,7 +2,7 @@
 
 Shared groceries, lists, chores and meal ideas for one household: an installable app for the kitchen tablet and phones. Every device sees changes in real time and keeps working offline.
 
-Part of [Huishouden](https://huishouden-piekstra.web.app), a suite of small household apps that share sign-in, the household and one design language ([huishouden-pwa-kit](https://github.com/piekstra/huishouden-pwa-kit)). Live at https://huishouden-tasks.web.app.
+Part of [Huishouden](https://huishouden-piekstra.web.app), a suite of small household apps that share sign-in, the household and one design language ([huishouden-pwa-kit](https://github.com/huishouden/pwa-kit)). Live at https://huishouden-tasks.web.app.
 
 ## Screens
 

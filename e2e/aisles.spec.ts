@@ -83,4 +83,6 @@ test('shopping a detected store: optional aisles while checking off, then groupe
   await expect(page.getByRole('heading', { name: 'Groceries', level: 1 })).toBeVisible();
   await page.waitForTimeout(1500);
   await expect(page.getByRole('status').filter({ hasText: 'Shopping at' })).toHaveCount(0);
+  // Nor offered again as a new shop, which would save a duplicate store.
+  await expect(page.getByRole('region', { name: 'Detected store' })).toHaveCount(0);
 });

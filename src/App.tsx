@@ -210,7 +210,8 @@ function HouseholdApp({
 }) {
   const data = useHouseholdData(db, household.id);
   const menus = useMenus(db, household.id);
-  const stores = useStores(db, household.id);
+  const loadedStores = useStores(db, household.id);
+  const stores = useMemo(() => loadedStores ?? [], [loadedStores]);
   const [storeId, setStoreId] = usePref<string | null>('store', null);
 
   const favorites = useFavorites(db, household.id);
@@ -260,18 +261,19 @@ function HouseholdApp({
         onDismissAisle: () => setAskAisleFor(null),
       }
     : undefined;
-  const storeBanner = (
+  // Waits for the first stores snapshot, so a saved store is never offered as a new shop.
+  const storeBanner = loadedStores && (
     <StoreBanner
-                // A fresh banner per screen, so switching to Groceries or Store mode checks again.
-                key={mode}
-                stores={stores}
-                activeStore={stores.find((st) => st.id === shoppingStoreId) ?? null}
-                onUseStore={startShopping}
-                onCreateFromPlace={(place) =>
-                  startShopping(repo.createStore(placeLabel(place), [], { location: place.location, osmId: place.osmId, address: place.address }))
-                }
-                onEnd={endShopping}
-              />
+      // A fresh banner per screen, so switching to Groceries or Store mode checks again.
+      key={mode}
+      stores={stores}
+      activeStore={stores.find((st) => st.id === shoppingStoreId) ?? null}
+      onUseStore={startShopping}
+      onCreateFromPlace={(place) =>
+        startShopping(repo.createStore(placeLabel(place), [], { location: place.location, osmId: place.osmId, address: place.address }))
+      }
+      onEnd={endShopping}
+    />
   );
   const shoppingHere =
     mode === 'store' || (mode === 'lists' && ['grocery', 'pantry', 'bulk'].includes(data.lists.find((l) => l.id === selectedId)?.icon ?? ''));

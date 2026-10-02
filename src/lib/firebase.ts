@@ -1,5 +1,5 @@
 import { initializeApp, type FirebaseApp, type FirebaseOptions } from 'firebase/app';
-import { firebaseConfigFromEnv } from '@piekstra/huishouden-pwa-kit/firebase';
+import { firebaseConfigFromEnv } from '@huishouden/pwa-kit/firebase';
 import { ReCaptchaEnterpriseProvider, initializeAppCheck } from 'firebase/app-check';
 import { GoogleAuthProvider, connectAuthEmulator, getAuth, signInWithCredential, type Auth } from 'firebase/auth';
 import {
