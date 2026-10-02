@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/huishouden/tasks/compare/v1.2.1...v1.3.0) (2026-10-02)
+
+
+### Features
+
+* dated tasks on the household calendar, with push reminders ([#29](https://github.com/huishouden/tasks/issues/29)) ([5c48bea](https://github.com/huishouden/tasks/commit/5c48beaa672c2c189bc0bf0af31a9eb8fa7d09bd))
+
 ## [1.2.1](https://github.com/huishouden/tasks/compare/v1.2.0...v1.2.1) (2026-10-02)
 
 
