@@ -156,7 +156,7 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
         {bought.length + extras.length > 0 && <h2 className="text-sm font-semibold text-stone-600 dark:text-stone-300">Have</h2>}
         <div className="flex flex-wrap gap-2" aria-label="Ingredients">
           {bought.map((name) => (
-            <Chip key={name} active={!usedUp.has(name)} pressed={!usedUp.has(name)} onClick={() => toggle(name)}>
+            <Chip key={name} active={!usedUp.has(name)} onClick={() => toggle(name)}>
               <span className={usedUp.has(name) ? 'line-through' : ''}>{name}</span>
             </Chip>
           ))}
@@ -174,7 +174,7 @@ export function MealsView({ lists, items, menus, favorites, food, suggest, onSav
             <h2 className="text-sm font-semibold text-stone-600 dark:text-stone-300">On the list</h2>
             <div className="flex flex-wrap gap-2" aria-label="On the list">
               {planned.map((name) => (
-                <Chip key={`list-${name}`} active={!usedUp.has(name)} pressed={!usedUp.has(name)} onClick={() => toggle(name)}>
+                <Chip key={`list-${name}`} active={!usedUp.has(name)} onClick={() => toggle(name)}>
                   <span className={usedUp.has(name) ? 'line-through' : ''}>{name}</span>
                 </Chip>
               ))}
@@ -507,14 +507,14 @@ function PlanDialog({ meal, days, plan, onPlan, onClose }: { meal: Meal; days: Y
       <div className="grid gap-3">
         <div role="group" aria-label="Meal" className="flex flex-wrap gap-2">
           {PLAN_TYPES.map((t) => (
-            <Chip key={t} active={type === t} pressed={type === t} onClick={() => setType(t)}>
+            <Chip key={t} active={type === t} onClick={() => setType(t)}>
               {MEAL_LABELS[t]}
             </Chip>
           ))}
         </div>
         <div role="group" aria-label="Day" className="flex flex-wrap gap-2">
           {days.map((d) => (
-            <Chip key={d} active={day === d} pressed={day === d} onClick={() => setDay(d)}>
+            <Chip key={d} active={day === d} onClick={() => setDay(d)}>
               {dayName(d)}
             </Chip>
           ))}
