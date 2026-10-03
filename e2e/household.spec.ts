@@ -40,7 +40,7 @@ test('an invited member sees the same lists and changes sync both ways', async (
   await createHousehold(page);
   await addItem(page, 'Take out the bins');
 
-  await page.getByRole('button', { name: 'Household settings' }).click();
+  await page.getByRole('button', { name: 'Tasks settings' }).click();
   await page.getByPlaceholder('Their Google account email').fill('bob@example.com');
   await page.getByRole('button', { name: 'Add member' }).click();
   const bobRow = page.locator('li', { hasText: 'bob@example.com' });
@@ -57,7 +57,7 @@ test('an invited member sees the same lists and changes sync both ways', async (
   await addItem(bob, 'Book the vet');
   await expect(page.locator('main li', { hasText: 'Book the vet' })).toContainText('Bob');
 
-  await page.getByRole('button', { name: 'Household settings' }).click();
+  await page.getByRole('button', { name: 'Tasks settings' }).click();
   await expect(page.locator('li', { hasText: 'bob@example.com' })).toContainText('Joined');
   await page.getByRole('button', { name: 'Close' }).click();
 

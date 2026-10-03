@@ -52,7 +52,7 @@ test('follows the suite theme: dark on a dark device, readable', ({ page }) => e
 
 test("Settings' theme choice is the suite's, and the page follows it", async ({ page }) => {
   await page.goto('./');
-  await page.getByRole('button', { name: 'Household settings' }).click();
+  await page.getByRole('button', { name: 'Tasks settings' }).click();
   const theme = page.getByRole('group', { name: 'Theme' });
   await expect(theme.getByRole('button')).toHaveText(['Automatic', 'Light', 'Dark']);
   await theme.getByRole('button', { name: 'Dark' }).click();

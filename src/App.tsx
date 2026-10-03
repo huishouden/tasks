@@ -385,7 +385,7 @@ function HouseholdApp({
           ) : data.pendingWrites ? (
             <Loader2 size={18} className="animate-spin text-muted" aria-label="Syncing" role="img" />
           ) : null}
-          <button onClick={() => setSettings(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted hover:bg-stone-100 dark:hover:bg-forest-700" aria-label="Household settings">
+          <button onClick={() => setSettings(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted hover:bg-stone-100 dark:hover:bg-forest-700" aria-label="Tasks settings">
             <Settings size={20} />
           </button>
         </span>
