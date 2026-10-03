@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/huishouden/tasks/compare/v1.10.0...v1.11.0) (2026-10-03)
+
+
+### Features
+
+* Tasks moves to /tasks/ on the suite's one site (pwa-kit 0.48.0) ([#49](https://github.com/huishouden/tasks/issues/49)) ([b054169](https://github.com/huishouden/tasks/commit/b054169e9bb26b85808bd1b36e34e23d0943d38c))
+
 ## [1.10.0](https://github.com/huishouden/tasks/compare/v1.9.0...v1.10.0) (2026-10-03)
 
 
