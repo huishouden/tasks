@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/huishouden/tasks/compare/v1.11.1...v2.0.0) (2026-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* Store, Meals and Kitchen, and shopping lists, are in Huishouden Groceries.
+
+### Features
+
+* Tasks is to-dos and chores; shopping lists, stores and meals move to Huishouden Groceries ([#52](https://github.com/huishouden/tasks/issues/52)) ([79d96fb](https://github.com/huishouden/tasks/commit/79d96fb21bbc76d5a2539b2e80f4d41ab7d1600d))
+
 ## [1.11.1](https://github.com/huishouden/tasks/compare/v1.11.0...v1.11.1) (2026-10-03)
 
 
