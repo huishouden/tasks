@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/huishouden/tasks/compare/v1.9.0...v1.10.0) (2026-10-03)
+
+
+### Features
+
+* **security:** security headers; one-line Sample data banner on phones ([#44](https://github.com/huishouden/tasks/issues/44)) ([dcc9b7b](https://github.com/huishouden/tasks/commit/dcc9b7bcdf2c2b12239655b6ad48f30656b233cd))
+
 ## [1.9.0](https://github.com/huishouden/tasks/compare/v1.8.0...v1.9.0) (2026-10-03)
 
 
