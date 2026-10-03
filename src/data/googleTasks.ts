@@ -5,9 +5,11 @@ import { ymdToTime } from '@huishouden/pwa-kit/time';
 import type { ListIcon } from './model';
 import type { NewItem } from './store';
 
-// Google Tasks into household lists: "add eggs to my list" told to the Gemini app lands in Google
-// Tasks, and Tasks brings it in. Which Google list feeds which household list is a household setting
-// (`households/{id}/settings/tasks`, huishouden/rules), so every member's device follows it.
+// Google Tasks into household lists: "remind me to call the plumber" told to the Gemini app lands in
+// Google Tasks, and Tasks offers it for a to-do list. Which Google list feeds which household list is
+// a household setting (`households/{id}/settings/tasks`, huishouden/rules), so every member's device
+// follows it. Groceries keeps its shopping lists' links in the same document: each app changes only
+// the links to its own lists and writes the rest back as they were.
 
 /** What happens to new tasks in one Google list: added straight to a list, or offered for one. */
 export type GoogleTasksMode = 'add' | 'suggest';

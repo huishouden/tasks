@@ -25,7 +25,7 @@ export default defineConfig({
       base: BASE,
       name: 'Huishouden Tasks',
       shortName: 'Tasks',
-      description: 'Shared lists and chores',
+      description: 'Shared to-dos and chores',
       url: 'https://huishouden-piekstra.web.app/tasks/',
       // Shows the shared sender's reminders (pwa-kit push) and opens their links into Tasks.
       push: true,
@@ -35,10 +35,6 @@ export default defineConfig({
       overrides: {
         manifest: {
           categories: ['productivity', 'lifestyle'],
-          shortcuts: [
-            { name: 'Kitchen', url: `${BASE}?mode=hub`, icons: [{ src: `${BASE}pwa-192.png`, sizes: '192x192' }] },
-            { name: 'Store', url: `${BASE}?mode=store`, icons: [{ src: `${BASE}pwa-192.png`, sizes: '192x192' }] },
-          ],
         },
         workbox: {
           runtimeCaching: [

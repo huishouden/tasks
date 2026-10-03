@@ -9,5 +9,5 @@ const SITE = 'https://huishouden-piekstra.web.app';
  */
 const origin = globalThis.location?.protocol === 'https:' ? globalThis.location.origin : SITE;
 
-/** An absolute link into Tasks on the suite's one site: `appLink('?mode=meals')`. */
+/** An absolute link into Tasks on the suite's one site: `appLink('?list=chores')`. */
 export const appLink = (path = '') => appUrl(import.meta.env.BASE_URL ?? '/tasks/', path, origin);

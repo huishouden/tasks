@@ -2,7 +2,6 @@ import { allDayStart, type AgendaInput } from '@huishouden/pwa-kit/agenda';
 import type { ReminderInput } from '@huishouden/pwa-kit/reminders';
 import { toYmd } from '@huishouden/pwa-kit/time';
 import { appLink } from '../lib/appLink';
-import { dinnerAgenda, type PlannedMeal } from './mealPlan';
 import type { ListItem, ShoppingList } from './model';
 
 // What Tasks shares with the rest of Huishouden: dated items on the household agenda (the portal's
@@ -54,16 +53,16 @@ export function itemAgenda(item: ListItem, list: Pick<ShoppingList, 'name'> | un
   };
 }
 
-/** Everything Tasks puts on the household agenda: dated items and planned dinners. */
-export function agendaItems(items: ListItem[], lists: ShoppingList[], plan: PlannedMeal[], app = APP_URL): AgendaInput[] {
+/**
+ * Everything Tasks puts on the household agenda: its dated to-dos. (Planned dinners are Groceries',
+ * published under its own app name.)
+ */
+export function agendaItems(items: ListItem[], lists: ShoppingList[], app = APP_URL): AgendaInput[] {
   const listOf = new Map(lists.map((l) => [l.id, l]));
-  return [
-    ...items.flatMap((i) => {
-      const entry = itemAgenda(i, listOf.get(i.listId), app);
-      return entry ? [entry] : [];
-    }),
-    ...plan.filter((p) => p.type === 'dinner').map((p) => dinnerAgenda(p)),
-  ];
+  return items.flatMap((i) => {
+    const entry = itemAgenda(i, listOf.get(i.listId), app);
+    return entry ? [entry] : [];
+  });
 }
 
 /** An hour ahead of something at or by a time. */

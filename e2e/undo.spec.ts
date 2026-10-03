@@ -24,11 +24,11 @@ test.afterEach(() => {
 
 test('undoing a row delete brings the item back in place with its details', async ({ page }) => {
   await page.getByRole('button', { name: 'Edit Bread' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit item' });
-  await dialog.getByLabel('Quantity').fill('2 loaves');
+  const dialog = page.getByRole('dialog', { name: 'Edit task' });
   await dialog.getByLabel('Notes', { exact: true }).fill('sourdough');
+  await dialog.getByRole('button', { name: 'Need today' }).click();
   await dialog.getByRole('button', { name: 'Save' }).click();
-  await expect(page.locator('main li', { hasText: 'Bread' })).toContainText('2 loaves · sourdough');
+  await expect(page.locator('main li', { hasText: 'Bread' })).toContainText('sourdough');
 
   await page.getByRole('button', { name: 'Delete Bread' }).click();
   await expect(undoBar(page)).toContainText('Deleted "Bread"');
@@ -37,17 +37,17 @@ test('undoing a row delete brings the item back in place with its details', asyn
   await undoBar(page).getByRole('button', { name: 'Undo' }).click();
   await expect(undoBar(page)).toHaveCount(0);
   await expect.poll(() => names(page)).toEqual(['Apples', 'Bread', 'Cheese']);
-  await expect(page.locator('main li', { hasText: 'Bread' })).toContainText('2 loaves · sourdough');
+  await expect(page.locator('main li', { hasText: 'Bread' })).toContainText('sourdough');
 
   // Restored on the server too, not just in this tab's cache.
   await page.reload();
   await expect.poll(() => names(page)).toEqual(['Apples', 'Bread', 'Cheese']);
-  await expect(page.locator('main li', { hasText: 'Bread' })).toContainText('2 loaves · sourdough');
+  await expect(page.locator('main li', { hasText: 'Bread' })).toContainText('sourdough');
 });
 
 test('undoing a delete from the edit dialog brings the item back', async ({ page }) => {
   await page.getByRole('button', { name: 'Edit Cheese' }).click();
-  await page.getByRole('dialog', { name: 'Edit item' }).getByRole('button', { name: 'Delete', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Edit task' }).getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(undoBar(page)).toContainText('Deleted "Cheese"');
   await expect.poll(() => names(page)).toEqual(['Apples', 'Bread']);
@@ -71,17 +71,6 @@ test('undoing Clear done restores the items as done', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Mark Apples not done' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark Cheese not done' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark Bread done' })).toBeVisible();
-});
-
-test('undoing a clear in Store mode restores the checked items', async ({ page }) => {
-  await page.getByRole('button', { name: 'Store', exact: true }).click();
-  await page.getByRole('button', { name: 'Mark Bread done' }).click();
-  await page.getByRole('button', { name: 'Clear 1 checked item' }).click();
-  await expect(undoBar(page)).toContainText('Cleared 1 done item');
-  await expect(page.getByRole('button', { name: /Bread/ })).toHaveCount(0);
-
-  await undoBar(page).getByRole('button', { name: 'Undo' }).click();
-  await expect(page.getByRole('button', { name: 'Mark Bread not done' })).toBeVisible();
 });
 
 test('a newer delete replaces the bar, and Undo restores only that one', async ({ page }) => {

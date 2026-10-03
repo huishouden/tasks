@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, MapPin, X } from 'lucide-react';
 import type { ListItem } from '../data/model';
-import { distanceMeters } from '../data/stores';
+import { distanceKm } from '@huishouden/pwa-kit/places';
 import { currentPosition, locationPermission } from '../lib/location';
 import { usePref } from '../lib/prefs';
 
@@ -32,7 +32,7 @@ export function NearbyErrand({ items, onDone }: { items: ListItem[]; onDone: (it
         const here = await currentPosition();
         setNear(
           errandsRef.current
-            .map((i) => ({ i, d: distanceMeters(here, { lat: i.place!.lat, lng: i.place!.lon }) }))
+            .map((i) => ({ i, d: distanceKm({ lat: here.lat, lon: here.lng }, i.place!) * 1000 }))
             .filter((x) => x.d <= NEAR_METERS)
             .sort((a, b) => a.d - b.d)
             .map((x) => x.i),

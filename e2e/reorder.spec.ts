@@ -66,7 +66,9 @@ test('new urgent items go to the top, other new items to the bottom', async ({ p
   await expect.poll(() => names(page)).toEqual(['Eggs', 'Apples', 'Bread', 'Cheese', 'Dates']);
 });
 
-test('reordering is off while a category filter is active', async ({ page }) => {
-  await page.getByRole('button', { name: 'Bakery & Bread (1)', exact: true }).click();
+test('reordering is off while searching', async ({ page }) => {
+  for (const item of ['Dates', 'Eggs', 'Figs', 'Grapes']) await addItem(page, item);
+  await page.getByPlaceholder('Search tasks, notes or people').fill('Bread');
+  await expect(page.locator('main li', { hasText: 'Bread' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Move Bread' })).toHaveCount(0);
 });

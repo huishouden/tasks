@@ -1,4 +1,8 @@
-import type { GeoPoint } from '../data/stores';
+/** A position from the device: latitude and longitude in degrees. */
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+}
 
 declare global {
   interface Window {

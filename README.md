@@ -1,22 +1,20 @@
 # Huishouden Tasks
 
-Shared lists and chores. Every device in the household sees changes in real time and keeps working offline.
+Shared to-dos and chores. Every device in the household sees changes in real time and keeps working offline.
 
 Part of [Huishouden](https://huishouden-piekstra.web.app), a suite of small household apps that share sign-in, the household and one design language ([huishouden-pwa-kit](https://github.com/huishouden/pwa-kit)). Live at https://huishouden-piekstra.web.app/tasks/; the old address, huishouden-tasks.web.app, redirects there.
 
+Shopping lists, store mode and meal ideas are [Huishouden Groceries](https://huishouden-piekstra.web.app/groceries/) ([huishouden/groceries](https://github.com/huishouden/groceries)). Both apps read the household's same `lists` and `items`: to-do lists (`isTaskList` in `src/data/model.ts`: the chores and notes icons) are Tasks', every other list is Groceries'. Tasks' lists link there ("Shopping lists are in Groceries"), and old Tasks links to Kitchen, Store, Meals or a shopping list (`?mode=hub|store|meals`, `?list=<shopping list>`) open in Groceries with their query.
+
 ## Screens
 
-| Lists (tablet) | Kitchen hub (always-on tablet) |
+| Lists (tablet) | A checklist |
 | --- | --- |
-| ![Groceries list with aisles, urgency and who added each item](docs/screenshots/lists.png) | ![Kitchen screen with clock, lists, coming-up appointments and the add bar](docs/screenshots/kitchen.png) |
-| **Meals** from what was bought | **Tasks** with an appointment and a checklist |
-| ![Meal ideas grouped by breakfast, lunch and dinner, with favorites](docs/screenshots/meals.png) | ![Weekend Projects list with a dated appointment and a 7-step checklist](docs/screenshots/tasks-checklist.png) |
+| ![Chores & Notes with Today on top: a dry cleaning drop-off due by 6 PM and a Need today item](docs/screenshots/lists.png) | ![Weekend Projects with a 7-step checklist, 2 steps done](docs/screenshots/tasks-checklist.png) |
 
-<img src="docs/screenshots/store-phone.png" alt="Store mode on a phone, walking Corner Grocer with aisle labels" width="260" align="right">
+<img src="docs/screenshots/phone-lists.png" alt="Lists on a phone, Today above Chores & Notes" width="260" align="right">
 
-**Store** mode on a phone walks the list in the chosen store's order. In a shop, a one-line banner asks whether you are at the store it found nearby (OpenStreetMap). While shopping, checking an item off offers an optional "which aisle?" at the bottom of the screen; aisles are remembered per store for the household, items are then grouped by aisle, and a wrong aisle can be corrected from the item. Each section's heading stays at the top while its items scroll by.
-
-At a store, each item has a "Find at Publix" link that opens the store's own website search (or its app, where the store's app takes the link) with the item's name filled in, quantities and notes left out, so the store can say which aisle it is in. The stores whose search is known are in `src/data/chains.ts`, each checked in a real browser; any other store gets a web search for the item and the store's name. With no store picked, an item's details offer the household's saved stores.
+**Lists** opens on **Today**: what is overdue or due today from every list, and anything marked Need today, each one tap from done. Typing "drop off dry cleaning before 6" or "cancel the trial by October 4th" sets the due time; a task can have steps, a place (Find nearby, from OpenStreetMap, with the place's opening hours) and a link, and "Find in my calendar" fills them from a Google Calendar event. Near the place of an unfinished errand, a one-line note says so.
 
 Signed out, Tasks opens on an invented household (`src/data/demo.ts`): the real app on a Firestore that never goes online, so it can be tried without an account and nothing is saved. The screenshots are of that household; CI refreshes them after every deploy (`bun run screenshots`) and posts before/after images of the same scenes on every pull request.
 
@@ -27,16 +25,12 @@ Signed out, Tasks opens on an invented household (`src/data/demo.ts`): the real 
 - **Sign-in:** Google accounts through Firebase Auth, in the suite's app bar (`@huishouden/pwa-kit/react/app-bar`), and silently (One Tap) when the browser is already signed in to Google. A household is a list of member emails shared by every Huishouden app; anyone in it can see and edit every list. Members are added in Huishouden or in Settings.
 - **Google Calendar:** "Find in my calendar" reads events with a token from Google Identity Services (`@huishouden/pwa-kit/calendar`, `google-token`), asked for once from a tap and reused for its hour.
 - **Data:** Cloud Firestore, cached on each device so the app opens instantly and works without a connection. Access is enforced by the household's Firestore rules, which live in [huishouden/rules](https://github.com/huishouden/rules); changes to what Tasks stores go there as a PR.
-- **Household calendar and reminders:** dated items (and planned dinners) are published to the household agenda (`@huishouden/pwa-kit/agenda`), so the Huishouden portal's Calendar and Today show them with a link back to the item. Unfinished dated items get a push reminder an hour before their time, or at 9 on the morning of their day (`@huishouden/pwa-kit/reminders`, sent by huishouden/notify); each person turns notifications on per device in Settings. Any open device keeps both in step a few seconds after a change (`src/data/publish.ts`).
-- **Google Tasks:** something told to the Gemini app or Google Assistant ("add eggs to my list") lands in Google Tasks. In Settings a member connects Google Tasks (read-only, `@huishouden/pwa-kit/google-tasks`) and chooses which Google list feeds which list (`households/{id}/settings/tasks`). New tasks for a shopping list are added straight away, under a fixed id so two devices never add one twice; tasks for a to-do list are offered first ("New in Google Tasks", Add or Not this one). Tasks looks when it opens or comes back into view, only with a token the device already has, so for an hour after someone connects on that device; taken-in task ids are kept so a cleared item does not come back.
+- **Household calendar and reminders:** dated to-dos are published to the household agenda (`@huishouden/pwa-kit/agenda`), so the Huishouden portal's Calendar and Today show them with a link back to the item. Unfinished dated items get a push reminder an hour before their time, or at 9 on the morning of their day (`@huishouden/pwa-kit/reminders`, sent by huishouden/notify); each person turns notifications on per device in Settings. Any open device keeps both in step a few seconds after a change (`src/data/publish.ts`).
+- **Google Tasks:** something told to the Gemini app or Google Assistant ("remind me to call the plumber") lands in Google Tasks. In Settings a member connects Google Tasks (read-only, `@huishouden/pwa-kit/google-tasks`) and chooses which Google list feeds which to-do list (`households/{id}/settings/tasks`). New tasks are offered first ("New in Google Tasks", Add or Not this one). The settings document is shared with Groceries, which links Google lists to shopping lists: each app shows and changes only the links to its own lists and writes the others back unchanged, and a Google list Groceries takes shows as "Goes to <list> in Groceries". Tasks looks when it opens or comes back into view, only with a token the device already has, so for an hour after someone connects on that device; taken-in task ids are kept so a cleared item does not come back.
 - **Writes:** through the kit's outbox (`@huishouden/pwa-kit/firestore`), so an item added just before the app closes is not lost.
-- **Hosting:** the `huishouden-tasks` site in the shared `huishouden-piekstra` Firebase project, with the other Huishouden apps.
+- **Hosting:** `/tasks/` on the suite's one site (`huishouden-piekstra`, pwa-kit docs/one-site.md), with the other Huishouden apps.
 - **Config:** CI builds read the Firebase web config from the repo's `VITE_FIREBASE_*` variables (public by design); local previews fall back to `/__/firebase/init.json`, which Hosting serves.
-- **Updates:** every push to `main` runs the checks and deploys. Installed copies pick up a new version on their next launch, and the always-on tablet checks hourly.
-
-Four layouts share the same data: **Lists** for managing everything, **Kitchen** for the always-on tablet (large targets, screen kept awake), **Store** for checking items off aisle by aisle, and **Meals** for meal ideas.
-
-**Meals** asks Gemini (through Firebase AI Logic, on the free Gemini Developer API tier) for breakfast, lunch, dinner and snack ideas built from groceries checked off in the last 10 days. The prompt, response schema and model live in `src/data/menus.ts`. Every suggested ingredient is checked in code against what was bought plus a short list of kitchen basics, and meals that use anything else are dropped. Saved ideas are shared with the household. AI Logic only accepts requests carrying an App Check token (reCAPTCHA Enterprise), so the API cannot be used from outside this site.
+- **Updates:** every push to `main` runs the checks and deploys. Installed copies pick up a new version on their next launch, and check hourly while open.
 
 ## Privacy
 
@@ -44,7 +38,7 @@ Household data lives in the household's own Firestore documents, visible only to
 To catch problems early, the app sends reports to New Relic (free tier) through
 `@huishouden/pwa-kit/observability`: errors (emails, ids, query strings and long numbers removed),
 Core Web Vitals and page loads, the app version, device type, and the country and region New Relic
-derives from the request; and anonymous usage counts per visit: `add item`, `check item`, `clear completed`, `create list`, `add store`, `note aisle`, `save meal ideas`, `save favorite meal`, and which view is open. Households are counted by a
+derives from the request; and anonymous usage counts per visit: `add item`, `check item`, `clear completed` and `create list`. Households are counted by a
 hash of the id. No names, emails, entries, free text or precise location, and no cookie or stored
 id: nothing links one visit to the next. When the browser sends Global Privacy Control or Do Not
 Track, usage counts are skipped; errors and speed still go. Builds without the `VITE_NEWRELIC_*`
@@ -63,12 +57,8 @@ VITE_USE_EMULATORS=true bun run dev                                             
 bun run verify       # types, design check, unit tests, build
 bun run e2e:local    # signed-in browser flows against the emulators (starts them itself)
 bun run e2e          # smoke tests of the deployed site (read-only)
-bun run e2e:ai       # real Gemini through the app's code (needs an App Check debug token, see below)
-BASE_URL=http://localhost:5173 bun run screenshots   # the README scenes of the signed-out sample household
-bun scripts/menu-probe.ts "eggs, steak, rice"   # try the menu prompt against Gemini
+BASE_URL=http://localhost:5173/tasks/ bun run screenshots   # the README scenes of the signed-out sample household
 ```
-
-`e2e:ai` and `menu-probe.ts` read an App Check debug token from `~/.config/huishouden-tasks/appcheck-debug-token`. Register one under App Check → Apps → Tasks → Manage debug tokens, and keep it out of the repo.
 
 Against the emulators, the app exposes `window.__testSignIn(email, name)`, which `e2e/` uses to sign in; it does not exist in production builds. `e2e/fixtures.ts` has the shared helpers: emulator reset, sign-in, slow-network emulation, error capture, and a stand-in for OpenStreetMap.
 

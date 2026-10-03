@@ -1,7 +1,5 @@
 import { useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { CalendarClock, Check, ChevronDown, ExternalLink, ListChecks, MapPin, Pencil, Search, Signpost, Trash2, Zap } from 'lucide-react';
-import { aisleLabel } from '../data/stores';
-import type { StoreLink } from '../data/chains';
+import { CalendarClock, Check, ChevronDown, ExternalLink, ListChecks, MapPin, Pencil, Trash2, Zap } from 'lucide-react';
 import { mapsSearchUrl } from '@huishouden/pwa-kit/places';
 import { URGENCY, formatDue, isOverdue, type ListItem } from '../data/model';
 
@@ -11,34 +9,9 @@ interface Props {
   onEdit?: () => void;
   onDelete?: () => void;
   large?: boolean;
-  showCategory?: boolean;
   onToggleSubtask?: (subtaskId: string) => void;
-  /** Where this item was found at the store being shopped, if anyone recorded it. */
-  aisle?: string;
-  onAisle?: (aisle: string) => void;
-  onDismissAisle?: () => void;
-  /** The store being shopped's own search for this item, so its website or app can show the aisle. */
-  findAt?: StoreLink | null;
   /** Present when the row can be reordered: the grip, plus what the drag library attaches to the row. */
   drag?: DragProps;
-}
-
-/** Aisle support passed down from the app while a store is known. */
-export interface AisleProps {
-  aisleFor: (item: ListItem) => string | undefined;
-  onAisle: (item: ListItem, aisle: string) => void;
-  onDismissAisle: () => void;
-  findAt?: (item: ListItem) => StoreLink | null;
-}
-
-export function aisleRowProps(aisle: AisleProps | undefined, item: ListItem): Partial<Props> {
-  if (!aisle) return {};
-  return {
-    aisle: aisle.aisleFor(item),
-    onAisle: (v: string) => aisle.onAisle(item, v),
-    onDismissAisle: aisle.onDismissAisle,
-    findAt: aisle.findAt?.(item),
-  };
 }
 
 export interface DragProps {
@@ -48,9 +21,7 @@ export interface DragProps {
   dragging: boolean;
 }
 
-export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory, drag, onToggleSubtask, aisle, onAisle, onDismissAisle, findAt }: Props) {
-  const [editingAisle, setEditingAisle] = useState(false);
-  const showAisleInput = !!onAisle && editingAisle;
+export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggleSubtask }: Props) {
   const [expanded, setExpanded] = useState(false);
   const steps = item.subtasks ?? [];
   const stepsDone = steps.filter((st) => st.done).length;
@@ -58,11 +29,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory,
   const urgent = item.urgency === URGENCY.URGENT && !item.completed && !item.dueAt;
   const now = Date.now();
   const overdue = isOverdue(item, now);
-  const details = [
-    item.quantity && item.quantity !== '1' ? item.quantity : null,
-    item.notes || null,
-    showCategory ? item.category : null,
-  ].filter(Boolean);
+  const details = [item.notes || null].filter(Boolean);
   return (
     <li
       ref={drag?.rowRef}
@@ -129,35 +96,6 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory,
             ))}
           </ul>
         )}
-        {showAisleInput && (
-          <AisleInput
-            itemName={item.name}
-            initial={aisle ?? ''}
-            correcting
-            onSave={(v) => {
-              onAisle?.(v);
-              setEditingAisle(false);
-            }}
-            onCancel={() => {
-              setEditingAisle(false);
-              onDismissAisle?.();
-            }}
-          />
-        )}
-        {((aisle && onAisle) || (findAt && !item.completed)) && !showAisleInput && (
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-            {aisle && onAisle && !showAisleInput && (
-              <button
-                onClick={() => setEditingAisle(true)}
-                className={`inline-flex items-center gap-1 rounded-full bg-forest-50 px-2 py-0.5 font-medium text-forest-700 dark:bg-forest-700 dark:text-forest-100 ${large ? 'text-base' : 'text-sm'}`}
-                aria-label={`${aisleLabel(aisle)}. Change where ${item.name} is`}
-              >
-                <Signpost size={14} /> {aisleLabel(aisle)}
-              </button>
-            )}
-            {findAt && !item.completed && <FindAtLink link={findAt} itemName={item.name} secondary={!!aisle} large={large} />}
-          </div>
-        )}
         {(item.dueAt || item.location || item.link) && (
           <div className={`mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 ${large ? 'text-base' : 'text-sm'}`}>
             {item.dueAt ? (
@@ -201,53 +139,5 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory,
         </button>
       )}
     </li>
-  );
-}
-
-/** Opens the store's own search for the item; once its aisle is known it steps back. */
-export function FindAtLink({ link, itemName, secondary, large }: { link: StoreLink; itemName: string; secondary?: boolean; large?: boolean }) {
-  return (
-    <a
-      href={link.url}
-      target="_blank"
-      rel="noreferrer"
-      aria-label={link.storeSite ? `Find ${itemName} at ${link.store}` : `Search the web for ${itemName} at ${link.store}`}
-      className={`inline-flex max-w-full min-w-0 items-center gap-1 underline-offset-2 hover:underline ${large ? 'text-base' : 'text-sm'} ${
-        secondary ? 'text-stone-500 dark:text-stone-400' : 'font-medium text-forest-700 dark:text-forest-300'
-      }`}
-    >
-      <Search size={14} className="shrink-0" /> <span className="truncate">Find at {link.store}</span>
-    </a>
-  );
-}
-
-function AisleInput({ itemName, initial, correcting, onSave, onCancel }: { itemName: string; initial: string; correcting: boolean; onSave: (v: string) => void; onCancel: () => void }) {
-  const [value, setValue] = useState(initial);
-  return (
-    <form
-      className="mt-1.5 flex items-center gap-1.5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave(value);
-      }}
-    >
-      <Signpost size={14} className="shrink-0 text-forest-600" />
-      <input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder={correcting ? 'Found it in…' : 'Aisle? e.g. 12'}
-        aria-label={correcting ? `Where ${itemName} actually was` : `Aisle for ${itemName}`}
-        inputMode="text"
-        enterKeyHint="done"
-        maxLength={24}
-        className="w-28 min-w-0 rounded-xl border border-stone-200 bg-white px-2 py-1 text-sm outline-none focus:border-forest-500 dark:border-forest-600 dark:bg-forest-900"
-      />
-      <button type="submit" disabled={!value.trim() && !correcting} className="rounded-xl bg-forest-700 px-2 py-1 text-sm font-medium text-white disabled:opacity-40 dark:bg-forest-400 dark:text-forest-900">
-        Save
-      </button>
-      <button type="button" onClick={onCancel} className="rounded-xl px-1.5 py-1 text-sm text-stone-400 hover:text-stone-600">
-        Cancel
-      </button>
-    </form>
   );
 }

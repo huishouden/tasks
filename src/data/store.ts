@@ -15,42 +15,33 @@ import {
   collection,
   doc,
   getDocs,
-  limit,
   onSnapshot,
-  orderBy,
   query,
   where,
   type Firestore,
   type Query,
   type QuerySnapshot,
 } from 'firebase/firestore';
-import { deleteDoc, increment, setDoc, updateDoc, writeBatch } from '@huishouden/pwa-kit/firestore';
-import { watchFood, type FoodPreferences } from '@huishouden/pwa-kit/food';
+import { setDoc, updateDoc, writeBatch } from '@huishouden/pwa-kit/firestore';
 import { watchHousehold } from '@huishouden/pwa-kit/household';
 import { forgetSilentSignIn } from '@huishouden/pwa-kit/auth';
 import { forgetGoogleToken } from '@huishouden/pwa-kit/google-token';
 import { getFirebase } from '../lib/firebase';
-import { mealKey, type FavoriteMeal, type Meal, type Menu } from './menus';
-import type { GeoPoint, LearnedAisle, StoreLayout } from './stores';
-import { guessCategory } from './categorize';
 import { parseWhen } from './when';
-import { planQuery, type PlannedMeal } from './mealPlan';
-import type { Ymd } from '@huishouden/pwa-kit/time';
 import {
   CATEGORIES,
   DEFAULT_LISTS,
+  TASK_DEFAULT_LISTS,
   URGENCY,
+  isTaskList,
   itemData,
   moveInOrder,
   toggleSubtask,
   positionBetween,
-  stapleKey,
-  type Category,
   type Household,
   type ListIcon,
   type ListItem,
   type ShoppingList,
-  type Staple,
   type Urgency,
 } from './model';
 import { track } from '@huishouden/pwa-kit/observability';
@@ -126,8 +117,8 @@ export function useHousehold(db: Firestore, email: string): HouseholdState {
   return state;
 }
 
-/** Starts a household with the default lists. One batch, so the household never exists without them
- * (the kit's createHousehold writes the household alone). */
+/** Starts a household with the default lists, Groceries' shopping lists included (one batch, so the
+ * household never exists without them; the kit's createHousehold writes the household alone). */
 export async function createHousehold(db: Firestore, email: string, name: string): Promise<void> {
   const ref = doc(collection(db, 'households'));
   const now = Date.now();
@@ -140,10 +131,15 @@ export async function createHousehold(db: Firestore, email: string, name: string
   await batch.commit();
 }
 
+/**
+ * The household's to-do lists and their items. Shopping lists share the same collections and belong
+ * to Huishouden Groceries: they and their items are left out here (`isTaskList`).
+ */
 export interface HouseholdData {
   lists: ShoppingList[];
   items: ListItem[];
-  staples: Staple[];
+  /** The shopping lists, Groceries': named where Tasks points there (Google Tasks links, old links). */
+  otherLists: ShoppingList[];
   loaded: boolean;
   /** Set while a subscription is failing; it keeps retrying in the background. */
   error: string | null;
@@ -192,7 +188,7 @@ function resilientSnapshot(
 export function useHouseholdData(db: Firestore, householdId: string): HouseholdData {
   const [lists, setLists] = useState<ShoppingList[] | null>(null);
   const [items, setItems] = useState<ListItem[] | null>(null);
-  const [staples, setStaples] = useState<Staple[]>([]);
+  const [otherLists, setOtherLists] = useState<ShoppingList[]>([]);
   const [pending, setPending] = useState({ lists: false, items: false });
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
@@ -203,7 +199,9 @@ export function useHouseholdData(db: Firestore, householdId: string): HouseholdD
       resilientSnapshot(
         col('lists'),
         (snap) => {
-          setLists(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ShoppingList).sort((a, b) => a.sortOrder - b.sortOrder));
+          const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ShoppingList).sort((a, b) => a.sortOrder - b.sortOrder);
+          setLists(all.filter((l) => isTaskList(l.icon)));
+          setOtherLists(all.filter((l) => !isTaskList(l.icon)));
           setPending((p) => ({ ...p, lists: snap.metadata.hasPendingWrites }));
         },
         errorFor('lists'),
@@ -216,121 +214,31 @@ export function useHouseholdData(db: Firestore, householdId: string): HouseholdD
         },
         errorFor('items'),
       ),
-      resilientSnapshot(col('staples'), (snap) => setStaples(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Staple)), errorFor('staples')),
     ];
     return () => unsubs.forEach((u) => u());
   }, [db, householdId]);
 
+  const ownItems = useMemo(() => {
+    if (!lists || !items) return [];
+    const ids = new Set(lists.map((l) => l.id));
+    return items.filter((i) => ids.has(i.listId));
+  }, [lists, items]);
+
   return {
     lists: lists ?? [],
-    items: items ?? [],
-    staples,
+    items: ownItems,
+    otherLists,
     loaded: lists !== null && items !== null,
     error: Object.values(errors).find((e) => e) ?? null,
     pendingWrites: pending.lists || pending.items,
   };
 }
 
-/** Learned aisles at one store, keyed like staples (normalised item name). */
-export function useStoreAisles(db: Firestore, householdId: string, storeId: string | null): Map<string, string> {
-  const [aisles, setAisles] = useState<Map<string, string>>(new Map());
-  useEffect(() => {
-    if (!storeId) {
-      setAisles(new Map());
-      return;
-    }
-    return resilientSnapshot(
-      collection(db, 'households', householdId, 'stores', storeId, 'aisles'),
-      (snap) => setAisles(new Map(snap.docs.map((d) => [d.id, (d.data() as LearnedAisle).aisle]))),
-      () => {},
-    );
-  }, [db, householdId, storeId]);
-  return aisles;
-}
-
-/**
- * The household's saved store layouts, alphabetical; null until the first snapshot, so "not loaded
- * yet" is not mistaken for "none saved".
- */
-export function useStores(db: Firestore, householdId: string): StoreLayout[] | null {
-  const [stores, setStores] = useState<StoreLayout[] | null>(null);
-  useEffect(
-    () =>
-      resilientSnapshot(
-        collection(db, 'households', householdId, 'stores'),
-        (snap) => setStores(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as StoreLayout).sort((a, b) => a.name.localeCompare(b.name))),
-        () => {},
-      ),
-    [db, householdId],
-  );
-  return stores;
-}
-
-/**
- * The household's food preferences (people, diets, pantry) from the portal's settings, or null
- * until the first read. A failed read leaves null, and meal ideas then use the default pantry and
- * no diets, so they still work.
- */
-export function useFood(db: Firestore, householdId: string): FoodPreferences | null {
-  const [food, setFood] = useState<FoodPreferences | null>(null);
-  useEffect(() => watchFood(db, householdId, setFood, () => {}), [db, householdId]);
-  return food;
-}
-
-/** The household's meal plan for the given days (shared, live); null until the first snapshot. */
-export function useMealPlan(db: Firestore, householdId: string, days: Ymd[]): PlannedMeal[] | null {
-  const [plan, setPlan] = useState<PlannedMeal[] | null>(null);
-  const from = days[0];
-  const to = days[days.length - 1];
-  useEffect(
-    () =>
-      resilientSnapshot(
-        planQuery(db, householdId, from, to),
-        (snap) => setPlan(snap.docs.map((d) => d.data() as PlannedMeal)),
-        () => {},
-      ),
-    [db, householdId, from, to],
-  );
-  return plan;
-}
-
-/** Saved meal ideas, newest first. */
-export function useMenus(db: Firestore, householdId: string): Menu[] {
-  const [menus, setMenus] = useState<Menu[]>([]);
-  useEffect(
-    () =>
-      resilientSnapshot(
-        query(collection(db, 'households', householdId, 'menus'), orderBy('createdAt', 'desc'), limit(20)),
-        (snap) => setMenus(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Menu)),
-        () => {},
-      ),
-    [db, householdId],
-  );
-  return menus;
-}
-
-/** Meals the household starred, newest first. */
-export function useFavorites(db: Firestore, householdId: string): FavoriteMeal[] {
-  const [favorites, setFavorites] = useState<FavoriteMeal[]>([]);
-  useEffect(
-    () =>
-      resilientSnapshot(
-        query(collection(db, 'households', householdId, 'favorites'), orderBy('savedAt', 'desc')),
-        (snap) => setFavorites(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as FavoriteMeal)),
-        () => {},
-      ),
-    [db, householdId],
-  );
-  return favorites;
-}
-
 export interface NewItem {
   listId: string;
-  /** The list's kind, so a to-do on a chores list is not guessed into a store aisle. */
+  /** The list's kind (to-do lists only here; kept so Google Tasks items say where they go). */
   listIcon?: ListIcon;
   name: string;
-  category?: Category;
-  quantity?: string;
   notes?: string;
   urgency?: Urgency;
   addedBy: string;
@@ -367,7 +275,7 @@ export class HouseholdRepo {
     if (!this.local) track(action);
   }
 
-  private col(name: 'lists' | 'items' | 'staples' | 'menus' | 'stores' | 'favorites') {
+  private col(name: 'lists' | 'items') {
     return collection(this.db, 'households', this.householdId, name);
   }
 
@@ -384,16 +292,14 @@ export class HouseholdRepo {
     const name = when?.rest ?? typed;
     // An explicit Need today stays; rows show the due time instead of the badge.
     const urgency = input.urgency ?? URGENCY.NORMAL;
-    const category =
-      input.category && input.category !== CATEGORIES.OTHER ? input.category : guessCategory(name, input.listIcon);
-    const quantity = input.quantity?.trim() || '1';
     const ref = input.id ? doc(this.col('items'), input.id) : doc(this.col('items'));
     const batch = writeBatch(this.db);
     batch.set(ref, {
       listId: input.listId,
       name,
-      category,
-      quantity,
+      // One document shape for both apps: Groceries files items by section, Tasks' are chores.
+      category: CATEGORIES.CHORES,
+      quantity: '1',
       notes: input.notes?.trim() ?? '',
       addedBy: input.addedBy,
       ...(input.by ? { by: input.by } : {}),
@@ -406,37 +312,18 @@ export class HouseholdRepo {
       updatedAt: now,
       completedAt: null,
     } satisfies Omit<ListItem, 'id'>);
-    batch.set(
-      doc(this.col('staples'), stapleKey(name)),
-      { displayName: name, category, defaultQuantity: quantity, timesAdded: increment(1), lastAddedAt: now },
-      { merge: true },
-    );
     void batch.commit();
     return ref.id;
-  }
-
-  /** Remembers an aisle for an item name, so the next time it is added it lands there. */
-  setStapleCategory(name: string, category: Category): void {
-    void setDoc(doc(this.col('staples'), stapleKey(name)), { displayName: name.trim(), category }, { merge: true });
   }
 
   toggleCompleted(item: ListItem): void {
     this.track('check item');
     const now = Date.now();
     const completed = !item.completed;
-    const batch = writeBatch(this.db);
-    batch.update(doc(this.col('items'), item.id), { completed, completedAt: completed ? now : null, updatedAt: now });
-    if (completed) {
-      batch.set(
-        doc(this.col('staples'), stapleKey(item.name)),
-        { displayName: item.name, category: item.category, timesCompleted: increment(1) },
-        { merge: true },
-      );
-    }
-    void batch.commit();
+    void updateDoc(doc(this.col('items'), item.id), { completed, completedAt: completed ? now : null, updatedAt: now });
   }
 
-  updateItem(id: string, changes: Partial<Pick<ListItem, 'name' | 'category' | 'quantity' | 'notes' | 'urgency' | 'addedBy' | 'listId' | 'position' | 'dueAt' | 'allDay' | 'dueBy' | 'location' | 'place' | 'link' | 'subtasks'>>): void {
+  updateItem(id: string, changes: Partial<Pick<ListItem, 'name' | 'notes' | 'urgency' | 'addedBy' | 'listId' | 'position' | 'dueAt' | 'allDay' | 'dueBy' | 'location' | 'place' | 'link' | 'subtasks'>>): void {
     void updateDoc(doc(this.col('items'), id), { ...changes, updatedAt: Date.now() });
   }
 
@@ -516,88 +403,11 @@ export class HouseholdRepo {
     await settled(batch.commit(), this.local);
   }
 
+  /** Brings back Tasks' own default lists; the shopping ones are Groceries' to restore. */
   restoreDefaultLists(): void {
     const batch = writeBatch(this.db);
     const now = Date.now();
-    for (const list of DEFAULT_LISTS) batch.set(doc(this.col('lists'), list.id), { ...list, createdAt: now });
-    void batch.commit();
-  }
-
-  createStore(name: string, categoryOrder: StoreLayout['categoryOrder'], found?: { location: GeoPoint; osmId: string; address: string }): string {
-    this.track('add store');
-    const ref = doc(this.col('stores'));
-    void setDoc(ref, {
-      name: name.trim(),
-      categoryOrder,
-      aisleLabels: {},
-      location: found?.location ?? null,
-      osmId: found?.osmId ?? null,
-      address: found?.address ?? '',
-      createdAt: Date.now(),
-    } satisfies Omit<StoreLayout, 'id'>);
-    return ref.id;
-  }
-
-  /** Records where an item is in a store; a blank aisle forgets it. */
-  setAisle(storeId: string, itemName: string, aisle: string, by: string): void {
-    this.track('note aisle');
-    const ref = doc(this.db, 'households', this.householdId, 'stores', storeId, 'aisles', stapleKey(itemName));
-    const value = aisle.trim();
-    if (!value) {
-      const batch = writeBatch(this.db);
-      batch.delete(ref);
-      void batch.commit();
-      return;
-    }
-    void setDoc(ref, { aisle: value.slice(0, 24), name: itemName.trim(), updatedAt: Date.now(), updatedBy: by } satisfies Omit<LearnedAisle, 'id'>);
-  }
-
-  updateStore(id: string, changes: Partial<Pick<StoreLayout, 'name' | 'categoryOrder' | 'aisleLabels'>> & { location?: GeoPoint | null }): void {
-    void updateDoc(doc(this.col('stores'), id), changes);
-  }
-
-  deleteStore(id: string): void {
-    const batch = writeBatch(this.db);
-    batch.delete(doc(this.col('stores'), id));
-    void batch.commit();
-  }
-
-  async saveMenu(ingredients: string[], meals: Meal[], createdBy: string): Promise<string> {
-    this.track('save meal ideas');
-    const ref = doc(this.col('menus'));
-    await settled(setDoc(ref, { createdAt: Date.now(), createdBy, ingredients, meals } satisfies Omit<Menu, 'id'>), this.local);
-    return ref.id;
-  }
-
-  /** Puts a deleted batch of ideas back under its old id (for Undo). */
-  async restoreMenu(menu: Menu): Promise<void> {
-    const { id, ...data } = menu;
-    await settled(setDoc(doc(this.col('menus'), id), data), this.local);
-  }
-
-  deleteMenu(id: string): void {
-    const batch = writeBatch(this.db);
-    batch.delete(doc(this.col('menus'), id));
-    void batch.commit();
-  }
-
-  /**
-   * Keyed by the meal's name, so starring the same idea from two menus keeps one favorite. The
-   * promise settles only when the server answers (never while offline); the local cache shows
-   * the change immediately, so callers should not wait on it.
-   */
-  saveFavorite(meal: Meal, savedBy: string): Promise<void> {
-    this.track('save favorite meal');
-    return settled(setDoc(doc(this.col('favorites'), mealKey(meal)), { meal, savedAt: Date.now(), savedBy } satisfies Omit<FavoriteMeal, 'id'>), this.local);
-  }
-
-  removeFavorite(id: string): Promise<void> {
-    return settled(deleteDoc(doc(this.col('favorites'), id)), this.local);
-  }
-
-  forgetStaple(id: string): void {
-    const batch = writeBatch(this.db);
-    batch.delete(doc(this.col('staples'), id));
+    for (const list of TASK_DEFAULT_LISTS) batch.set(doc(this.col('lists'), list.id), { ...list, createdAt: now });
     void batch.commit();
   }
 }
@@ -606,13 +416,14 @@ export class HouseholdRepo {
 const PUBLISH_DELAY_MS = 3000;
 
 /**
- * Keeps the household agenda and the push reminders in step with the lists and the meal plan, from
+ * Keeps the household agenda and the push reminders in step with the to-do lists (planned dinners are
+ * Groceries' to publish), from
  * whichever device has Tasks open: a few seconds after the last change, and once on open. The kit
  * writes only what changed, so devices doing the same work cost a read each and no writes.
  */
-export function usePublish(db: Firestore, householdId: string, by: string, data: HouseholdData, plan: PlannedMeal[] | null, enabled = true, restricted = false): void {
-  const ready = enabled && data.loaded && plan !== null;
-  const agenda = useMemo(() => (ready ? agendaItems(data.items, data.lists, plan) : null), [ready, data.items, data.lists, plan]);
+export function usePublish(db: Firestore, householdId: string, by: string, data: HouseholdData, enabled = true, restricted = false): void {
+  const ready = enabled && data.loaded;
+  const agenda = useMemo(() => (ready ? agendaItems(data.items, data.lists) : null), [ready, data.items, data.lists]);
   const reminders = useMemo(() => (ready ? reminderItems(data.items) : null), [ready, data.items]);
   const agendaKey = agenda ? JSON.stringify(agenda) : null;
   const remindersKey = reminders ? JSON.stringify(reminders) : null;
