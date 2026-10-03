@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.1](https://github.com/huishouden/tasks/compare/v1.11.0...v1.11.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* dialogs keep focus where it was tapped on phones (pwa-kit 0.51.0) ([#51](https://github.com/huishouden/tasks/issues/51)) ([030f9a7](https://github.com/huishouden/tasks/commit/030f9a7934fef2ef4216bf5aa5c1689a9af35f89))
+
 ## [1.11.0](https://github.com/huishouden/tasks/compare/v1.10.0...v1.11.0) (2026-10-03)
 
 
