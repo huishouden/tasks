@@ -1,4 +1,5 @@
 import { can, type Role } from '@huishouden/pwa-kit/roles';
+import { DAY, HOUR, startOfDay } from '@huishouden/pwa-kit/time';
 export const CATEGORIES = {
   PRODUCE: 'Produce & Greens',
   DAIRY_EGGS: 'Dairy & Eggs',
@@ -226,21 +227,13 @@ export function firstName(displayName: string | null | undefined, email: string)
   return fromName || email.split('@')[0];
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function startOfDay(t: number): number {
-  const d = new Date(t);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
 /**
  * "Today · 10:00 AM", "Today · by 6:00 PM", "Tomorrow", "Tue, Oct 14 · 2:30 PM", and for an all-day
  * deadline "By Sun, Oct 4" or "By tomorrow", in the device's locale and time zone.
  */
 export function formatDue(item: Pick<ListItem, 'dueAt' | 'allDay' | 'dueBy'>, now: number): string {
   if (!item.dueAt) return '';
-  const days = Math.round((startOfDay(item.dueAt) - startOfDay(now)) / DAY_MS);
+  const days = Math.round((startOfDay(item.dueAt) - startOfDay(now)) / DAY);
   const date =
     days === 0
       ? 'Today'
@@ -262,7 +255,7 @@ export function formatDue(item: Pick<ListItem, 'dueAt' | 'allDay' | 'dueBy'>, no
 /** Past its date (or, for all-day items, past the end of that day) and not done. */
 export function isOverdue(item: Pick<ListItem, 'dueAt' | 'allDay' | 'completed'>, now: number): boolean {
   if (!item.dueAt || item.completed) return false;
-  return item.allDay ? startOfDay(item.dueAt) + DAY_MS <= now : item.dueAt < now;
+  return item.allDay ? startOfDay(item.dueAt) + DAY <= now : item.dueAt < now;
 }
 
 export interface NeedsDoing {
@@ -276,7 +269,7 @@ export interface NeedsDoing {
 
 /** What the household has to get to today, from every list: overdue first, then today's, then "Need today". */
 export function needsDoing(items: ListItem[], now: number): NeedsDoing {
-  const endOfToday = startOfDay(now) + DAY_MS;
+  const endOfToday = startOfDay(now) + DAY;
   const open = items.filter((i) => !i.completed);
   const dated = open.filter((i) => i.dueAt).sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
   return {
@@ -288,7 +281,7 @@ export function needsDoing(items: ListItem[], now: number): NeedsDoing {
 
 /** Dated, unfinished items from every list due within `days`, overdue ones included, soonest first. */
 export function upcomingItems(items: ListItem[], now: number, days = 14): ListItem[] {
-  const until = startOfDay(now) + (days + 1) * DAY_MS;
+  const until = startOfDay(now) + (days + 1) * DAY;
   return items.filter((i) => !i.completed && i.dueAt && i.dueAt < until).sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
 }
 
@@ -305,7 +298,7 @@ function calendarStamp(t: number, allDay: boolean): string {
 export function googleCalendarLink(item: Pick<ListItem, 'name' | 'notes' | 'dueAt' | 'allDay' | 'location'>, listName: string): string {
   if (!item.dueAt) return '';
   const start = item.allDay ? startOfDay(item.dueAt) : item.dueAt;
-  const end = item.allDay ? start + DAY_MS : start + 60 * 60 * 1000;
+  const end = item.allDay ? start + DAY : start + HOUR;
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: item.name,
