@@ -3,7 +3,7 @@ import type { Auth } from 'firebase/auth';
 import { collection, disableNetwork, doc, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore';
 // On a Firestore that didn't come from initFirestore the kit's writes are Firestore's own (no outbox).
 import { writeBatch } from '@huishouden/pwa-kit/firestore';
-import { addDays, toYmd } from '@huishouden/pwa-kit/time';
+import { DAY, HOUR, addDays, startOfDay, toYmd } from '@huishouden/pwa-kit/time';
 import { CATEGORIES, DEFAULT_LISTS, URGENCY, type Category, type Household, type ListItem, type Subtask, type Urgency } from './model';
 import { validateMeals, type FavoriteMeal, type Meal, type MealContext, type Menu, type ValidatedMeals } from './menus';
 import type { PlannedMeal } from './mealPlan';
@@ -22,15 +22,6 @@ export const DEMO_HOUSEHOLD: Household = {
   joined: [DEMO_EMAIL, 'sam@example.com'],
   createdAt: 0,
 };
-
-const HOUR = 60 * 60 * 1000;
-const DAY = 24 * HOUR;
-
-function startOfDay(t: number): number {
-  const d = new Date(t);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
 
 const at = (now: number, days: number, hour: number, minute = 0) => {
   const d = new Date(startOfDay(now) + days * DAY);
