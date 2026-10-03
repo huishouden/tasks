@@ -56,6 +56,32 @@ test('undoing a delete from the edit dialog brings the item back', async ({ page
   await expect.poll(() => names(page)).toEqual(['Apples', 'Bread', 'Cheese']);
 });
 
+test('cancelling a task moves it to Done marked Cancelled; Undo and un-ticking take it back up', async ({ page }) => {
+  await page.getByRole('button', { name: 'Edit Bread' }).click();
+  await page.getByRole('dialog', { name: 'Edit task' }).getByRole('button', { name: 'Cancel task' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(undoBar(page)).toContainText('Cancelled "Bread"');
+  const row = page.locator('main li', { hasText: 'Bread' });
+  await expect(row).toContainText('Cancelled');
+  await expect(page.getByRole('button', { name: 'Done (1)' })).toBeVisible();
+
+  await undoBar(page).getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('button', { name: 'Mark Bread done' })).toBeVisible();
+  await expect(row).not.toContainText('Cancelled');
+
+  // Cancelled again and kept (on the server too), then restored with its tick.
+  await page.getByRole('button', { name: 'Edit Bread' }).click();
+  await page.getByRole('dialog', { name: 'Edit task' }).getByRole('button', { name: 'Cancel task' }).click();
+  await page.reload();
+  await expect(page.locator('main li', { hasText: 'Bread' })).toContainText('Cancelled');
+  await page.getByRole('button', { name: 'Restore Bread' }).click();
+  await expect(page.getByRole('button', { name: 'Mark Bread done' })).toBeVisible();
+  // Ticked off afterwards, it is done, not cancelled.
+  await page.getByRole('button', { name: 'Mark Bread done' }).click();
+  await expect(page.getByRole('button', { name: 'Mark Bread not done' })).toBeVisible();
+  await expect(page.locator('main li', { hasText: 'Bread' })).not.toContainText('Cancelled');
+});
+
 test('undoing Clear done restores the items as done', async ({ page }) => {
   await page.getByRole('button', { name: 'Mark Apples done' }).click();
   await page.getByRole('button', { name: 'Mark Cheese done' }).click();

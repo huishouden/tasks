@@ -1,7 +1,7 @@
 import { ROLE_LABELS, can, householdRole, type Role } from '@huishouden/pwa-kit/roles';
 import { RoleNote, RoleSelect } from '@huishouden/pwa-kit/react/roles';
 import { useEffect, useId, useRef, useState } from 'react';
-import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
+import { Ban, CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
 import { describeDay, parseOpeningHours } from '@huishouden/pwa-kit/hours';
 import { PlaceSearchUnavailable, formatDistance, mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '@huishouden/pwa-kit/calendar';
@@ -36,12 +36,15 @@ export function EditItemDialog({
   lists,
   onSave,
   onDelete,
+  onCancel,
   onClose,
 }: {
   item: ListItem;
   lists: ShoppingList[];
   onSave: (changes: Partial<ListItem>) => void;
   onDelete: () => void;
+  /** Closes an open item as not needed (it moves to Done marked "Cancelled"). */
+  onCancel?: () => void;
   onClose: () => void;
 }) {
   // A date or time still in the name ("Cancel trial by October 4th") fills the empty date fields.
@@ -418,6 +421,18 @@ export function EditItemDialog({
           >
             <Trash2 size={18} /> Delete
           </button>
+          {onCancel && !item.completed && (
+            <button
+              type="button"
+              onClick={() => {
+                onCancel();
+                onClose();
+              }}
+              className={`${ghostButton} mr-auto`}
+            >
+              <Ban size={18} /> Cancel task
+            </button>
+          )}
           <button type="submit" className={primaryButton}>
             Save
           </button>

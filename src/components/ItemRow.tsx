@@ -1,7 +1,7 @@
 import { useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { CalendarClock, Check, ChevronDown, ExternalLink, ListChecks, MapPin, Pencil, Trash2, Zap } from 'lucide-react';
+import { Ban, CalendarClock, Check, ChevronDown, ExternalLink, ListChecks, MapPin, Pencil, Trash2, Zap } from 'lucide-react';
 import { mapsSearchUrl } from '@huishouden/pwa-kit/places';
-import { URGENCY, formatDue, isOverdue, type ListItem } from '../data/model';
+import { URGENCY, formatDue, isCancelled, isOverdue, type ListItem } from '../data/model';
 
 interface Props {
   item: ListItem;
@@ -29,6 +29,8 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
   const urgent = item.urgency === URGENCY.URGENT && !item.completed && !item.dueAt;
   const now = Date.now();
   const overdue = isOverdue(item, now);
+  // Cancelled reads differently from done: no strike-through, a "Cancelled" label, and ticking restores it.
+  const cancelled = isCancelled(item);
   const details = [item.notes || null].filter(Boolean);
   return (
     <li
@@ -41,19 +43,26 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
       {drag?.handle}
       <button
         onClick={onToggle}
-        aria-label={item.completed ? `Mark ${item.name} not done` : `Mark ${item.name} done`}
+        aria-label={cancelled ? `Restore ${item.name}` : item.completed ? `Mark ${item.name} not done` : `Mark ${item.name} done`}
         className={`flex shrink-0 items-center justify-center rounded-full border-2 transition ${large ? 'h-10 w-10' : 'h-8 w-8'} ${
-          item.completed
-            ? 'border-forest-500 bg-forest-500 text-white'
-            : 'border-stone-300 hover:border-forest-500 dark:border-forest-500'
+          cancelled
+            ? 'border-stone-300 text-stone-500 dark:border-forest-500 dark:text-stone-400'
+            : item.completed
+              ? 'border-forest-500 bg-forest-500 text-white'
+              : 'border-stone-300 hover:border-forest-500 dark:border-forest-500'
         }`}
       >
-        {item.completed && <Check size={large ? 22 : 18} strokeWidth={3} />}
+        {cancelled ? <Ban size={large ? 20 : 16} /> : item.completed && <Check size={large ? 22 : 18} strokeWidth={3} />}
       </button>
       <div className="min-w-0 flex-1">
         <button onClick={onEdit ?? onToggle} className="block w-full text-left">
-          <span className={`${large ? 'text-xl' : 'text-base'} ${item.completed ? 'line-through' : ''}`}>
+          <span className={`${large ? 'text-xl' : 'text-base'} ${item.completed && !cancelled ? 'line-through' : ''}`}>
             <span className="font-medium [overflow-wrap:anywhere]">{item.name}</span>
+            {cancelled && (
+              <span className="ml-2 inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 align-middle text-xs font-semibold text-stone-600 dark:bg-forest-700 dark:text-stone-300">
+                Cancelled
+              </span>
+            )}
             {urgent && (
               <span className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-terracotta-light px-2 py-0.5 align-middle text-xs font-semibold text-terracotta">
                 <Zap size={12} /> Today

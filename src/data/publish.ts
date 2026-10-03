@@ -1,11 +1,14 @@
 import { allDayStart, type AgendaInput } from '@huishouden/pwa-kit/agenda';
 import type { ReminderInput } from '@huishouden/pwa-kit/reminders';
+import type { Role } from '@huishouden/pwa-kit/roles';
+import type { TodoAction, TodoInput } from '@huishouden/pwa-kit/todos';
 import { toYmd } from '@huishouden/pwa-kit/time';
 import { appLink } from '../lib/appLink';
-import type { ListItem, ShoppingList } from './model';
+import { isTaskList, type ListItem, type ShoppingList } from './model';
 
 // What Tasks shares with the rest of Huishouden: dated items on the household agenda (the portal's
-// Calendar and Today) and reminders the shared sender pushes. Both are worked out from the items
+// Calendar and Today), reminders the shared sender pushes, and open items on the household to-do list
+// (the portal's To-do tab). Both are worked out from the items
 // themselves, so any device can publish them and they always match the lists.
 
 export const APP = 'tasks';
@@ -93,5 +96,59 @@ export function reminderItems(items: ListItem[], app = APP_URL): ReminderInput[]
   return items.flatMap((i) => {
     const r = itemReminder(i, app);
     return r ? [r] : [];
+  });
+}
+
+/** The Firestore collection Tasks' to-do actions write (`TODO_COLLECTIONS.tasks`). */
+const ITEMS = 'items';
+const EVERYONE: Role[] = ['admin', 'member', 'helper', 'kid'];
+
+/** Ticks the item off, as its checkbox does: tick fields only, so helpers and kids may on anyone's. */
+export function doneAction(id: string): TodoAction {
+  return {
+    label: 'Done',
+    ops: [{ col: ITEMS, id, data: { completed: true, completedAt: '$now', updatedAt: '$now' }, merge: true }],
+    roles: EVERYONE,
+  };
+}
+
+/** Closes the item as not needed: it moves to Done marked "Cancelled". Admins, members and whoever added it. */
+export function cancelAction(id: string): TodoAction {
+  return {
+    label: 'Cancel',
+    ops: [{ col: ITEMS, id, data: { completed: true, completedAt: '$now', cancelledAt: '$now', cancelledBy: '$me', updatedAt: '$now' }, merge: true }],
+    roles: ['admin', 'member'],
+    owner: true,
+  };
+}
+
+/**
+ * An open item on a to-do list as the household to-do list shows it, with Done and Cancel. Null once
+ * it is done or cancelled, or when it is not on one of Tasks' lists (shopping lists are Groceries',
+ * which publishes its own summary line).
+ */
+export function itemTodo(item: ListItem, list: Pick<ShoppingList, 'name' | 'icon'> | undefined, app = APP_URL): TodoInput | null {
+  if (item.completed || !item.name.trim() || !list || !isTaskList(list.icon)) return null;
+  const detail = [list.name, stepsDone(item)].filter(Boolean).join(' · ').slice(0, 200);
+  return {
+    ref: itemRef(item.id),
+    title: item.name.trim().slice(0, 120),
+    ...(detail ? { detail } : {}),
+    createdAt: item.createdAt,
+    ...(item.dueAt ? { due: item.allDay ? allDayStart(toYmd(item.dueAt)) : item.dueAt } : {}),
+    url: itemUrl(item, app),
+    ...(item.by ? { owner: item.by } : {}),
+    private: false,
+    done: doneAction(item.id),
+    cancel: cancelAction(item.id),
+  };
+}
+
+/** Everything Tasks puts on the household to-do list: every open item on its to-do lists. */
+export function todoItems(items: ListItem[], lists: ShoppingList[], app = APP_URL): TodoInput[] {
+  const listOf = new Map(lists.map((l) => [l.id, l]));
+  return items.flatMap((i) => {
+    const todo = itemTodo(i, listOf.get(i.listId), app);
+    return todo ? [todo] : [];
   });
 }

@@ -5,6 +5,7 @@ import {
   firstName,
   TASK_DEFAULT_LISTS,
   formatListForSharing,
+  isCancelled,
   isTaskList,
   moveInOrder,
   positionBetween,
@@ -80,6 +81,25 @@ describe('formatListForSharing', () => {
       now,
     );
     expect(text).toBe(['Chores & Notes', '', '- Renew registration [need today]', `- Call the plumber (Today · ${new Date(2031, 0, 6, 15).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})`, '', 'Already done (1): Water the plants'].join('\n'));
+  });
+});
+
+describe('isCancelled', () => {
+  it('a cancelled item reads as cancelled; open, done, or ticked again after the cancel, it does not', () => {
+    const at = 1_900_000_000_000;
+    expect(isCancelled(item({ completed: true, completedAt: at, cancelledAt: at, cancelledBy: 'sam@example.com' }))).toBe(true);
+    expect(isCancelled(item({ completed: true, completedAt: at }))).toBe(false);
+    // Un-ticked by a helper, who leaves the cancel fields on someone else's item, then ticked off.
+    expect(isCancelled(item({ completed: false, completedAt: null, cancelledAt: at }))).toBe(false);
+    expect(isCancelled(item({ completed: true, completedAt: at + 60_000, cancelledAt: at }))).toBe(false);
+  });
+
+  it('a shared list leaves cancelled items out of what is done', () => {
+    const text = formatListForSharing('Chores & Notes', [
+      item({ name: 'Water the plants', completed: true, completedAt: 5 }),
+      item({ name: 'Book the window cleaner', completed: true, completedAt: 5, cancelledAt: 5 }),
+    ]);
+    expect(text).toBe('Chores & Notes\n\nEverything on this list is done.\nAlready done (1): Water the plants');
   });
 });
 

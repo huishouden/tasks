@@ -79,6 +79,9 @@ export interface ListItem {
   createdAt: number;
   updatedAt: number;
   completedAt: number | null;
+  /** Closed as not needed rather than done (when, and by whose email); it sits in Done marked "Cancelled". */
+  cancelledAt?: number | null;
+  cancelledBy?: string | null;
 }
 
 export interface ItemPlace {
@@ -156,7 +159,7 @@ export function moveInOrder<T>(ordered: T[], from: number, to: number): T[] {
 
 export function formatListForSharing(listName: string, items: ListItem[], now: number = Date.now()): string {
   const active = sortItems(items.filter((i) => !i.completed));
-  const done = items.filter((i) => i.completed);
+  const done = items.filter((i) => i.completed && !isCancelled(i));
   const lines = [`${listName}`, ''];
   if (active.length === 0) {
     lines.push('Everything on this list is done.');
@@ -205,6 +208,14 @@ export function formatDue(item: Pick<ListItem, 'dueAt' | 'allDay' | 'dueBy'>, no
   if (item.allDay) return item.dueBy ? `By ${/^(Today|Tomorrow|Yesterday)$/.test(date) ? date.toLowerCase() : date}` : date;
   const time = new Date(item.dueAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   return `${date} · ${item.dueBy ? 'by ' : ''}${time}`;
+}
+
+/**
+ * Whether the item was closed by cancelling it. A later tick (Done from a helper, who can't clear
+ * the cancel fields on someone else's item) completes it again after `cancelledAt`, so it reads as done.
+ */
+export function isCancelled(item: Pick<ListItem, 'completed' | 'completedAt' | 'cancelledAt'>): boolean {
+  return item.completed && !!item.cancelledAt && (item.completedAt ?? 0) <= item.cancelledAt;
 }
 
 /** Past its date (or, for all-day items, past the end of that day) and not done. */

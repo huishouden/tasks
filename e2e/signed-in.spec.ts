@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signInTestUser } from '@huishouden/pwa-kit/e2e';
+import { runPortalTodo, signInTestUser } from '@huishouden/pwa-kit/e2e';
 import { seedTestHousehold } from '@huishouden/pwa-kit/staging';
 
 // Signed in as invented test users on the staging site (pwa-kit STANDARD.md "Staging"): the real
@@ -81,4 +81,38 @@ test('a helper ticks off a member’s item and adds their own, but can’t delet
 
   await page.locator('main li', { hasText: theirs }).getByRole('button', { name: `Delete ${theirs}` }).click();
   await expect(page.locator('main li', { hasText: theirs })).toHaveCount(0);
+});
+
+test('Done and Cancel on the portal’s To-do list close the item in Tasks', async ({ page }) => {
+  await signInTestUser(page, { email: 'test-a@example.com' });
+  await openChores(page);
+  const run = Date.now().toString(36);
+  const done = `Test book the window cleaner ${run}`;
+  const cancelled = `Test sort the recycling ${run}`;
+  for (const name of [done, cancelled]) {
+    await page.getByLabel('New item').fill(name);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(page.locator('main li', { hasText: name })).toBeVisible();
+  }
+  try {
+    // Tasks publishes a few seconds after the change; the portal is at the site's root.
+    await runPortalTodo(page, done);
+    await runPortalTodo(page, cancelled, { action: 'cancel' });
+
+    await page.goto('./');
+    await openChores(page);
+    await expect(page.getByRole('button', { name: `Mark ${done} not done` })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('main li', { hasText: done })).not.toContainText('Cancelled');
+    await expect(page.getByRole('button', { name: `Restore ${cancelled}` })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('main li', { hasText: cancelled })).toContainText('Cancelled');
+  } finally {
+    // Leave the shared household as it was, from wherever the test stopped.
+    await page.goto('./');
+    await openChores(page);
+    for (const name of [done, cancelled]) {
+      const remove = page.locator('main li', { hasText: name }).getByRole('button', { name: `Delete ${name}` });
+      if (await remove.count()) await remove.first().click();
+      await expect(page.locator('main li', { hasText: name })).toHaveCount(0);
+    }
+  }
 });

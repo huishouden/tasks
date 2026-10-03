@@ -28,3 +28,18 @@ test('phone: lists', async ({ page }) => {
     await expect(p.getByRole('heading', { name: 'Chores & Notes' })).toBeVisible();
   } });
 });
+
+/** The Done section with a cancelled task beside a done one. */
+const doneSection = async (p: Page) => {
+  await ready(p);
+  const label = p.getByText('Cancelled', { exact: true });
+  await label.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await expect(label).toBeInViewport();
+};
+
+test('done and cancelled', ({ page }) => captureScreenshot(page, 'done-cancelled', { fixedTime, prepare: doneSection }));
+
+test('phone: done and cancelled', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await captureScreenshot(page, 'phone-done-cancelled', { fixedTime, prepare: doneSection });
+});
