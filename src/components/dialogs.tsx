@@ -1,7 +1,7 @@
 import { ROLE_LABELS, can, householdRole, type Role } from '@huishouden/pwa-kit/roles';
 import { RoleNote, RoleSelect } from '@huishouden/pwa-kit/react/roles';
 import { useEffect, useId, useRef, useState } from 'react';
-import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
+import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Search, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
 import { describeDay, parseOpeningHours } from '@huishouden/pwa-kit/hours';
 import { PlaceSearchUnavailable, formatDistance, mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '@huishouden/pwa-kit/calendar';
@@ -33,6 +33,32 @@ import { friendlyError, type FriendlyError } from '../lib/errors';
 import { ErrorNotice } from './ErrorNotice';
 import { Dialog, LIST_ICONS, ListIconBadge, ghostButton, inputClass, primaryButton } from './ui';
 import { SortableRows } from './SortableRows';
+import { storeSearchLinks } from '../data/chains';
+
+/** "Find it at" the household's stores: each store's own search, or a web search, with the item filled in. */
+function FindAtStores({ storeNames, itemName }: { storeNames: string[]; itemName: string }) {
+  const links = storeSearchLinks(storeNames, itemName).slice(0, 6);
+  if (links.length === 0) return null;
+  return (
+    <div className="grid gap-1.5" role="group" aria-label="Find it at a store">
+      <span className="text-sm text-stone-500">Find it at</span>
+      <div className="flex flex-wrap gap-2">
+        {links.map((l) => (
+          <a
+            key={l.url}
+            href={l.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={l.storeSite ? `Find ${itemName.trim()} at ${l.store}` : `Search the web for ${itemName.trim()} at ${l.store}`}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-stone-200 px-3 text-sm text-forest-700 hover:border-forest-500 dark:border-forest-600 dark:text-forest-300"
+          >
+            <Search size={14} /> {l.store}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function EditItemDialog({
   item,
@@ -40,9 +66,12 @@ export function EditItemDialog({
   onSave,
   onDelete,
   onClose,
+  storeNames = [],
 }: {
   item: ListItem;
   lists: ShoppingList[];
+  /** The household's stores, the one being shopped first: each offers its own search for the item. */
+  storeNames?: string[];
   onSave: (changes: Partial<ListItem>) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -358,6 +387,8 @@ export function EditItemDialog({
           Notes
           <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={task ? 'Ticket number, what to bring…' : 'Brand, size, organic…'} className={`${inputClass} mt-1`} />
         </label>
+
+        {!task && <FindAtStores storeNames={storeNames} itemName={name} />}
 
         {showSteps ? (
           stepsFields
