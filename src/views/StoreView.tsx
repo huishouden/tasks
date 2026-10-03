@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Check, LocateFixed, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { RoleNote } from '@huishouden/pwa-kit/react/roles';
@@ -50,6 +50,50 @@ function currentPosition(): Promise<GeoPoint> {
   });
 }
 
+/** The nearest ancestor that scrolls; sticky positions are relative to it. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(p).overflowY)) return p;
+  }
+  return null;
+}
+
+/**
+ * Section headings stick under the list's own sticky heading. Its height is measured (it wraps on
+ * narrow phones) into --section-top, and the heading that is stuck gets data-stuck for its border.
+ */
+function useStickySections(listRef: RefObject<HTMLDivElement | null>, headRef: RefObject<HTMLDivElement | null>, showing: boolean) {
+  useEffect(() => {
+    const list = listRef.current;
+    const head = headRef.current;
+    if (!list || !head) return;
+    const scroller = scrollParent(list) ?? document.documentElement;
+    const host = list.parentElement!;
+    let top = 0;
+    const mark = () => {
+      const edge = (scroller === document.documentElement ? 0 : scroller.getBoundingClientRect().top) + top;
+      for (const h of list.querySelectorAll<HTMLElement>('section > h2')) {
+        const stuck = Math.abs(h.getBoundingClientRect().top - edge) < 1.5 && h.parentElement!.getBoundingClientRect().top < edge - 1;
+        h.toggleAttribute('data-stuck', stuck);
+      }
+    };
+    const measure = () => {
+      top = head.getBoundingClientRect().height;
+      host.style.setProperty('--section-top', `${top}px`);
+      mark();
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(head);
+    measure();
+    const target = scroller === document.documentElement ? window : scroller;
+    target.addEventListener('scroll', mark, { passive: true });
+    return () => {
+      ro.disconnect();
+      target.removeEventListener('scroll', mark);
+    };
+  }, [listRef, headRef, showing]);
+}
+
 function cleanLabels(labels: Partial<Record<Category, string>>): Partial<Record<Category, string>> {
   return Object.fromEntries(Object.entries(labels).flatMap(([k, v]) => (v?.trim() ? [[k, v.trim()]] : [])));
 }
@@ -68,6 +112,10 @@ export function StoreView(props: Props) {
   const done = listItems.filter((i) => i.completed).length;
   const progress = total === 0 ? 0 : done / total;
   const sections = groupWithAisles(listItems, props.aisles, store?.categoryOrder, store?.aisleLabels, stapleKey);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  useStickySections(listRef, headRef, !(store && editing));
 
   function choose(id: string | null) {
     setEditing(false);
@@ -142,8 +190,8 @@ export function StoreView(props: Props) {
           onDone={() => setEditing(false)}
         />
       ) : (
-        <>
-          <div className="sticky top-0 z-10 -mx-4 bg-cream px-4 py-2 sm:-mx-6 sm:px-6 dark:bg-forest-900">
+        <div ref={listRef} className="contents">
+          <div ref={headRef} className="sticky top-0 z-10 -mx-4 bg-cream px-4 py-2 sm:-mx-6 sm:px-6 dark:bg-forest-900">
             <div className="flex items-baseline justify-between">
               <h1 className="text-2xl font-bold">{selectedList.name}</h1>
               <span className="text-stone-500">
@@ -157,7 +205,8 @@ export function StoreView(props: Props) {
           {sections.length === 0 && <p className="p-8 text-center text-stone-500">This list is empty.</p>}
           {sections.map((group) => (
             <section key={group.key} aria-label={group.title}>
-              <h2 className="mb-2 text-sm font-semibold tracking-wider text-stone-500 uppercase">
+              {/* Stays under the list's heading while its items scroll by, so you know which section they are in. */}
+              <h2 className="sticky top-(--section-top) z-[5] -mx-4 mb-1 border-b border-transparent bg-cream px-4 py-1.5 text-sm font-semibold tracking-wider text-stone-500 uppercase sm:-mx-6 sm:px-6 data-stuck:border-stone-200 dark:bg-forest-900 dark:data-stuck:border-forest-700">
                 {group.title}
                 {group.label && (
                   <span className="ml-1.5 rounded-md bg-forest-100 px-1.5 py-0.5 tracking-normal text-forest-700 normal-case dark:bg-forest-700 dark:text-forest-100">
@@ -178,7 +227,7 @@ export function StoreView(props: Props) {
               Clear {done} checked item{done === 1 ? '' : 's'}
             </button>
           )}
-        </>
+        </div>
       )}
     </div>
   );

@@ -50,7 +50,8 @@ import { NearbyErrand } from './components/NearbyErrand';
 import { StoreBanner } from './components/StoreBanner';
 import { AislePrompt } from './components/AislePrompt';
 import { placeLabel } from './data/places';
-import { stapleKey } from './data/model';
+import { isTaskList, stapleKey } from './data/model';
+import { storeSearchLink } from './data/chains';
 import { MealsView } from './views/MealsView';
 import { planDays, planMeal, unplanMeal } from './data/mealPlan';
 import { trackView } from '@huishouden/pwa-kit/observability';
@@ -360,6 +361,8 @@ function HouseholdApp({
     // Just checked off in a store, with no aisle on record there yet: offer to note it.
     setAskAisleFor(!item.completed && shoppingStoreId && !aisles.has(stapleKey(item.name)) ? item.id : null);
   };
+  const findStore = stores.find((st) => st.id === aisleStoreId);
+  const listIcon = (listId: string) => data.lists.find((l) => l.id === listId)?.icon;
   const aisleProps = aisleStoreId
     ? {
         aisleFor: (item: ListItem) => aisles.get(stapleKey(item.name)),
@@ -368,6 +371,7 @@ function HouseholdApp({
           setAskAisleFor(null);
         },
         onDismissAisle: () => setAskAisleFor(null),
+        findAt: (item: ListItem) => (findStore && !isTaskList(listIcon(item.listId)) ? storeSearchLink(findStore.name, item.name) : null),
       }
     : undefined;
   // Waits for the first stores snapshot, so a saved store is never offered as a new shop.
@@ -638,6 +642,8 @@ function HouseholdApp({
         <EditItemDialog
           item={editing}
           lists={data.lists}
+          // The store being shopped first, then the household's other stores.
+          storeNames={[...(findStore ? [findStore.name] : []), ...stores.filter((st) => st !== findStore).map((st) => st.name)]}
           onSave={(changes) => {
             repo.updateItem(editing.id, changes);
             // A corrected aisle sticks: the next time this item is added it lands there.

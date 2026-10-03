@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { CalendarClock, Check, ChevronDown, ExternalLink, ListChecks, MapPin, Pencil, Signpost, Trash2, Zap } from 'lucide-react';
+import { CalendarClock, Check, ChevronDown, ExternalLink, ListChecks, MapPin, Pencil, Search, Signpost, Trash2, Zap } from 'lucide-react';
 import { aisleLabel } from '../data/stores';
+import type { StoreLink } from '../data/chains';
 import { mapsSearchUrl } from '@huishouden/pwa-kit/places';
 import { URGENCY, formatDue, isOverdue, type ListItem } from '../data/model';
 
@@ -16,6 +17,8 @@ interface Props {
   aisle?: string;
   onAisle?: (aisle: string) => void;
   onDismissAisle?: () => void;
+  /** The store being shopped's own search for this item, so its website or app can show the aisle. */
+  findAt?: StoreLink | null;
   /** Present when the row can be reordered: the grip, plus what the drag library attaches to the row. */
   drag?: DragProps;
 }
@@ -25,6 +28,7 @@ export interface AisleProps {
   aisleFor: (item: ListItem) => string | undefined;
   onAisle: (item: ListItem, aisle: string) => void;
   onDismissAisle: () => void;
+  findAt?: (item: ListItem) => StoreLink | null;
 }
 
 export function aisleRowProps(aisle: AisleProps | undefined, item: ListItem): Partial<Props> {
@@ -33,6 +37,7 @@ export function aisleRowProps(aisle: AisleProps | undefined, item: ListItem): Pa
     aisle: aisle.aisleFor(item),
     onAisle: (v: string) => aisle.onAisle(item, v),
     onDismissAisle: aisle.onDismissAisle,
+    findAt: aisle.findAt?.(item),
   };
 }
 
@@ -43,7 +48,7 @@ export interface DragProps {
   dragging: boolean;
 }
 
-export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory, drag, onToggleSubtask, aisle, onAisle, onDismissAisle }: Props) {
+export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory, drag, onToggleSubtask, aisle, onAisle, onDismissAisle, findAt }: Props) {
   const [editingAisle, setEditingAisle] = useState(false);
   const showAisleInput = !!onAisle && editingAisle;
   const [expanded, setExpanded] = useState(false);
@@ -124,15 +129,6 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory,
             ))}
           </ul>
         )}
-        {aisle && onAisle && !showAisleInput && (
-          <button
-            onClick={() => setEditingAisle(true)}
-            className={`mt-1 inline-flex items-center gap-1 rounded-full bg-forest-50 px-2 py-0.5 font-medium text-forest-700 dark:bg-forest-700 dark:text-forest-100 ${large ? 'text-base' : 'text-sm'}`}
-            aria-label={`${aisleLabel(aisle)}. Change where ${item.name} is`}
-          >
-            <Signpost size={14} /> {aisleLabel(aisle)}
-          </button>
-        )}
         {showAisleInput && (
           <AisleInput
             itemName={item.name}
@@ -147,6 +143,20 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory,
               onDismissAisle?.();
             }}
           />
+        )}
+        {((aisle && onAisle) || (findAt && !item.completed)) && !showAisleInput && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {aisle && onAisle && !showAisleInput && (
+              <button
+                onClick={() => setEditingAisle(true)}
+                className={`inline-flex items-center gap-1 rounded-full bg-forest-50 px-2 py-0.5 font-medium text-forest-700 dark:bg-forest-700 dark:text-forest-100 ${large ? 'text-base' : 'text-sm'}`}
+                aria-label={`${aisleLabel(aisle)}. Change where ${item.name} is`}
+              >
+                <Signpost size={14} /> {aisleLabel(aisle)}
+              </button>
+            )}
+            {findAt && !item.completed && <FindAtLink link={findAt} itemName={item.name} secondary={!!aisle} large={large} />}
+          </div>
         )}
         {(item.dueAt || item.location || item.link) && (
           <div className={`mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 ${large ? 'text-base' : 'text-sm'}`}>
@@ -191,6 +201,23 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, showCategory,
         </button>
       )}
     </li>
+  );
+}
+
+/** Opens the store's own search for the item; once its aisle is known it steps back. */
+export function FindAtLink({ link, itemName, secondary, large }: { link: StoreLink; itemName: string; secondary?: boolean; large?: boolean }) {
+  return (
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={link.storeSite ? `Find ${itemName} at ${link.store}` : `Search the web for ${itemName} at ${link.store}`}
+      className={`inline-flex max-w-full min-w-0 items-center gap-1 underline-offset-2 hover:underline ${large ? 'text-base' : 'text-sm'} ${
+        secondary ? 'text-stone-500 dark:text-stone-400' : 'font-medium text-forest-700 dark:text-forest-300'
+      }`}
+    >
+      <Search size={14} className="shrink-0" /> <span className="truncate">Find at {link.store}</span>
+    </a>
   );
 }
 

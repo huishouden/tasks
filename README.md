@@ -14,7 +14,9 @@ Part of [Huishouden](https://huishouden-piekstra.web.app), a suite of small hous
 
 <img src="docs/screenshots/store-phone.png" alt="Store mode on a phone, walking Corner Grocer with aisle labels" width="260" align="right">
 
-**Store** mode on a phone walks the list in the chosen store's order. In a shop, a one-line banner asks whether you are at the store it found nearby (OpenStreetMap). While shopping, checking an item off offers an optional "which aisle?" at the bottom of the screen; aisles are remembered per store for the household, items are then grouped by aisle, and a wrong aisle can be corrected from the item.
+**Store** mode on a phone walks the list in the chosen store's order. In a shop, a one-line banner asks whether you are at the store it found nearby (OpenStreetMap). While shopping, checking an item off offers an optional "which aisle?" at the bottom of the screen; aisles are remembered per store for the household, items are then grouped by aisle, and a wrong aisle can be corrected from the item. Each section's heading stays at the top while its items scroll by.
+
+At a store, each item has a "Find at Publix" link that opens the store's own website search (or its app, where the store's app takes the link) with the item's name filled in, quantities and notes left out, so the store can say which aisle it is in. The stores whose search is known are in `src/data/chains.ts`, each checked in a real browser; any other store gets a web search for the item and the store's name. With no store picked, an item's details offer the household's saved stores.
 
 Signed out, Tasks opens on an invented household (`src/data/demo.ts`): the real app on a Firestore that never goes online, so it can be tried without an account and nothing is saved. The screenshots are of that household; CI refreshes them after every deploy (`bun run screenshots`) and posts before/after images of the same scenes on every pull request.
 
