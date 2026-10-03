@@ -45,7 +45,7 @@ function Row({ id, label, children }: { id: string; label: string; children: Rea
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={`flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-2 py-2 dark:border-forest-700 dark:bg-forest-800 ${isDragging ? 'relative z-10 shadow-lg' : ''}`}
+      className={`flex items-center gap-2 rounded-2xl border border-line bg-surface px-2 py-2 ${isDragging ? 'relative z-10 shadow-lg' : ''}`}
     >
       <button
         ref={setActivatorNodeRef}

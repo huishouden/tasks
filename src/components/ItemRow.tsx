@@ -36,8 +36,8 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
     <li
       ref={drag?.rowRef}
       style={drag?.rowStyle}
-      className={`group flex min-w-0 ${drag?.dragging ? 'relative z-10 shadow-lg' : ''} items-center gap-3 rounded-2xl border bg-white px-3 dark:bg-forest-800 ${large ? 'py-4' : 'py-2.5'} ${
-        urgent || overdue ? 'border-terracotta/60' : 'border-stone-200/80 dark:border-forest-700'
+      className={`group flex min-w-0 ${drag?.dragging ? 'relative z-10 shadow-lg' : ''} items-center gap-3 rounded-2xl border bg-surface px-3 ${large ? 'py-4' : 'py-2.5'} ${
+        urgent || overdue ? 'border-terracotta/60' : 'border-line'
       } ${item.completed ? 'opacity-60' : ''}`}
     >
       {drag?.handle}
@@ -46,7 +46,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
         aria-label={cancelled ? `Restore ${item.name}` : item.completed ? `Mark ${item.name} not done` : `Mark ${item.name} done`}
         className={`flex shrink-0 items-center justify-center rounded-full border-2 transition ${large ? 'h-10 w-10' : 'h-8 w-8'} ${
           cancelled
-            ? 'border-stone-300 text-stone-500 dark:border-forest-500 dark:text-stone-400'
+            ? 'border-stone-300 text-muted dark:border-forest-500'
             : item.completed
               ? 'border-forest-500 bg-forest-500 text-white'
               : 'border-stone-300 hover:border-forest-500 dark:border-forest-500'
@@ -59,18 +59,18 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
           <span className={`${large ? 'text-xl' : 'text-base'} ${item.completed && !cancelled ? 'line-through' : ''}`}>
             <span className="font-medium [overflow-wrap:anywhere]">{item.name}</span>
             {cancelled && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 align-middle text-xs font-semibold text-stone-600 dark:bg-forest-700 dark:text-stone-300">
+              <span className="ml-2 inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 align-middle text-xs font-semibold text-muted dark:bg-forest-700">
                 Cancelled
               </span>
             )}
             {urgent && (
-              <span className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-terracotta-light px-2 py-0.5 align-middle text-xs font-semibold text-terracotta">
+              <span className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-attention-tint px-2 py-0.5 align-middle text-xs font-semibold text-attention">
                 <Zap size={12} /> Today
               </span>
             )}
           </span>
           {(details.length > 0 || item.addedBy) && (
-            <span className={`block text-stone-500 [overflow-wrap:anywhere] dark:text-stone-400 ${large ? 'text-base' : 'text-sm'}`}>
+            <span className={`block text-muted [overflow-wrap:anywhere] ${large ? 'text-base' : 'text-sm'}`}>
               {details.join(' · ')}
               {details.length > 0 && item.addedBy ? ' · ' : ''}
               {item.addedBy}
@@ -81,7 +81,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
           <button
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className={`mt-1 inline-flex items-center gap-1 rounded-full bg-forest-50 px-2 py-0.5 font-medium text-forest-700 dark:bg-forest-700 dark:text-forest-100 ${large ? 'text-base' : 'text-sm'}`}
+            className={`mt-1 inline-flex items-center gap-1 rounded-full bg-tint px-2 py-0.5 font-medium text-forest-700 dark:text-forest-100 ${large ? 'text-base' : 'text-sm'}`}
           >
             <ListChecks size={14} /> {stepsDone} of {steps.length} done
             <ChevronDown size={14} className={expanded ? 'rotate-180' : ''} />
@@ -99,7 +99,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
                     disabled={!onToggleSubtask}
                     className="mt-0.5 h-4 w-4 shrink-0 accent-forest-600"
                   />
-                  <span className={`[overflow-wrap:anywhere] ${st.done ? 'text-stone-400 line-through' : ''}`}>{st.text}</span>
+                  <span className={`[overflow-wrap:anywhere] ${st.done ? 'text-muted line-through' : ''}`}>{st.text}</span>
                 </label>
               </li>
             ))}
@@ -108,7 +108,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
         {(item.dueAt || item.location || item.link) && (
           <div className={`mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 ${large ? 'text-base' : 'text-sm'}`}>
             {item.dueAt ? (
-              <span className={`inline-flex items-center gap-1 font-medium ${overdue ? 'text-terracotta' : 'text-forest-600 dark:text-forest-300'}`}>
+              <span className={`inline-flex items-center gap-1 font-medium ${overdue ? 'text-attention' : 'text-positive'}`}>
                 <CalendarClock size={14} /> {formatDue(item, now)}
                 {overdue && <span className="font-normal">(overdue)</span>}
               </span>
@@ -118,7 +118,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
                 href={mapsSearchUrl(item.location)}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-w-0 items-center gap-1 text-stone-500 underline-offset-2 hover:underline dark:text-stone-400"
+                className="inline-flex min-w-0 items-center gap-1 text-muted underline-offset-2 hover:underline"
                 aria-label={`${item.location}, open in Maps`}
               >
                 <MapPin size={14} className="shrink-0" /> <span className="[overflow-wrap:anywhere]">{item.location}</span>
@@ -129,7 +129,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
                 href={item.link}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 font-medium text-forest-700 underline-offset-2 hover:underline dark:text-forest-300"
+                className="inline-flex items-center gap-1 font-medium text-link underline-offset-2 hover:underline"
               >
                 <ExternalLink size={14} /> {/calendar\.google\.com|google\.com\/calendar/.test(item.link) ? 'Open in Calendar' : 'Open link'}
               </a>

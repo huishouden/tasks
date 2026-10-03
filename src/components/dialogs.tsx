@@ -22,7 +22,7 @@ import {
   type ShoppingList,
   type Urgency,
 } from '../data/model';
-import type { ThemeMode } from '../lib/prefs';
+import { THEME_LABELS, THEME_MODES, useTheme } from '@huishouden/pwa-kit/react/theme';
 import { parseWhen } from '../data/when';
 import { currentPosition, locationPermission } from '../lib/location';
 import { hoursWarning } from '../data/hours';
@@ -113,11 +113,11 @@ export function EditItemDialog({
   const whenFields = (
     <>
       <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-        <label className="text-sm text-stone-500">
+        <label className="text-sm text-muted">
           Date
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} mt-1`} />
         </label>
-        <label className="text-sm text-stone-500">
+        <label className="text-sm text-muted">
           Time (optional)
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={!date} className={`${inputClass} mt-1`} />
         </label>
@@ -147,19 +147,19 @@ export function EditItemDialog({
               type="button"
               onClick={() => setDueBy(o.by)}
               aria-pressed={dueBy === o.by}
-              className={`rounded-full border px-3 py-1 text-sm ${dueBy === o.by ? 'border-forest-700 bg-forest-700 text-white' : 'border-stone-200 dark:border-forest-600'}`}
+              className={`rounded-full border px-3 py-1 text-sm ${dueBy === o.by ? 'border-forest-700 bg-primary text-on-primary dark:border-forest-400' : 'border-stone-200 dark:border-forest-600'}`}
             >
               {o.label}
             </button>
           ))}
         </div>
       )}
-      <button type="button" onClick={() => void searchCalendar()} disabled={searching || !name.trim()} className={`${ghostButton} justify-self-start px-2 py-1 text-sm text-forest-700 dark:text-forest-300`}>
+      <button type="button" onClick={() => void searchCalendar()} disabled={searching || !name.trim()} className={`${ghostButton} justify-self-start px-2 py-1 text-sm text-link`}>
         {searching ? <Loader2 size={16} className="animate-spin" /> : <CalendarSearch size={16} />} {searching ? 'Searching your calendars…' : 'Find in my calendar'}
       </button>
       {calendarError && <ErrorNotice error={calendarError} onRetry={() => void searchCalendar()} retrying={searching} />}
       {matches && matches.length === 0 && (
-        <p className="text-sm text-stone-500" role="status">
+        <p className="text-sm text-muted" role="status">
           No events matching "{name.trim()}" in your calendars from last week to a year ahead.
         </p>
       )}
@@ -167,13 +167,13 @@ export function EditItemDialog({
         <ul className="grid gap-1.5" aria-label="Calendar matches">
           {matches.map((m) => (
             <li key={m.id}>
-              <button type="button" onClick={() => useMatch(m)} className="w-full rounded-xl border border-stone-200 px-3 py-2 text-left hover:border-forest-500 hover:bg-forest-50 dark:border-forest-600 dark:hover:bg-forest-700">
+              <button type="button" onClick={() => useMatch(m)} className="w-full rounded-xl border border-line px-3 py-2 text-left hover:border-forest-500 hover:bg-tint">
                 <span className="block font-medium [overflow-wrap:anywhere]">{m.title}</span>
-                <span className="block text-sm text-stone-500">
+                <span className="block text-sm text-muted">
                   {formatDue({ dueAt: m.start, allDay: m.allDay }, Date.now())} · {m.calendarName}
                 </span>
                 {m.location && (
-                  <span className="block text-sm text-stone-500 [overflow-wrap:anywhere]">
+                  <span className="block text-sm text-muted [overflow-wrap:anywhere]">
                     <MapPin size={12} className="mr-0.5 inline" /> {m.location}
                   </span>
                 )}
@@ -205,8 +205,8 @@ export function EditItemDialog({
   );
 
   const stepsFields = (
-    <fieldset className="grid gap-2 rounded-2xl border border-stone-200 p-3 dark:border-forest-700">
-      <legend className="px-1 text-sm text-stone-500">Steps</legend>
+    <fieldset className="grid gap-2 rounded-2xl border border-line p-3">
+      <legend className="px-1 text-sm text-muted">Steps</legend>
       {steps.map((st, i) => (
         <div key={st.id} className="flex items-center gap-2">
           <input
@@ -259,7 +259,7 @@ export function EditItemDialog({
     </fieldset>
   );
 
-  const quick = 'inline-flex items-center gap-1.5 rounded-full border border-stone-200 px-3 py-1.5 text-sm text-stone-700 hover:border-forest-500 dark:border-forest-600 dark:text-stone-200';
+  const quick = 'inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm text-ink-soft hover:border-forest-500';
 
   return (
     <Dialog title="Edit task" onClose={onClose}>
@@ -286,13 +286,13 @@ export function EditItemDialog({
           onClose();
         }}
       >
-        <label className="text-sm text-stone-500">
+        <label className="text-sm text-muted">
           Task
           <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} mt-1`} autoFocus />
         </label>
         {showRead && readFromName && date && (
-          <p className="-mt-1 flex flex-wrap items-center gap-x-2 text-sm text-stone-600 dark:text-stone-300" role="status">
-            <CalendarClock size={16} className="shrink-0 text-forest-700 dark:text-forest-300" aria-hidden />
+          <p className="-mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted" role="status">
+            <CalendarClock size={16} className="shrink-0 text-link" aria-hidden />
             <span>Read “{readFromName.phrase}” from the name.</span>
             <button
               type="button"
@@ -303,7 +303,7 @@ export function EditItemDialog({
                 setDueBy(false);
                 setShowRead(false);
               }}
-              className="min-h-11 font-medium text-forest-700 underline underline-offset-2 dark:text-forest-300"
+              className="min-h-11 font-medium text-link underline underline-offset-2"
             >
               Undo
             </button>
@@ -313,7 +313,7 @@ export function EditItemDialog({
           <button
             type="button"
             onClick={applyInferred}
-            className={`${ghostButton} justify-self-start bg-forest-50 text-left text-forest-700 dark:bg-forest-700 dark:text-forest-100`}
+            className={`${ghostButton} justify-self-start bg-tint text-left text-forest-700 dark:text-forest-100`}
           >
             <CalendarClock size={18} className="shrink-0" />
             <span>
@@ -324,12 +324,12 @@ export function EditItemDialog({
         )}
 
         <fieldset className="grid gap-2">
-          <legend className="mb-1 text-sm text-stone-500">When</legend>
+          <legend className="mb-1 text-sm text-muted">When</legend>
           {whenFields}
         </fieldset>
         {whereField}
 
-        <label className="text-sm text-stone-500">
+        <label className="text-sm text-muted">
           Notes
           <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ticket number, what to bring…" className={`${inputClass} mt-1`} />
         </label>
@@ -346,7 +346,7 @@ export function EditItemDialog({
                   setSteps(split.steps.map((t) => newSubtask(t)));
                   setShowSteps(true);
                 }}
-                className={`${quick} border-forest-200 bg-forest-50 text-forest-700 dark:bg-forest-700 dark:text-forest-100`}
+                className={`${quick} border-forest-200 bg-tint text-forest-700 dark:text-forest-100`}
               >
                 <ListChecks size={16} /> Split into {split.steps.length} steps
               </button>
@@ -361,7 +361,7 @@ export function EditItemDialog({
                 type="button"
                 onClick={() => setUrgency(urgency === URGENCY.URGENT ? URGENCY.NORMAL : URGENCY.URGENT)}
                 aria-pressed={urgency === URGENCY.URGENT}
-                className={`${quick} ${urgency === URGENCY.URGENT ? 'border-terracotta bg-terracotta-light font-semibold text-terracotta' : ''}`}
+                className={`${quick} ${urgency === URGENCY.URGENT ? 'border-terracotta bg-attention-tint font-semibold text-attention' : ''}`}
               >
                 <Zap size={16} /> Need today
               </button>
@@ -369,13 +369,13 @@ export function EditItemDialog({
           </div>
         )}
 
-        <details className="group rounded-2xl border border-stone-200 dark:border-forest-700">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm text-stone-600 dark:text-stone-300">
+        <details className="group rounded-2xl border border-line">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm text-muted">
             List and link
             <ChevronDown size={16} className="transition group-open:rotate-180" />
           </summary>
-          <div className="grid gap-3 border-t border-stone-200 p-3 dark:border-forest-700">
-            <label className="text-sm text-stone-500">
+          <div className="grid gap-3 border-t border-line p-3">
+            <label className="text-sm text-muted">
               List
               <select value={listId} onChange={(e) => setListId(e.target.value)} className={`${inputClass} mt-1`}>
                 {lists.map((l) => (
@@ -385,7 +385,7 @@ export function EditItemDialog({
                 ))}
               </select>
             </label>
-            <label className="text-sm text-stone-500">
+            <label className="text-sm text-muted">
               Link
               <input
                 value={link}
@@ -396,20 +396,20 @@ export function EditItemDialog({
                 aria-invalid={!linkValid}
               />
             </label>
-            {!linkValid && <p className="text-sm text-terracotta">Links start with https://</p>}
+            {!linkValid && <p className="text-sm text-attention">Links start with https://</p>}
             {dueAt !== null && !link.trim() && (
               <a
                 href={googleCalendarLink({ name, notes, dueAt, allDay: !time, location }, listName)}
                 target="_blank"
                 rel="noreferrer"
-                className={`${ghostButton} justify-self-start text-forest-700 dark:text-forest-300`}
+                className={`${ghostButton} justify-self-start text-link`}
               >
                 <CalendarPlus size={18} /> Add to Google Calendar
               </a>
             )}
           </div>
         </details>
-        <p className="text-sm text-stone-500">Added by {item.addedBy || 'someone'}</p>
+        <p className="text-sm text-muted">Added by {item.addedBy || 'someone'}</p>
         <div className="mt-2 flex justify-between gap-2">
           <button
             type="button"
@@ -471,7 +471,7 @@ function WhereField({
   // Google Maps searches near the device by itself and knows far more businesses than
   // OpenStreetMap; pick one there and paste or type it in.
   const mapsLink = (label: string) => (
-    <a href={mapsSearchUrl(query)} target="_blank" rel="noreferrer" className="font-medium text-forest-700 underline underline-offset-2 dark:text-forest-300">
+    <a href={mapsSearchUrl(query)} target="_blank" rel="noreferrer" className="font-medium text-link underline underline-offset-2">
       {label}
     </a>
   );
@@ -515,32 +515,32 @@ function WhereField({
 
   return (
     <div className="grid gap-2">
-      <div className="text-sm text-stone-500">
+      <div className="text-sm text-muted">
         <label htmlFor={inputId}>Where</label>
         <div className="mt-1 flex gap-2">
           <input id={inputId} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Place or address" className={inputClass} />
-          <button type="button" onClick={() => void findNearby()} disabled={busy || !(value.trim() || name.trim())} className={`${ghostButton} shrink-0 border border-stone-200 dark:border-forest-600`}>
+          <button type="button" onClick={() => void findNearby()} disabled={busy || !(value.trim() || name.trim())} className={`${ghostButton} shrink-0 border border-line`}>
             {busy ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />} {busy ? 'Looking…' : 'Find nearby'}
           </button>
         </div>
       </div>
       {hours && (
-        <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
+        <p className="text-sm text-muted" role="status">
           {parseOpeningHours(hours) ? hoursToday(hours) : `Hours: ${hours}`}
         </p>
       )}
       {warning && (
-        <p className="text-sm font-medium text-terracotta" role="status">
+        <p className="text-sm font-medium text-attention" role="status">
           {warning}
         </p>
       )}
       {error && (
-        <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
+        <p className="text-sm text-muted" role="status">
           {error} {query && mapsLink('Search Google Maps')}
         </p>
       )}
       {results && results.length === 0 && (
-        <p className="text-sm text-stone-600 dark:text-stone-300" role="status">
+        <p className="text-sm text-muted" role="status">
           The free map has nothing like "{query}" near you; it misses many businesses. {mapsLink('Search Google Maps')}
         </p>
       )}
@@ -559,15 +559,15 @@ function WhereField({
                   onPick(p, p.address ? `${p.name}, ${p.address}` : p.name);
                   setResults(null);
                 }}
-                className="w-full rounded-xl border border-stone-200 px-3 py-2 text-left hover:border-forest-500 hover:bg-forest-50 dark:border-forest-600 dark:hover:bg-forest-700"
+                className="w-full rounded-xl border border-line px-3 py-2 text-left hover:border-forest-500 hover:bg-tint"
               >
                 <span className="block font-medium [overflow-wrap:anywhere]">{p.name}</span>
-                <span className="block text-sm text-stone-500 [overflow-wrap:anywhere]">
+                <span className="block text-sm text-muted [overflow-wrap:anywhere]">
                   {p.distanceKm !== undefined && `${formatDistance(p.distanceKm)}`}
                   {p.distanceKm !== undefined && p.address ? ' · ' : ''}
                   {p.address}
                 </span>
-                {p.openingHours && <span className="block text-sm text-stone-500">{hoursToday(p.openingHours)}</span>}
+                {p.openingHours && <span className="block text-sm text-muted">{hoursToday(p.openingHours)}</span>}
               </button>
             </li>
           ))}
@@ -648,7 +648,7 @@ export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, 
       >
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Weekend chores, House projects…" className={inputClass} autoFocus />
         <div>
-          <p className="mb-2 text-sm text-stone-500">Icon</p>
+          <p className="mb-2 text-sm text-muted">Icon</p>
           <div className="flex flex-wrap gap-2">
             {TASK_LIST_ICONS.map((i) => (
               <button
@@ -665,7 +665,7 @@ export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, 
           </div>
         </div>
         <div>
-          <p className="mb-2 text-sm text-stone-500">Color</p>
+          <p className="mb-2 text-sm text-muted">Color</p>
           <div className="flex flex-wrap gap-2">
             {LIST_COLORS.map((c) => (
               <button
@@ -712,8 +712,6 @@ export function SettingsDialog({
   myEmail,
   addedAs,
   setAddedAs,
-  theme,
-  setTheme,
   install,
   notifications,
   googleTasks,
@@ -726,8 +724,6 @@ export function SettingsDialog({
   myEmail: string;
   addedAs: string;
   setAddedAs: (name: string) => void;
-  theme: ThemeMode;
-  setTheme: (t: ThemeMode) => void;
   install: { canInstall: boolean; installed: boolean; install: () => Promise<void> };
   /** "Notifications on this device" (the kit's NotificationsCard). */
   notifications?: React.ReactNode;
@@ -741,6 +737,7 @@ export function SettingsDialog({
   const [invite, setInvite] = useState('');
   const [inviteRole, setInviteRole] = useState<Role>('member');
   const myRole = householdRole(household, myEmail);
+  const { mode, setMode } = useTheme();
   const admin = can(myRole, 'manage-people');
   const [error, setError] = useState<FriendlyError | null>(null);
   const validInvite = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invite.trim());
@@ -749,7 +746,7 @@ export function SettingsDialog({
       <div className="grid gap-6">
         <section>
           <h3 className="mb-1 font-semibold">{household.name}</h3>
-          <p className="mb-3 text-sm text-stone-500">
+          <p className="mb-3 text-sm text-muted">
             What each person can do depends on their role, in every Huishouden app. Add someone by the Google address they sign in
             with, then send them the link.
           </p>
@@ -757,16 +754,16 @@ export function SettingsDialog({
             {household.members.map((m) => {
               const joined = m === myEmail || (household.joined ?? []).includes(m);
               return (
-                <li key={m} className="flex items-center gap-2 rounded-xl bg-stone-50 px-3 py-2 dark:bg-forest-900">
+                <li key={m} className="flex items-center gap-2 rounded-xl bg-sunken px-3 py-2">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">
                       {m}
-                      {m === myEmail && <span className="ml-1 text-stone-400">(you)</span>}
+                      {m === myEmail && <span className="ml-1 text-muted">(you)</span>}
                     </span>
-                    <span className={`text-xs ${joined ? 'text-forest-600 dark:text-forest-300' : 'text-terracotta'}`}>
+                    <span className={`text-xs ${joined ? 'text-positive' : 'text-attention'}`}>
                       {joined ? 'Joined' : 'Invited, not signed in yet'}
                     </span>
-                    {!(admin && m !== myEmail) && <span className="text-xs text-stone-500"> · {ROLE_LABELS[householdRole(household, m) ?? 'member']}</span>}
+                    {!(admin && m !== myEmail) && <span className="text-xs text-muted"> · {ROLE_LABELS[householdRole(household, m) ?? 'member']}</span>}
                   </span>
                   {admin && m !== myEmail && (
                     <RoleSelect
@@ -831,7 +828,7 @@ export function SettingsDialog({
             Items added on this device are labelled
             <input value={addedAs} onChange={(e) => setAddedAs(e.target.value)} className={`${inputClass} mt-1 font-normal`} />
           </label>
-          <p className="mt-1 text-sm text-stone-500">Use "Kitchen" on the shared tablet so you can tell who added what.</p>
+          <p className="mt-1 text-sm text-muted">Use "Kitchen" on the shared tablet so you can tell who added what.</p>
         </section>
 
         {notifications}
@@ -839,15 +836,17 @@ export function SettingsDialog({
         {googleTasks}
 
         <section>
-          <p className="mb-2 text-sm font-semibold">Appearance on this device</p>
-          <div className="flex gap-2">
-            {(['light', 'dark', 'auto'] as ThemeMode[]).map((t) => (
+          <p id="theme-label" className="mb-1 text-sm font-semibold">Theme</p>
+          <p className="mb-2 text-sm text-muted">For every Huishouden app on this device. Automatic follows the device's setting.</p>
+          <div className="flex gap-2" role="group" aria-labelledby="theme-label">
+            {THEME_MODES.map((t) => (
               <button
                 key={t}
-                onClick={() => setTheme(t)}
-                className={`flex-1 rounded-xl border px-3 py-2 capitalize ${theme === t ? 'border-forest-600 bg-forest-50 font-semibold dark:bg-forest-700' : 'border-stone-200 dark:border-forest-600'}`}
+                onClick={() => setMode(t)}
+                aria-pressed={mode === t}
+                className={`flex-1 rounded-xl border px-3 py-2 ${mode === t ? 'border-forest-600 bg-tint font-semibold' : 'border-line'}`}
               >
-                {t}
+                {THEME_LABELS[t]}
               </button>
             ))}
           </div>
@@ -861,7 +860,7 @@ export function SettingsDialog({
                 <Download size={18} /> Install Tasks on this device
               </button>
             ) : (
-              <p className="text-sm text-stone-500">In Chrome, open the ⋮ menu and choose "Add to Home screen" or "Install app". On iPhone, use Share, then "Add to Home Screen".</p>
+              <p className="text-sm text-muted">In Chrome, open the ⋮ menu and choose "Add to Home screen" or "Install app". On iPhone, use Share, then "Add to Home Screen".</p>
             )}
           </section>
         )}
@@ -875,7 +874,7 @@ export function ReorderListsDialog({ lists, onReorder, onClose }: { lists: Shopp
   const ids = lists.map((l) => l.id);
   return (
     <Dialog title="Reorder lists" onClose={onClose}>
-      <p className="mb-3 text-sm text-stone-500">Drag by the grip. Everyone in the household sees the new order.</p>
+      <p className="mb-3 text-sm text-muted">Drag by the grip. Everyone in the household sees the new order.</p>
       <SortableRows
         ids={ids}
         label={(id) => lists.find((l) => l.id === id)?.name ?? id}
