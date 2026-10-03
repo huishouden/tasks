@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/huishouden/tasks/compare/v2.2.0...v2.2.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* name the gear "Tasks settings", like the other apps ([#60](https://github.com/huishouden/tasks/issues/60)) ([340a068](https://github.com/huishouden/tasks/commit/340a068068acc67e05634fe9a841ae3e997c316c))
+
 ## [2.2.0](https://github.com/huishouden/tasks/compare/v2.1.0...v2.2.0) (2026-10-03)
 
 
