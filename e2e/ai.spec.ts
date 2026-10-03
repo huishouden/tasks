@@ -18,7 +18,7 @@ test('Gemini returns usable meals for a real grocery haul', async ({ page }) => 
   test.setTimeout(90_000);
   const token = readFileSync(TOKEN_FILE, 'utf8').trim();
   await page.addInitScript((t) => (self.FIREBASE_APPCHECK_DEBUG_TOKEN = t), token);
-  await page.goto('/');
+  await page.goto('./');
   await page.waitForFunction(() => '__suggestMeals' in window);
 
   const available = ['eggs', 'mushrooms', 'zucchini', 'steak', 'salmon', 'chicken tenderloins', 'potatoes', 'rice', 'pears', 'orange juice'];

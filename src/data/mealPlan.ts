@@ -3,6 +3,7 @@ import { writeBatch } from '@huishouden/pwa-kit/firestore';
 import { agendaDoc, agendaId, allDayStart, type AgendaInput } from '@huishouden/pwa-kit/agenda';
 import { addDays, toYmd, type Ymd } from '@huishouden/pwa-kit/time';
 import type { Meal } from './menus';
+import { appLink } from '../lib/appLink';
 
 /** Slots a day can be planned in (snacks are not planned). */
 export const PLAN_TYPES = ['breakfast', 'lunch', 'dinner'] as const;
@@ -27,7 +28,7 @@ export function planDays(now: number = Date.now()): Ymd[] {
 }
 
 const TASKS_APP = 'tasks';
-const MEALS_URL = 'https://huishouden-tasks.web.app/?mode=meals';
+const MEALS_URL = appLink('?mode=meals');
 
 /** The agenda record for a planned dinner, so it shows in the portal's Calendar and Today. */
 const agendaRef = (day: Ymd) => `meal:${slotId(day, 'dinner')}`;

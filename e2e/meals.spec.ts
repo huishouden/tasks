@@ -50,7 +50,7 @@ test('suggests meals from what was bought and shares them with the household', a
   await expect(ideas.getByRole('heading', { level: 2 })).toHaveText(['Breakfast', 'Dinner']);
   await expect(ideas).not.toContainText('Lobster');
 
-  const phone = await browser.newContext({ ...devices['Pixel 7'], baseURL: 'http://localhost:5173' });
+  const phone = await browser.newContext({ ...devices['Pixel 7'], baseURL: 'http://localhost:5173/tasks/' });
   const bob = await phone.newPage();
   await signIn(bob, 'bob@example.com', 'Bob Example');
   await bob.getByRole('button', { name: 'Meals' }).click();
@@ -144,7 +144,7 @@ test('a starred meal is a household favorite on every device, and either member 
   await expect(ideas.getByRole('button', { name: 'Remove Seared steak with rice from favorites' })).toHaveAttribute('aria-pressed', 'true');
   await expect(favorites.getByRole('heading', { level: 3 })).toHaveText(['Seared steak with rice']);
 
-  const phone = await browser.newContext({ ...devices['Pixel 7'], baseURL: 'http://localhost:5173' });
+  const phone = await browser.newContext({ ...devices['Pixel 7'], baseURL: 'http://localhost:5173/tasks/' });
   const bob = await phone.newPage();
   await signIn(bob, 'bob@example.com', 'Bob Example');
   await bob.getByRole('button', { name: 'Meals' }).click();

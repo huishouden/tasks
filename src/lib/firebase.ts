@@ -23,7 +23,7 @@ configureGoogleTokens({ clientId: googleClientId, preload: !useEmulators });
 /** The "Tasks" web app in huishouden-piekstra. Public, like the rest of the web config. */
 const APP_ID = '1:865471112898:web:88de281c1be2181a4afd5b';
 
-/** reCAPTCHA Enterprise site key for App Check on huishouden-tasks.web.app. Site keys are public. */
+/** reCAPTCHA Enterprise site key for App Check on huishouden-piekstra.web.app (and the old huishouden-tasks.web.app). Site keys are public. */
 const APP_CHECK_SITE_KEY = '6LeCC9otAAAAAN4XiBDSnvtKapMGWRarZoUjRGzM'; // gitleaks:allow (public site key, sent to every visitor)
 
 async function loadConfig(): Promise<FirebaseOptions> {

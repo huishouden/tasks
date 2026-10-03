@@ -13,7 +13,7 @@ import { MENU_MODEL, MENU_RESPONSE_SCHEMA, menuPrompt, menuSystemInstruction, va
 const PROJECT = 'huishouden-piekstra';
 const MODEL = process.env.MODEL ?? MENU_MODEL;
 const APP_ID = '1:865471112898:web:88de281c1be2181a4afd5b';
-const SITE = 'https://huishouden-tasks.web.app';
+const SITE = 'https://huishouden-piekstra.web.app';
 
 const split = (s: string | undefined) => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 const have = split(process.argv[2]);

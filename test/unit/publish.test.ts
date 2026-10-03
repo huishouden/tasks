@@ -18,7 +18,7 @@ describe('itemAgenda', () => {
   it('a time is an appointment; a deadline says "By"; both link to the item', () => {
     expect(itemAgenda(item({ dueAt: at(2031, 1, 6, 15), location: 'Example Cleaners' }), chores)).toEqual({
       ref: 'item:i1', kind: 'appointment', title: 'Drop off dry cleaning', start: at(2031, 1, 6, 15), allDay: false,
-      detail: 'Example Cleaners · Chores & Notes', url: 'https://huishouden-tasks.web.app/?list=chores&item=i1', status: 'upcoming',
+      detail: 'Example Cleaners · Chores & Notes', url: 'https://huishouden-piekstra.web.app/tasks/?list=chores&item=i1', status: 'upcoming',
     });
     expect(itemAgenda(item({ dueAt: at(2031, 1, 6, 18), dueBy: true }), chores)).toMatchObject({ kind: 'task', detail: expect.stringMatching(/^By 6:00\s?PM · Chores & Notes$/) });
   });

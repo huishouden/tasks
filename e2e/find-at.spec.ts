@@ -20,7 +20,7 @@ async function publixNearby(page: Page) {
 
 test("shopping at a detected Publix, each item links to Publix's own search for it", async ({ page }) => {
   await publixNearby(page);
-  await page.goto('/');
+  await page.goto('./');
   await ready(page);
   await page.getByLabel('New item').fill('2 lb queso ecuatoriano');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -50,7 +50,7 @@ test("shopping at a detected Publix, each item links to Publix's own search for 
 });
 
 test('with no store detected, an item offers the household’s stores', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await ready(page);
   await expect(page.getByRole('link', { name: /^Find .* at / })).toHaveCount(0);
   await page.getByRole('button', { name: 'Edit Whole milk' }).click();
@@ -58,7 +58,7 @@ test('with no store detected, an item offers the household’s stores', async ({
 });
 
 test('to-dos have no store links', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await ready(page);
   await page.getByRole('button', { name: /^Chores & Notes/ }).first().click();
   await page.getByRole('button', { name: 'Edit Garage clean-out' }).click();
@@ -71,7 +71,7 @@ for (const viewport of [
 ]) {
   test(`${viewport.name}: a section heading stays at the top while its items scroll by`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    await page.goto('/');
+    await page.goto('./');
     await ready(page);
     await page.getByRole('button', { name: 'Store', exact: true }).click();
     const produce = page.getByRole('region', { name: 'Produce & Greens' });

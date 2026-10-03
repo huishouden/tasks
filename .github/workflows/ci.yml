@@ -30,12 +30,12 @@ jobs:
   pwa:
     uses: huishouden/pwa-kit/.github/workflows/pwa.yml@v0
     permissions:
-      contents: write # README screenshots, PR evidence branch
+      contents: write # README screenshots, PR evidence branch, the hosting release asset
       id-token: write
       pull-requests: write # before/after comment on PRs
     with:
-      hosting-target: tasks
-      site-url: https://huishouden-tasks.web.app
+      base: /tasks/
+      site-url: https://huishouden-piekstra.web.app/tasks/
       staging-ref: ${{ inputs.staging-ref }}
 
   # What only this app has: every signed-in browser flow, run against the Auth and Firestore

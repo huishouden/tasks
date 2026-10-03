@@ -74,13 +74,13 @@ test('a dated task goes on the household calendar with a reminder, and leaves bo
   await page.getByLabel('New item').fill('Drycleaners dropoff before 6');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect.poll(async () => (await readHouseholdCollection('agenda')).map((a) => [a.title, a.kind, a.url]), { timeout: 15_000 }).toEqual([
-    ['Drycleaners dropoff', 'task', expect.stringMatching(/^https:\/\/huishouden-tasks\.web\.app\/\?list=chores&item=/)],
+    ['Drycleaners dropoff', 'task', expect.stringMatching(/^https:\/\/huishouden-piekstra\.web\.app\/tasks\/\?list=chores&item=/)],
   ]);
   await expect.poll(async () => (await readHouseholdCollection('reminders')).map((r) => [r.title, r.body]), { timeout: 15_000 }).toEqual([['Drycleaners dropoff', expect.stringMatching(/^By 6:00\s?PM$/)]]);
 
-  // The calendar's link opens the task in its list.
-  const link = String((await readHouseholdCollection('agenda'))[0].url).replace('https://huishouden-tasks.web.app', '');
-  await page.goto(link);
+  // The calendar's link opens the task in its list (a local http run links to production).
+  const link = new URL(String((await readHouseholdCollection('agenda'))[0].url));
+  await page.goto(`./${link.search}`);
   await expect(page.getByRole('dialog', { name: 'Edit task' }).getByLabel('Task', { exact: true })).toHaveValue('Drycleaners dropoff');
   await page.keyboard.press('Escape');
 
