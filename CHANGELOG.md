@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/huishouden/tasks/compare/v2.0.0...v2.1.0) (2026-10-03)
+
+
+### Features
+
+* publish open to-dos to the household to-do list, and cancel a task ([#55](https://github.com/huishouden/tasks/issues/55)) ([e8ad44a](https://github.com/huishouden/tasks/commit/e8ad44a92617e0f479feaeccd27a4ce3ee372da9))
+
 ## [2.0.0](https://github.com/huishouden/tasks/compare/v1.11.1...v2.0.0) (2026-10-03)
 
 
