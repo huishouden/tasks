@@ -85,7 +85,7 @@ test('a helper ticks off a member’s item and adds their own, but can’t delet
 
 test('Done and Cancel on the portal’s To-do list close the item in Tasks', async ({ page, context }) => {
   // Two trips through the portal, each waiting for Tasks to publish.
-  test.setTimeout(150_000);
+  test.setTimeout(210_000);
   await signInTestUser(page, { email: 'test-a@example.com' });
   await openChores(page);
   // An earlier run cut short may have left its items behind.
@@ -104,11 +104,12 @@ test('Done and Cancel on the portal’s To-do list close the item in Tasks', asy
   }
   try {
     // Tasks stays open here, publishing a few seconds after the change; the portal (at the site's
-    // root) runs in a second tab of the same signed-in browser.
+    // root) runs in a second tab of the same signed-in browser. A minute each leaves room for a
+    // second publish should the first one fail (the next change publishes again).
     const portal = await context.newPage();
     try {
-      await runPortalTodo(portal, done);
-      await runPortalTodo(portal, cancelled, { action: 'cancel' });
+      await runPortalTodo(portal, done, { timeout: 60_000 });
+      await runPortalTodo(portal, cancelled, { action: 'cancel', timeout: 60_000 });
     } finally {
       await portal.close();
     }
@@ -123,5 +124,7 @@ test('Done and Cancel on the portal’s To-do list close the item in Tasks', asy
       if (await remove.count()) await remove.first().click();
       await expect(page.locator('main li', { hasText: name })).toHaveCount(0);
     }
+    // Stay past the publish delay, so the household to-do list drops anything left published.
+    await page.waitForTimeout(5_000);
   }
 });
