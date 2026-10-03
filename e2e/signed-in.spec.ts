@@ -83,7 +83,7 @@ test('a helper ticks off a member’s item and adds their own, but can’t delet
   await expect(page.locator('main li', { hasText: theirs })).toHaveCount(0);
 });
 
-test('Done and Cancel on the portal’s To-do list close the item in Tasks', async ({ page }) => {
+test('Done and Cancel on the portal’s To-do list close the item in Tasks', async ({ page, context }) => {
   await signInTestUser(page, { email: 'test-a@example.com' });
   await openChores(page);
   const run = Date.now().toString(36);
@@ -95,20 +95,21 @@ test('Done and Cancel on the portal’s To-do list close the item in Tasks', asy
     await expect(page.locator('main li', { hasText: name })).toBeVisible();
   }
   try {
-    // Tasks publishes a few seconds after the change; the portal is at the site's root.
-    await runPortalTodo(page, done);
-    await runPortalTodo(page, cancelled, { action: 'cancel' });
-
-    await page.goto('./');
-    await openChores(page);
+    // Tasks stays open here, publishing a few seconds after the change; the portal (at the site's
+    // root) runs in a second tab of the same signed-in browser.
+    const portal = await context.newPage();
+    try {
+      await runPortalTodo(portal, done);
+      await runPortalTodo(portal, cancelled, { action: 'cancel' });
+    } finally {
+      await portal.close();
+    }
     await expect(page.getByRole('button', { name: `Mark ${done} not done` })).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('main li', { hasText: done })).not.toContainText('Cancelled');
     await expect(page.getByRole('button', { name: `Restore ${cancelled}` })).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('main li', { hasText: cancelled })).toContainText('Cancelled');
   } finally {
-    // Leave the shared household as it was, from wherever the test stopped.
-    await page.goto('./');
-    await openChores(page);
+    // Leave the shared household as it was.
     for (const name of [done, cancelled]) {
       const remove = page.locator('main li', { hasText: name }).getByRole('button', { name: `Delete ${name}` });
       if (await remove.count()) await remove.first().click();
