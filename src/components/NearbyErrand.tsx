@@ -52,13 +52,13 @@ export function NearbyErrand({ items, onDone }: { items: ListItem[]; onDone: (it
   if (!item) return null;
   const others = near.filter((i) => i.id !== item.id && !(snoozed[i.id] > now)).length;
   return (
-    <div role="status" aria-label="Nearby errand" className="flex items-center gap-2 rounded-2xl border border-forest-200 bg-white px-3 py-2 text-sm dark:border-forest-600 dark:bg-forest-800">
-      <MapPin size={16} className="shrink-0 text-forest-600" />
+    <div role="status" aria-label="Nearby errand" className="flex items-center gap-2 rounded-2xl border border-forest-200 bg-surface px-3 py-2 text-sm dark:border-forest-600">
+      <MapPin size={16} className="shrink-0 text-positive" />
       <span className="min-w-0 flex-1">
         Near <strong>{item.place!.name}</strong>: {item.name}
-        {others > 0 && <span className="text-stone-500"> and {others} more</span>}
+        {others > 0 && <span className="text-muted"> and {others} more</span>}
       </span>
-      <button onClick={() => onDone(item)} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl bg-forest-700 px-3 font-semibold text-white dark:bg-forest-400 dark:text-forest-900">
+      <button onClick={() => onDone(item)} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl bg-primary px-3 font-semibold text-on-primary">
         <Check size={14} /> Done
       </button>
       <button
@@ -68,7 +68,7 @@ export function NearbyErrand({ items, onDone }: { items: ListItem[]; onDone: (it
           const live = Object.fromEntries(Object.entries(snoozed).filter(([, until]) => until > t));
           setSnoozed({ ...live, [item.id]: t + SNOOZE_MS });
         }}
-        className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-forest-700"
+        className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted hover:bg-stone-100 dark:hover:bg-forest-700"
         aria-label={`Not now: ${item.name}`}
       >
         <X size={16} />

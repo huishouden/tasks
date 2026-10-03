@@ -50,7 +50,7 @@ export function TodayPanel({
               />
               <button onClick={() => onOpen(item)} className="min-w-0 flex-1 py-1 text-left">
                 <span className="block truncate font-medium">{item.name}</span>
-                <span className={`block truncate text-sm ${overdue ? 'font-medium text-terracotta-dark dark:text-terracotta' : 'text-stone-600 dark:text-stone-300'}`}>
+                <span className={`block truncate text-sm ${overdue ? 'font-medium text-attention' : 'text-muted'}`}>
                   {overdue ? `Overdue · ${formatDue(item, now)}` : formatDue(item, now)} · {listName(item.listId)}
                 </span>
               </button>
@@ -58,7 +58,7 @@ export function TodayPanel({
           );
         })}
         {dated.length > SHOWN && (
-          <button onClick={() => setAll(!all)} className="min-h-11 rounded-xl px-1 text-left text-sm font-medium text-forest-700 dark:text-forest-300">
+          <button onClick={() => setAll(!all)} className="min-h-11 rounded-xl px-1 text-left text-sm font-medium text-link">
             {all ? 'Show fewer' : `${dated.length - SHOWN} more due today`}
           </button>
         )}
@@ -68,12 +68,12 @@ export function TodayPanel({
             onClick={() => onSelectList(list.id)}
             className="flex min-h-11 items-center gap-3 rounded-xl px-1 text-left hover:bg-stone-100 dark:hover:bg-forest-700"
           >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terracotta-light text-terracotta-dark">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-attention-tint text-attention">
               <Zap size={14} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">{names.join(', ')}</span>
-              <span className="block text-sm text-stone-600 dark:text-stone-300">Need today · {list.name}</span>
+              <span className="block text-sm text-muted">Need today · {list.name}</span>
             </span>
           </button>
         ))}

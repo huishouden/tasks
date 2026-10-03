@@ -67,34 +67,34 @@ export function GoogleTasksSettings({
   return (
     <section aria-label="Google Tasks" className="grid gap-2">
       <p className="text-sm font-semibold">Google Tasks</p>
-      <p className="text-sm text-stone-600 dark:text-stone-300">
+      <p className="text-sm text-muted">
         Things you ask the Gemini app or Google Assistant to add to a list land in Google Tasks. Tasks can bring them in. It checks when it opens or comes back
         into view, for an hour after you connect on this device.
       </p>
       {mine.length > 0 && (
-        <ul className="grid gap-1 text-sm text-stone-700 dark:text-stone-200">
+        <ul className="grid gap-1 text-sm text-ink-soft">
           {mine.map((l) => (
             <li key={l.googleListId}>{what(l)}</li>
           ))}
         </ul>
       )}
       {googleLists === null ? (
-        <button type="button" onClick={() => void connect()} disabled={busy} className={`${ghostButton} justify-self-start border border-stone-200 dark:border-forest-600`}>
+        <button type="button" onClick={() => void connect()} disabled={busy} className={`${ghostButton} justify-self-start border border-line`}>
           {busy ? <Loader2 size={18} className="animate-spin" /> : <ListTodo size={18} />} {mine.length ? 'Connect again and check now' : 'Connect Google Tasks'}
         </button>
       ) : googleLists.length === 0 ? (
-        <p className="text-sm text-stone-600 dark:text-stone-300">Your Google account has no task lists yet.</p>
+        <p className="text-sm text-muted">Your Google account has no task lists yet.</p>
       ) : (
         <div className="grid gap-2">
           {googleLists.map((g) => {
             const inGroceries = groceriesList(g.id);
             return inGroceries !== null ? (
-              <p key={g.id} className="grid gap-1 text-sm text-stone-600 dark:text-stone-300">
+              <p key={g.id} className="grid gap-1 text-sm text-muted">
                 {g.title}
-                <span className="text-stone-700 dark:text-stone-200">Goes to {inGroceries} in Groceries</span>
+                <span className="text-ink-soft">Goes to {inGroceries} in Groceries</span>
               </p>
             ) : (
-            <label key={g.id} className="grid gap-1 text-sm text-stone-600 dark:text-stone-300">
+            <label key={g.id} className="grid gap-1 text-sm text-muted">
               {g.title}
               <select
                 className={inputClass}
@@ -115,7 +115,7 @@ export function GoogleTasksSettings({
         </div>
       )}
       {error && (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+        <p role="alert" className="text-sm text-error">
           {error}
         </p>
       )}

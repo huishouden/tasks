@@ -71,18 +71,18 @@ export function ListsView(props: Props) {
 
   return (
     <div className="flex h-full min-h-0">
-      <nav className="hidden w-72 shrink-0 flex-col gap-1 overflow-y-auto border-r border-stone-200 p-3 md:flex dark:border-forest-700" aria-label="Lists">
+      <nav className="hidden w-72 shrink-0 flex-col gap-1 overflow-y-auto border-r border-line p-3 md:flex" aria-label="Lists">
         {lists.map((l) => (
           <button
             key={l.id}
             onClick={() => props.onSelectList(l.id)}
             className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left ${
-              l.id === selectedList.id ? 'bg-forest-100 dark:bg-forest-700' : 'hover:bg-stone-100 dark:hover:bg-forest-800'
+              l.id === selectedList.id ? 'bg-tint-strong' : 'hover:bg-stone-100 dark:hover:bg-forest-800'
             }`}
           >
             <ListIconBadge icon={l.icon} color={l.color} />
             <span className="min-w-0 flex-1 truncate font-medium">{l.name}</span>
-            {pendingCount(l.id) > 0 && <span className="text-sm text-stone-500">{pendingCount(l.id)}</span>}
+            {pendingCount(l.id) > 0 && <span className="text-sm text-muted">{pendingCount(l.id)}</span>}
           </button>
         ))}
         {setUp ? (
@@ -97,13 +97,13 @@ export function ListsView(props: Props) {
             <ArrowUpDown size={18} /> Reorder lists
           </button>
         )}
-        <a href={GROCERIES_PATH} className={`${ghostButton} mt-4 justify-start text-sm text-stone-600 dark:text-stone-300`}>
+        <a href={GROCERIES_PATH} className={`${ghostButton} mt-4 justify-start text-sm text-muted`}>
           <ShoppingCart size={18} /> Shopping lists are in Groceries
         </a>
       </nav>
 
       <div className="min-w-0 flex-1 overflow-y-auto">
-        <div className="scrollbar-none flex gap-2 overflow-x-auto border-b border-stone-200 px-4 py-2 md:hidden dark:border-forest-700">
+        <div className="scrollbar-none flex gap-2 overflow-x-auto border-b border-line px-4 py-2 md:hidden">
           {lists.map((l) => (
             <Chip key={l.id} active={l.id === selectedList.id} onClick={() => props.onSelectList(l.id)}>
               {l.name}
@@ -112,7 +112,7 @@ export function ListsView(props: Props) {
           ))}
           {setUp && <Chip onClick={props.onNewList}>+ New</Chip>}
           {setUp && lists.length > 1 && <Chip onClick={props.onReorderLists}>Reorder</Chip>}
-          <a href={GROCERIES_PATH} className="inline-flex min-h-11 shrink-0 items-center gap-1.5 px-2 text-sm whitespace-nowrap text-stone-600 underline underline-offset-2 dark:text-stone-300">
+          <a href={GROCERIES_PATH} className="inline-flex min-h-11 shrink-0 items-center gap-1.5 px-2 text-sm whitespace-nowrap text-muted underline underline-offset-2">
             <ShoppingCart size={16} aria-hidden /> Shopping lists are in Groceries
           </a>
         </div>
@@ -124,7 +124,7 @@ export function ListsView(props: Props) {
             <ListIconBadge icon={selectedList.icon} color={selectedList.color} size="lg" />
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-2xl font-bold">{selectedList.name}</h1>
-              <p className="text-sm text-stone-500">
+              <p className="text-sm text-muted">
                 {listItems.filter((i) => !i.completed).length} to do · {listItems.filter((i) => i.completed).length} done
               </p>
             </div>
@@ -148,7 +148,7 @@ export function ListsView(props: Props) {
           <AddBar onAdd={props.onAdd} />
 
           {(listItems.length > 6 || search) && (
-            <div className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 dark:border-forest-700 dark:bg-forest-800">
+            <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3">
               <Search size={18} className="text-stone-400" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tasks, notes or people" className="min-w-0 flex-1 bg-transparent py-2 outline-none" />
               {search && (
@@ -160,7 +160,7 @@ export function ListsView(props: Props) {
           )}
 
           {pending.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-stone-300 p-8 text-center text-stone-500 dark:border-forest-600">
+            <p className="rounded-2xl border border-dashed border-line p-8 text-center text-muted">
               {listItems.length === 0 ? 'Nothing here yet. Type above to add the first item.' : 'All done.'}
             </p>
           ) : (

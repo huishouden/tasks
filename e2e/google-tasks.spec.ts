@@ -23,7 +23,7 @@ test('to-dos told to an assistant are offered first; a Google list Groceries tak
     ];
   });
 
-  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Household settings' }).click();
   const settings = page.getByRole('region', { name: 'Google Tasks', exact: true });
   await settings.getByRole('button', { name: 'Connect Google Tasks' }).click();
   // Groceries' link is shown, not offered for change; only to-do lists are choices.

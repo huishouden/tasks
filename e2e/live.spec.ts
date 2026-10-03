@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectCleanLoad, expectCompactSampleBanner, expectGoogleSignInPopup, expectHuishoudenFrame, expectInstallable, expectSecurityHeaders } from '@huishouden/pwa-kit/e2e';
+import { expectCleanLoad, expectCompactSampleBanner, expectGoogleSignInPopup, expectHuishoudenFrame, expectInstallable, expectSecurityHeaders, expectThemeConsistent } from '@huishouden/pwa-kit/e2e';
 
 // Smoke tests of the deployed site (the kit runs them after every deploy with BASE_URL set).
 // Read-only: they stop at Google's account picker and never sign in or write data.
@@ -47,3 +47,18 @@ test('signed out, it opens on the invented sample household', async ({ page }) =
 test('sends the security headers and leaves sign-in un-framed', ({ request }) => expectSecurityHeaders(request, './', { geolocation: true }));
 
 test('signed out, the Sample data banner is one line on a phone', ({ page }) => expectCompactSampleBanner(page, './'));
+
+test('follows the suite theme: dark on a dark device, readable', ({ page }) => expectThemeConsistent(page, { path: './' }));
+
+test("Settings' theme choice is the suite's, and the page follows it", async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Household settings' }).click();
+  const theme = page.getByRole('group', { name: 'Theme' });
+  await expect(theme.getByRole('button')).toHaveText(['Automatic', 'Light', 'Dark']);
+  await theme.getByRole('button', { name: 'Dark' }).click();
+  await expect(theme.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+  expect(await page.evaluate(() => localStorage.getItem('hh-theme'))).toBe('dark');
+  await theme.getByRole('button', { name: 'Light' }).click();
+  await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
+});
