@@ -84,8 +84,16 @@ test('a helper ticks off a member’s item and adds their own, but can’t delet
 });
 
 test('Done and Cancel on the portal’s To-do list close the item in Tasks', async ({ page, context }) => {
+  // Two trips through the portal, each waiting for Tasks to publish.
+  test.setTimeout(150_000);
   await signInTestUser(page, { email: 'test-a@example.com' });
   await openChores(page);
+  // An earlier run cut short may have left its items behind.
+  const leftovers = page.getByRole('button', { name: /^Delete Test (book the window cleaner|sort the recycling) / });
+  for (let n = await leftovers.count(); n > 0; n--) {
+    await leftovers.first().click();
+    await expect(leftovers).toHaveCount(n - 1);
+  }
   const run = Date.now().toString(36);
   const done = `Test book the window cleaner ${run}`;
   const cancelled = `Test sort the recycling ${run}`;
