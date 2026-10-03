@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/huishouden/tasks/compare/v1.8.0...v1.9.0) (2026-10-03)
+
+
+### Features
+
+* find an item at the store's own website search, and section headings that stay in view ([#46](https://github.com/huishouden/tasks/issues/46)) ([51fb018](https://github.com/huishouden/tasks/commit/51fb018b1b9021eded2a6b593e1670d1213228aa))
+
 ## [1.8.0](https://github.com/huishouden/tasks/compare/v1.7.0...v1.8.0) (2026-10-02)
 
 
