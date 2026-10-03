@@ -1,7 +1,7 @@
 import { allDayStart, type AgendaInput } from '@huishouden/pwa-kit/agenda';
 import type { ReminderInput } from '@huishouden/pwa-kit/reminders';
-import { appUrl } from '@huishouden/pwa-kit/site';
 import { toYmd } from '@huishouden/pwa-kit/time';
+import { appLink } from '../lib/appLink';
 import { dinnerAgenda, type PlannedMeal } from './mealPlan';
 import type { ListItem, ShoppingList } from './model';
 
@@ -10,11 +10,8 @@ import type { ListItem, ShoppingList } from './model';
 // themselves, so any device can publish them and they always match the lists.
 
 export const APP = 'tasks';
-/**
- * The app's address on the suite's one site, ending in `/tasks/`. In the browser the origin is the
- * page's, so staging links to staging.
- */
-export const APP_URL = appUrl(import.meta.env.BASE_URL ?? '/tasks/', '', globalThis.location?.origin ?? 'https://huishouden-piekstra.web.app');
+/** The app's address on the suite's one site, ending in `/tasks/`. */
+export const APP_URL = appLink();
 
 /** The link that opens an item in its list; `app` is the app's address, ending in `/`. */
 export function itemUrl(item: Pick<ListItem, 'id' | 'listId'>, app = APP_URL): string {
