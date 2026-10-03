@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/huishouden/tasks/compare/v2.1.0...v2.2.0) (2026-10-03)
+
+
+### Features
+
+* dark mode that follows the suite's theme ([#58](https://github.com/huishouden/tasks/issues/58)) ([4298950](https://github.com/huishouden/tasks/commit/42989500d090d6389f572ead5dc3d95635089d87))
+
 ## [2.1.0](https://github.com/huishouden/tasks/compare/v2.0.0...v2.1.0) (2026-10-03)
 
 
