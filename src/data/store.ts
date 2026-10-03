@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { syncAgenda, type AgendaInput } from '@huishouden/pwa-kit/agenda';
 import { syncReminders, type ReminderInput } from '@huishouden/pwa-kit/reminders';
-import { APP, agendaItems, reminderItems } from './publish';
+import { syncTodos, type TodoInput } from '@huishouden/pwa-kit/todos';
+import { APP, agendaItems, reminderItems, todoItems } from './publish';
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -22,7 +23,7 @@ import {
   type Query,
   type QuerySnapshot,
 } from 'firebase/firestore';
-import { setDoc, updateDoc, writeBatch } from '@huishouden/pwa-kit/firestore';
+import { deleteField, setDoc, updateDoc, writeBatch } from '@huishouden/pwa-kit/firestore';
 import { watchHousehold } from '@huishouden/pwa-kit/household';
 import { forgetSilentSignIn } from '@huishouden/pwa-kit/auth';
 import { forgetGoogleToken } from '@huishouden/pwa-kit/google-token';
@@ -316,11 +317,28 @@ export class HouseholdRepo {
     return ref.id;
   }
 
-  toggleCompleted(item: ListItem): void {
+  /**
+   * Ticks the item off or back on. Un-ticking a cancelled item reopens it and, for someone who may
+   * change the item (`mayChange`), drops the cancel; helpers and kids change only the tick fields on
+   * others' items, and a later tick then reads as done (`isCancelled`).
+   */
+  toggleCompleted(item: ListItem, mayChange = true): void {
     this.track('check item');
     const now = Date.now();
     const completed = !item.completed;
-    void updateDoc(doc(this.col('items'), item.id), { completed, completedAt: completed ? now : null, updatedAt: now });
+    void updateDoc(doc(this.col('items'), item.id), {
+      completed,
+      completedAt: completed ? now : null,
+      updatedAt: now,
+      ...(mayChange && item.cancelledAt != null ? { cancelledAt: deleteField(), cancelledBy: deleteField() } : {}),
+    });
+  }
+
+  /** Closes the item as not needed: it moves to Done marked "Cancelled". Restore it with `restoreItems`. */
+  cancelItem(item: ListItem, by: string): void {
+    this.track('cancel item');
+    const now = Date.now();
+    void updateDoc(doc(this.col('items'), item.id), { completed: true, completedAt: now, cancelledAt: now, cancelledBy: by, updatedAt: now });
   }
 
   updateItem(id: string, changes: Partial<Pick<ListItem, 'name' | 'notes' | 'urgency' | 'addedBy' | 'listId' | 'position' | 'dueAt' | 'allDay' | 'dueBy' | 'location' | 'place' | 'link' | 'subtasks'>>): void {
@@ -331,7 +349,7 @@ export class HouseholdRepo {
    * Moves one item within an ordered list. Usually a single write to the moved item; when its
    * neighbours' positions are too close to split, the whole list is renumbered in one batch.
    */
-  toggleSubtask(item: ListItem, subtaskId: string): void {
+  toggleSubtask(item: ListItem, subtaskId: string, mayChange = true): void {
     const { subtasks, allDone } = toggleSubtask(item.subtasks ?? [], subtaskId);
     const now = Date.now();
     void updateDoc(doc(this.col('items'), item.id), {
@@ -339,6 +357,8 @@ export class HouseholdRepo {
       completed: allDone,
       completedAt: allDone ? (item.completed ? item.completedAt : now) : null,
       updatedAt: now,
+      // A step ticked on a cancelled item takes it back up.
+      ...(mayChange && item.cancelledAt != null ? { cancelledAt: deleteField(), cancelledBy: deleteField() } : {}),
     });
   }
 
@@ -416,22 +436,29 @@ export class HouseholdRepo {
 const PUBLISH_DELAY_MS = 3000;
 
 /**
- * Keeps the household agenda and the push reminders in step with the to-do lists (planned dinners are
- * Groceries' to publish), from
- * whichever device has Tasks open: a few seconds after the last change, and once on open. The kit
- * writes only what changed, so devices doing the same work cost a read each and no writes.
+ * Keeps the household agenda, the household to-do list and the push reminders in step with the to-do
+ * lists (planned dinners are Groceries' to publish), from whichever device has Tasks open: a few
+ * seconds after the last change, and once on open. The kit writes only what changed, so devices doing
+ * the same work cost a read each and no writes.
  */
 export function usePublish(db: Firestore, householdId: string, by: string, data: HouseholdData, enabled = true, restricted = false): void {
   const ready = enabled && data.loaded;
   const agenda = useMemo(() => (ready ? agendaItems(data.items, data.lists) : null), [ready, data.items, data.lists]);
   const reminders = useMemo(() => (ready ? reminderItems(data.items) : null), [ready, data.items]);
+  const todos = useMemo(() => (ready ? todoItems(data.items, data.lists) : null), [ready, data.items, data.lists]);
   const agendaKey = agenda ? JSON.stringify(agenda) : null;
+  const todosKey = todos ? JSON.stringify(todos) : null;
   const remindersKey = reminders ? JSON.stringify(reminders) : null;
   useEffect(() => {
     if (!agendaKey) return;
     const timer = setTimeout(() => void syncAgenda(db, householdId, APP, JSON.parse(agendaKey) as AgendaInput[], { by, restricted }).catch(() => {}), PUBLISH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [db, householdId, by, agendaKey, restricted]);
+  useEffect(() => {
+    if (!todosKey) return;
+    const timer = setTimeout(() => void syncTodos(db, householdId, APP, JSON.parse(todosKey) as TodoInput[], { by, restricted }).catch(() => {}), PUBLISH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [db, householdId, by, todosKey, restricted]);
   useEffect(() => {
     if (!remindersKey) return;
     const timer = setTimeout(() => void syncReminders(db, householdId, APP, JSON.parse(remindersKey) as ReminderInput[], by, undefined, { restricted }).catch(() => {}), PUBLISH_DELAY_MS);

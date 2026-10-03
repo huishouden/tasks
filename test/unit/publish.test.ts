@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { allDayStart } from '@huishouden/pwa-kit/agenda';
-import { agendaItems, itemAgenda, itemReminder, itemUrl, reminderItems, LEAD_MS } from '../../src/data/publish';
-import { CATEGORIES, URGENCY, type ListItem, type ShoppingList } from '../../src/data/model';
+import { applyOps } from '@huishouden/pwa-kit/store';
+import { resolveOps, todoOpsAllowed } from '@huishouden/pwa-kit/todos';
+import { agendaItems, cancelAction, doneAction, itemAgenda, itemReminder, itemTodo, itemUrl, reminderItems, todoItems, LEAD_MS } from '../../src/data/publish';
+import { CATEGORIES, URGENCY, isCancelled, type ListItem, type ShoppingList } from '../../src/data/model';
 
 const at = (y: number, m: number, d: number, hh = 0, mm = 0) => new Date(y, m - 1, d, hh, mm).getTime();
 const chores: ShoppingList = { id: 'chores', name: 'Chores & Notes', description: '', icon: 'chores', color: '#8a6f9e', sortOrder: 4, createdAt: 0 };
@@ -58,5 +60,75 @@ describe('itemReminder', () => {
   it('none once done or without a date', () => {
     expect(itemReminder(item({ dueAt: at(2031, 1, 6, 15), completed: true }))).toBeNull();
     expect(reminderItems([item({}), item({ id: 'i2', dueAt: at(2031, 1, 6, 15) })]).map((r) => r.ref)).toEqual(['tasks:item:i2']);
+  });
+});
+
+describe('todoItems', () => {
+  const projects: ShoppingList = { id: 'projects', name: 'Weekend Projects', description: '', icon: 'notes', color: '#6f8f72', sortOrder: 5, createdAt: 0 };
+  const groceries: ShoppingList = { id: 'groceries', name: 'Groceries', description: '', icon: 'grocery', color: '#2d6a4f', sortOrder: 0, createdAt: 0 };
+  const lists = [chores, projects, groceries];
+  const ME = 'sam@example.com';
+  const NOW = at(2031, 1, 8, 9, 30);
+  const ctx = { now: NOW, me: ME };
+  const store = (items: ListItem[]) => ({ items });
+
+  it('an open item is a to-do: its list, steps, when it was added, its due day, a link and its owner', () => {
+    const steps = [{ id: 'a', text: 'Sort tools', done: true }, { id: 'b', text: 'Sweep', done: false }];
+    const todo = itemTodo(item({ createdAt: at(2031, 1, 2, 8), dueAt: at(2031, 1, 20), allDay: true, dueBy: true, subtasks: steps, by: 'alex@example.com' }), chores);
+    expect(todo).toEqual({
+      ref: 'item:i1', title: 'Drop off dry cleaning', detail: 'Chores & Notes · 1 of 2 steps done', createdAt: at(2031, 1, 2, 8),
+      due: allDayStart('2031-01-20'), url: 'https://huishouden-piekstra.web.app/tasks/?list=chores&item=i1', owner: 'alex@example.com', private: false,
+      done: doneAction('i1'), cancel: cancelAction('i1'),
+    });
+    // At a time, it is due then; undated, it has no due and no owner when no one signed it.
+    expect(itemTodo(item({ dueAt: at(2031, 1, 6, 15) }), chores)?.due).toBe(at(2031, 1, 6, 15));
+    const plain = itemTodo(item({}), projects);
+    expect(plain).not.toHaveProperty('due');
+    expect(plain).not.toHaveProperty('owner');
+    expect(plain?.detail).toBe('Weekend Projects');
+  });
+
+  it('done, cancelled, unnamed and shopping-list items are left out', () => {
+    const all = todoItems(
+      [
+        item({ id: 'open' }),
+        item({ id: 'done', completed: true, completedAt: NOW }),
+        item({ id: 'cancelled', completed: true, completedAt: NOW, cancelledAt: NOW, cancelledBy: ME }),
+        item({ id: 'blank', name: '  ' }),
+        item({ id: 'milk', listId: 'groceries', name: 'Milk' }),
+        item({ id: 'orphan', listId: 'gone' }),
+        item({ id: 'project', listId: 'projects', name: 'Fix the squeaky gate' }),
+      ],
+      lists,
+    );
+    expect(all.map((t) => t.ref)).toEqual(['item:open', 'item:project']);
+  });
+
+  it('Done ticks it off for anyone; Cancel is for admins, members and whoever added it', () => {
+    expect(doneAction('i1')).toEqual({
+      label: 'Done', roles: ['admin', 'member', 'helper', 'kid'],
+      ops: [{ col: 'items', id: 'i1', data: { completed: true, completedAt: '$now', updatedAt: '$now' }, merge: true }],
+    });
+    expect(cancelAction('i1')).toEqual({
+      label: 'Cancel', roles: ['admin', 'member'], owner: true,
+      ops: [{ col: 'items', id: 'i1', data: { completed: true, completedAt: '$now', cancelledAt: '$now', cancelledBy: '$me', updatedAt: '$now' }, merge: true }],
+    });
+    expect(todoOpsAllowed('tasks', doneAction('i1').ops)).toBe(true);
+    expect(todoOpsAllowed('tasks', cancelAction('i1').ops)).toBe(true);
+  });
+
+  it('run from the portal, Done and Cancel leave the item as the app would, and it stops being published', () => {
+    const open = item({ by: 'alex@example.com', createdAt: at(2031, 1, 2) });
+    const todo = itemTodo(open, chores)!;
+
+    const done = applyOps(store([open]), resolveOps(todo.done!.ops, ctx)).items[0];
+    expect(done).toEqual({ ...open, completed: true, completedAt: NOW, updatedAt: NOW });
+    expect(isCancelled(done)).toBe(false);
+    expect(todoItems([done], lists)).toEqual([]);
+
+    const cancelled = applyOps(store([open]), resolveOps(todo.cancel!.ops, ctx)).items[0];
+    expect(cancelled).toEqual({ ...open, completed: true, completedAt: NOW, cancelledAt: NOW, cancelledBy: ME, updatedAt: NOW });
+    expect(isCancelled(cancelled)).toBe(true);
+    expect(todoItems([cancelled], lists)).toEqual([]);
   });
 });

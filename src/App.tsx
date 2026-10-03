@@ -306,7 +306,7 @@ function HouseholdApp({
     if (!hasJoined) void markJoined(db, { ...household, joined: household.joined ?? [] }, email).catch(() => {});
   }, [hasJoined, db, household, email]);
 
-  const toggle = (item: ListItem) => repo.toggleCompleted(item);
+  const toggle = (item: ListItem) => repo.toggleCompleted(item, mayChange(item));
   const errandBanner = <NearbyErrand items={data.items} onDone={toggle} />;
 
   // Google Tasks: what the Gemini app or Google Assistant added there, offered for the chosen to-do
@@ -374,6 +374,11 @@ function HouseholdApp({
   const deleteItem = (item: ListItem) => {
     repo.deleteItem(item);
     offerUndo([item], 'deleted');
+  };
+  const cancelItem = (item: ListItem) => {
+    repo.cancelItem(item, email);
+    const id = ++undoCount.current;
+    setUndoAction({ id, message: `Cancelled "${item.name}"`, undo: () => repo.restoreItems([item]) });
   };
   const clearCompleted = (items: ListItem[]) => offerUndo(repo.clearCompleted(items.filter(mayChange)), 'cleared');
 
@@ -447,7 +452,7 @@ function HouseholdApp({
             mayChange={mayChange}
             onAdd={add}
             onToggle={toggle}
-            onToggleSubtask={(i, id) => repo.toggleSubtask(i, id)}
+            onToggleSubtask={(i, id) => repo.toggleSubtask(i, id, mayChange(i))}
             onEdit={(item) => mayChange(item) && setEditing(item)}
             onDelete={deleteItem}
             onClearCompleted={clearCompleted}
@@ -463,6 +468,7 @@ function HouseholdApp({
           onSave={(changes) => repo.updateItem(editing.id, changes)}
           // The dialog holds the item as it was when opened; restore what is stored now.
           onDelete={() => deleteItem(data.items.find((i) => i.id === editing.id) ?? editing)}
+          onCancel={() => cancelItem(data.items.find((i) => i.id === editing.id) ?? editing)}
           onClose={() => setEditing(null)}
         />
       )}

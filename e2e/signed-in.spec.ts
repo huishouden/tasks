@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signInTestUser } from '@huishouden/pwa-kit/e2e';
+import { runPortalTodo, signInTestUser } from '@huishouden/pwa-kit/e2e';
 import { seedTestHousehold } from '@huishouden/pwa-kit/staging';
 
 // Signed in as invented test users on the staging site (pwa-kit STANDARD.md "Staging"): the real
@@ -81,4 +81,47 @@ test('a helper ticks off a member’s item and adds their own, but can’t delet
 
   await page.locator('main li', { hasText: theirs }).getByRole('button', { name: `Delete ${theirs}` }).click();
   await expect(page.locator('main li', { hasText: theirs })).toHaveCount(0);
+});
+
+test('Done and Cancel on the portal’s To-do list close the item in Tasks', async ({ page, context }) => {
+  // Two trips through the portal, each waiting for Tasks to publish.
+  test.setTimeout(150_000);
+  await signInTestUser(page, { email: 'test-a@example.com' });
+  await openChores(page);
+  // An earlier run cut short may have left its items behind.
+  const leftovers = page.getByRole('button', { name: /^Delete Test (book the window cleaner|sort the recycling) / });
+  for (let n = await leftovers.count(); n > 0; n--) {
+    await leftovers.first().click();
+    await expect(leftovers).toHaveCount(n - 1);
+  }
+  const run = Date.now().toString(36);
+  const done = `Test book the window cleaner ${run}`;
+  const cancelled = `Test sort the recycling ${run}`;
+  for (const name of [done, cancelled]) {
+    await page.getByLabel('New item').fill(name);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(page.locator('main li', { hasText: name })).toBeVisible();
+  }
+  try {
+    // Tasks stays open here, publishing a few seconds after the change; the portal (at the site's
+    // root) runs in a second tab of the same signed-in browser.
+    const portal = await context.newPage();
+    try {
+      await runPortalTodo(portal, done);
+      await runPortalTodo(portal, cancelled, { action: 'cancel' });
+    } finally {
+      await portal.close();
+    }
+    await expect(page.getByRole('button', { name: `Mark ${done} not done` })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('main li', { hasText: done })).not.toContainText('Cancelled');
+    await expect(page.getByRole('button', { name: `Restore ${cancelled}` })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('main li', { hasText: cancelled })).toContainText('Cancelled');
+  } finally {
+    // Leave the shared household as it was.
+    for (const name of [done, cancelled]) {
+      const remove = page.locator('main li', { hasText: name }).getByRole('button', { name: `Delete ${name}` });
+      if (await remove.count()) await remove.first().click();
+      await expect(page.locator('main li', { hasText: name })).toHaveCount(0);
+    }
+  }
 });

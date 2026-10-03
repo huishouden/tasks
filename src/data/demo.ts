@@ -49,6 +49,11 @@ function item(listId: string, name: string, now: number, extra: Partial<ListItem
 }
 
 const done = (daysAgo: number, now: number): Partial<ListItem> => ({ completed: true, completedAt: now - daysAgo * DAY - 2 * HOUR });
+/** Closed as not needed, by the other member. */
+const cancelled = (daysAgo: number, now: number): Partial<ListItem> => {
+  const t = now - daysAgo * DAY - 3 * HOUR;
+  return { completed: true, completedAt: t, cancelledAt: t, cancelledBy: 'sam@example.com' };
+};
 const steps = (texts: string[], done: number): Subtask[] => texts.map((text, i) => ({ id: `s${i}`, text, done: i < done }));
 
 /** A second to-do list, so the sample shows how lists sit side by side. */
@@ -78,6 +83,7 @@ export function demoItems(now: number): ListItem[] {
     }),
     item('projects', 'Clean the gutters', now, { dueAt: at(now, 6, 0), allDay: true }),
     item('projects', 'Fix the squeaky gate', now),
+    item('chores', 'Book the window cleaner', now, cancelled(1, now)),
   ];
 }
 
