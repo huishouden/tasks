@@ -2,7 +2,7 @@
 
 Shared lists and chores. Every device in the household sees changes in real time and keeps working offline.
 
-Part of [Huishouden](https://huishouden-piekstra.web.app), a suite of small household apps that share sign-in, the household and one design language ([huishouden-pwa-kit](https://github.com/huishouden/pwa-kit)). Live at https://huishouden-tasks.web.app.
+Part of [Huishouden](https://huishouden-piekstra.web.app), a suite of small household apps that share sign-in, the household and one design language ([huishouden-pwa-kit](https://github.com/huishouden/pwa-kit)). Live at https://huishouden-piekstra.web.app/tasks/; the old address, huishouden-tasks.web.app, redirects there.
 
 ## Screens
 

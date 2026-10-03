@@ -58,7 +58,8 @@ import { trackView } from '@huishouden/pwa-kit/observability';
 
 type Mode = 'lists' | 'hub' | 'store' | 'meals';
 
-const PORTAL_URL = 'https://huishouden-piekstra.web.app';
+/** The Huishouden portal, at the root of the site Tasks shares (pwa-kit docs/one-site.md). */
+const PORTAL_URL = '/';
 const VERSION = `${import.meta.env.VITE_APP_VERSION} (${import.meta.env.VITE_BUILD_SHA})`;
 
 interface FrameProps {

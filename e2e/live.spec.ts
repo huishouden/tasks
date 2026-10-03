@@ -11,7 +11,7 @@ test('loads with no runtime errors', async ({ page }) => {
 
 test('is installable with the suite name and icons', async ({ page, request }) => {
   await expectInstallable(page, request);
-  const manifest = await (await request.get('/manifest.webmanifest')).json();
+  const manifest = await (await request.get('manifest.webmanifest')).json();
   expect(manifest).toMatchObject({ name: 'Huishouden Tasks', short_name: 'Tasks', description: 'Shared lists and chores' });
 });
 
@@ -20,21 +20,21 @@ test('Google sign-in is reachable for this domain', async ({ page, context }) =>
 });
 
 test('opens in the Huishouden frame', async ({ page }) => {
-  await expectHuishoudenFrame(page, { app: 'Tasks', portalUrl: 'https://huishouden-piekstra.web.app', path: '/' });
+  await expectHuishoudenFrame(page, { app: 'Tasks', portalUrl: '/', path: './' });
 });
 
 test('a shared link shows a preview', async ({ page, request }) => {
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Shared lists and chores');
   const image = await page.locator('meta[property="og:image"]').getAttribute('content');
-  expect(image).toBe('https://huishouden-tasks.web.app/og.png');
-  expect((await request.get('/og.png')).ok()).toBe(true);
+  expect(image).toBe('https://huishouden-piekstra.web.app/tasks/og.png');
+  expect((await request.get('og.png')).ok()).toBe(true);
 });
 
 test('signed out, it opens on the invented sample household', async ({ page }) => {
   const firestore: string[] = [];
   page.on('request', (r) => r.url().includes('firestore.googleapis.com') && firestore.push(r.url()));
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.getByText('Sample data')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('heading', { name: 'Groceries' })).toBeVisible();
   await page.getByLabel('New item').fill('Sample oats');
@@ -44,6 +44,6 @@ test('signed out, it opens on the invented sample household', async ({ page }) =
   expect(firestore).toEqual([]);
 });
 
-test('sends the security headers and leaves sign-in un-framed', ({ request }) => expectSecurityHeaders(request, '/', { geolocation: true }));
+test('sends the security headers and leaves sign-in un-framed', ({ request }) => expectSecurityHeaders(request, './', { geolocation: true }));
 
-test('signed out, the Sample data banner is one line on a phone', ({ page }) => expectCompactSampleBanner(page, '/'));
+test('signed out, the Sample data banner is one line on a phone', ({ page }) => expectCompactSampleBanner(page, './'));

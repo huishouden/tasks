@@ -70,7 +70,7 @@ export async function readHouseholdCollection(name: string): Promise<Record<stri
 }
 
 export async function signIn(page: Page, email: string, name: string): Promise<void> {
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
   await page.waitForFunction(() => '__testSignIn' in window);
   await page.evaluate(([e, n]) => window.__testSignIn(e, n), [email, name] as const);
