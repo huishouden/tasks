@@ -3,22 +3,20 @@ import {
   CATEGORIES,
   URGENCY,
   firstName,
+  TASK_DEFAULT_LISTS,
   formatListForSharing,
-  groupByAisle,
-  matchSuggestions,
+  isTaskList,
   moveInOrder,
   positionBetween,
   sortItems,
-  stapleKey,
   type ListItem,
-  type Staple,
 } from '../../src/data/model';
-import { topStaples } from '../../src/components/StaplesShelf';
+import { groceriesRedirect } from '../../src/lib/groceriesLink';
 
 function item(overrides: Partial<ListItem>): ListItem {
   return {
     id: overrides.name ?? 'x',
-    listId: 'groceries',
+    listId: 'chores',
     name: 'Thing',
     category: CATEGORIES.OTHER,
     quantity: '1',
@@ -32,20 +30,6 @@ function item(overrides: Partial<ListItem>): ListItem {
     ...overrides,
   };
 }
-
-function staple(displayName: string, timesAdded: number, lastAddedAt = 0): Staple {
-  return { id: stapleKey(displayName), displayName, category: CATEGORIES.OTHER, defaultQuantity: '1', timesAdded, timesCompleted: 0, lastAddedAt };
-}
-
-describe('stapleKey', () => {
-  it('normalizes case and spacing so "Milk" and " milk " share history', () => {
-    expect(stapleKey('  Whole   Milk ')).toBe('whole milk');
-  });
-
-  it('removes slashes, which Firestore document IDs cannot contain', () => {
-    expect(stapleKey('50/50 creamer')).toBe('50-50 creamer');
-  });
-});
 
 describe('sortItems', () => {
   it('follows the manual position, falling back to creation time for older items', () => {
@@ -83,55 +67,37 @@ describe('moveInOrder', () => {
   });
 });
 
-describe('groupByAisle', () => {
-  it('orders groups by store walking order, not insertion order', () => {
-    const groups = groupByAisle([
-      item({ name: 'ice cream', category: CATEGORIES.FROZEN }),
-      item({ name: 'apples', category: CATEGORIES.PRODUCE }),
-      item({ name: 'milk', category: CATEGORIES.DAIRY_EGGS }),
-    ]);
-    expect(groups.map(([c]) => c)).toEqual([CATEGORIES.PRODUCE, CATEGORIES.DAIRY_EGGS, CATEGORIES.FROZEN]);
-  });
-});
-
-describe('matchSuggestions', () => {
-  const staples = [staple('Oat milk', 3), staple('Milk', 9), staple('Almond milk', 12), staple('Eggs', 20)];
-
-  it('ranks prefix matches above substring matches, then by frequency', () => {
-    expect(matchSuggestions(staples, 'mi').map((s) => s.displayName)).toEqual(['Milk', 'Almond milk', 'Oat milk']);
-  });
-
-  it('returns nothing for a blank query', () => {
-    expect(matchSuggestions(staples, '  ')).toEqual([]);
-  });
-});
-
-describe('topStaples', () => {
-  it('skips one-off items and anything already on the list', () => {
-    const shown = topStaples(
-      [staple('Eggs', 5), staple('Milk', 4), staple('Birthday candles', 1)],
-      [item({ name: 'Milk' })],
-      10,
-    );
-    expect(shown.map((s) => s.displayName)).toEqual(['Eggs']);
-  });
-
-  it('shows an item again once it has been checked off', () => {
-    const shown = topStaples([staple('Milk', 4)], [item({ name: 'Milk', completed: true })], 10);
-    expect(shown.map((s) => s.displayName)).toEqual(['Milk']);
-  });
-});
-
 describe('formatListForSharing', () => {
-  it('groups by aisle and flags urgent items', () => {
-    const text = formatListForSharing('Groceries', [
-      item({ name: 'Eggs', category: CATEGORIES.DAIRY_EGGS, quantity: '2 dozen' }),
-      item({ name: 'Bananas', category: CATEGORIES.PRODUCE, urgency: URGENCY.URGENT }),
-      item({ name: 'Bread', category: CATEGORIES.BAKERY, completed: true }),
-    ]);
-    expect(text).toBe(
-      ['Groceries', '', 'Produce & Greens:', '- Bananas [need today]', '', 'Dairy & Eggs:', '- Eggs (2 dozen)', '', 'Already done (1): Bread'].join('\n'),
+  it('lists what is left in order, with its due time and Need today, then what is done', () => {
+    const now = new Date(2031, 0, 6, 9).getTime();
+    const text = formatListForSharing(
+      'Chores & Notes',
+      [
+        item({ name: 'Call the plumber', position: 2, dueAt: new Date(2031, 0, 6, 15).getTime() }),
+        item({ name: 'Renew registration', position: 1, urgency: URGENCY.URGENT }),
+        item({ name: 'Water the plants', completed: true }),
+      ],
+      now,
     );
+    expect(text).toBe(['Chores & Notes', '', '- Renew registration [need today]', `- Call the plumber (Today · ${new Date(2031, 0, 6, 15).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})`, '', 'Already done (1): Water the plants'].join('\n'));
+  });
+});
+
+describe('the split with Groceries', () => {
+  it('Tasks has the to-do lists; its default lists are only those', () => {
+    expect(isTaskList('chores')).toBe(true);
+    expect(isTaskList('notes')).toBe(true);
+    expect(isTaskList('grocery')).toBe(false);
+    expect(TASK_DEFAULT_LISTS.map((l) => l.id)).toEqual(['chores']);
+  });
+
+  it('old links to Kitchen, Store, Meals or a shopping list go to Groceries, query kept', () => {
+    expect(groceriesRedirect('?mode=meals')).toBe('/groceries/?mode=meals');
+    expect(groceriesRedirect('?mode=hub')).toBe('/groceries/?mode=hub');
+    expect(groceriesRedirect('?mode=lists')).toBeNull();
+    expect(groceriesRedirect('?list=groceries&item=x', new Set(['groceries']))).toBe('/groceries/?list=groceries&item=x');
+    expect(groceriesRedirect('?list=chores&item=x', new Set(['groceries']))).toBeNull();
+    expect(groceriesRedirect('')).toBeNull();
   });
 });
 

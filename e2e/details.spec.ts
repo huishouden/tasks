@@ -3,7 +3,6 @@ import { addItem, createHousehold, expect, signIn, test } from './fixtures';
 test.beforeEach(async ({ page }) => {
   await signIn(page, 'alice@example.com', 'Alice Example');
   await createHousehold(page);
-  await page.getByRole('button', { name: /Chores & Notes/ }).first().click();
 });
 
 test('an appointment shows its date and place, and links to Google Calendar', async ({ page }) => {
@@ -28,20 +27,17 @@ test('an appointment shows its date and place, and links to Google Calendar', as
   await expect(row).toContainText(/Jun 14.*10:30/);
   await expect(row).toContainText('Main St Service Center');
   await expect(row.getByRole('link', { name: 'Open in Calendar' })).toHaveAttribute('href', 'https://calendar.google.com/calendar/event?eid=abc123');
-
-  await page.getByRole('button', { name: 'Kitchen' }).click();
-  await expect(page.getByRole('region', { name: 'Coming up' })).toHaveCount(0); // 2030 is beyond two weeks
+  await expect(page.getByRole('region', { name: 'Today' })).toHaveCount(0); // 2030 is not today
 });
 
-test('a past date shows as overdue and appears under Coming up', async ({ page }) => {
+test('a past date shows as overdue and leads Today', async ({ page }) => {
   await addItem(page, 'Renew registration');
   await page.getByRole('button', { name: 'Edit Renew registration' }).click();
   await page.getByRole('dialog').getByLabel('Date').fill('2020-01-01');
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   await expect(page.locator('main li', { hasText: 'Renew registration' })).toContainText('(overdue)');
-
-  await page.getByRole('button', { name: 'Kitchen' }).click();
-  await expect(page.getByRole('region', { name: 'Coming up' })).toContainText('Renew registration');
+  await expect(page.getByRole('region', { name: 'Today' })).toContainText('Overdue');
+  await expect(page.getByRole('region', { name: 'Today' })).toContainText('Renew registration');
 });
 
 test('a long list item becomes a checklist that completes step by step', async ({ page }) => {
@@ -80,7 +76,7 @@ test('a long list item becomes a checklist that completes step by step', async (
 
 test('a new list is selected and receives the items added next', async ({ page }) => {
   await page.getByRole('button', { name: 'New list' }).click();
-  await page.getByPlaceholder(/Target, Home Depot/).fill('Weekend Projects');
+  await page.getByPlaceholder(/Weekend chores/).fill('Weekend Projects');
   await page.getByRole('button', { name: 'Create list' }).click();
   await expect(page.getByRole('heading', { name: 'Weekend Projects', level: 1 })).toBeVisible();
   await addItem(page, 'Fix the fence');

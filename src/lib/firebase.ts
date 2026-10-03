@@ -1,7 +1,6 @@
 import { initializeApp, type FirebaseApp, type FirebaseOptions } from 'firebase/app';
 import { firebaseConfigFromEnv } from '@huishouden/pwa-kit/firebase';
 import { configureGoogleTokens } from '@huishouden/pwa-kit/google-token';
-import { ReCaptchaEnterpriseProvider, initializeAppCheck } from 'firebase/app-check';
 import { GoogleAuthProvider, connectAuthEmulator, getAuth, signInWithCredential, type Auth } from 'firebase/auth';
 import { connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 import { initFirestore } from '@huishouden/pwa-kit/firestore';
@@ -23,9 +22,6 @@ configureGoogleTokens({ clientId: googleClientId, preload: !useEmulators });
 /** The "Tasks" web app in huishouden-piekstra. Public, like the rest of the web config. */
 const APP_ID = '1:865471112898:web:88de281c1be2181a4afd5b';
 
-/** reCAPTCHA Enterprise site key for App Check on huishouden-piekstra.web.app (and the old huishouden-tasks.web.app). Site keys are public. */
-const APP_CHECK_SITE_KEY = '6LeCC9otAAAAAN4XiBDSnvtKapMGWRarZoUjRGzM'; // gitleaks:allow (public site key, sent to every visitor)
-
 async function loadConfig(): Promise<FirebaseOptions> {
   if (useEmulators) {
     return { apiKey: 'demo-key', projectId: 'demo-huishouden-tasks', authDomain: 'localhost', appId: 'demo-app' };
@@ -38,7 +34,7 @@ async function loadConfig(): Promise<FirebaseOptions> {
   // Sign-in keeps the project's default authDomain (*.firebaseapp.com): it is the only redirect
   // URI Google's auto-created OAuth client allows, and the popup flow works across origins.
   const config = (await res.json()) as FirebaseOptions;
-  // Hosting omits appId unless the site is linked to an app; App Check and AI Logic require it.
+  // Hosting omits appId unless the site is linked to an app.
   config.appId ??= APP_ID;
   return config;
 }
@@ -48,10 +44,6 @@ let handles: Promise<FirebaseHandles> | null = null;
 export function getFirebase(): Promise<FirebaseHandles> {
   handles ??= loadConfig().then((config) => {
     const app = initializeApp(config);
-    if (!useEmulators) {
-      // Proves requests come from this site; Gemini (AI Logic) rejects calls without it.
-      initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
-    }
     const auth = getAuth(app);
     // Error, speed and anonymous usage reports (the portal's /privacy page); off without VITE_NEWRELIC_*.
     startObservability({ app: 'tasks', env: import.meta.env });

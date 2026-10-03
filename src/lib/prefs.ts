@@ -45,30 +45,6 @@ export function useApplyTheme(mode: ThemeMode): boolean {
   return dark;
 }
 
-/** Keeps the screen on while the kitchen hub is showing. */
-export function useWakeLock(enabled: boolean): void {
-  useEffect(() => {
-    if (!enabled || !('wakeLock' in navigator)) return;
-    let lock: WakeLockSentinel | null = null;
-    const acquire = async () => {
-      try {
-        lock = await navigator.wakeLock.request('screen');
-      } catch {
-        // Denied when the page is hidden or the battery saver is on; retried on visibility change.
-      }
-    };
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void acquire();
-    };
-    void acquire();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      void lock?.release();
-    };
-  }, [enabled]);
-}
-
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;

@@ -29,10 +29,6 @@ export async function resetEmulators(): Promise<void> {
   await emulatorRequest(`http://127.0.0.1:9099/emulator/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
 }
 
-/**
- * Writes the household's food settings as the portal would, bypassing the rules (the emulator's
- * admin access), for the one household in the emulator. People follow @huishouden/pwa-kit/food.
- */
 const REST = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`;
 const ADMIN = { Authorization: 'Bearer owner' };
 
@@ -44,22 +40,24 @@ async function onlyHouseholdId(): Promise<string> {
   return id;
 }
 
-export async function seedFood(people: { id: string; name: string; diets: string[]; avoid: string[]; spice?: string }[]): Promise<void> {
-  const headers = { ...ADMIN, 'Content-Type': 'application/json' };
+/**
+ * Links a Google list to the Groceries list in the shared Google Tasks settings, as Groceries would,
+ * with admin access.
+ */
+export async function seedGroceriesLink(googleListId: string, title: string): Promise<void> {
   const household = await onlyHouseholdId();
   const str = (v: string) => ({ stringValue: v });
-  const arr = (vs: string[]) => ({ arrayValue: { values: vs.map(str) } });
-  const fields = {
-    people: {
-      arrayValue: {
-        values: people.map((p) => ({ mapValue: { fields: { id: str(p.id), name: str(p.name), diets: arr(p.diets), avoid: arr(p.avoid), ...(p.spice ? { spice: str(p.spice) } : {}) } } })),
-      },
-    },
-    pantryAssumed: arr(['salt', 'black pepper', 'common dried herbs and spices', 'cooking oil', 'cooking spray', 'butter']),
-    updatedAt: { integerValue: String(Date.now()) },
-    by: str('alice@example.com'),
-  };
-  await emulatorRequest(`${REST}/households/${household}/settings/food`, { method: 'PATCH', headers, body: JSON.stringify({ fields }) });
+  const link = { mapValue: { fields: { googleListId: str(googleListId), title: str(title), listId: str('groceries'), mode: str('add') } } };
+  const fields = { googleTasks: { arrayValue: { values: [link] } }, handled: { arrayValue: { values: [] } }, updatedAt: { integerValue: String(Date.now()) }, by: str('alice@example.com') };
+  await emulatorRequest(`${REST}/households/${household}/settings/tasks`, { method: 'PATCH', headers: { ...ADMIN, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) });
+}
+
+/** The Google lists linked in the shared Google Tasks settings, with the household list each feeds. */
+export async function googleTasksLinks(): Promise<string[]> {
+  const household = await onlyHouseholdId();
+  type Val = { stringValue?: string; mapValue?: { fields: Record<string, Val> }; arrayValue?: { values?: Val[] } };
+  const doc = (await (await fetch(`${REST}/households/${household}/settings/tasks`, { headers: ADMIN })).json()) as { fields?: Record<string, Val> };
+  return (doc.fields?.googleTasks?.arrayValue?.values ?? []).map((v) => `${v.mapValue?.fields.googleListId?.stringValue} → ${v.mapValue?.fields.listId?.stringValue}`).sort();
 }
 
 /** Documents in one of the household's collections, read with admin access (for checking writes). */
@@ -90,7 +88,7 @@ export async function addItem(page: Page, name: string): Promise<void> {
 
 export async function createHousehold(page: Page, timeout = 5_000): Promise<void> {
   await page.getByRole('button', { name: 'Create household' }).click();
-  await expect(page.getByRole('heading', { name: 'Groceries' })).toBeVisible({ timeout });
+  await expect(page.getByRole('heading', { name: 'Chores & Notes' })).toBeVisible({ timeout });
 }
 
 /** Fails the test on uncaught page errors and Firestore listener errors. */

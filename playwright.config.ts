@@ -19,7 +19,7 @@ export default defineConfig({
       // Full app flows against the Auth and Firestore emulators.
       name: 'local',
       testMatch: /.*\.spec\.ts/,
-      testIgnore: /(live|ai|screenshots|signed-in)\.spec\.ts/,
+      testIgnore: /(live|screenshots|signed-in)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173/tasks/', viewport: { width: 1280, height: 800 } },
     },
     {
@@ -27,13 +27,6 @@ export default defineConfig({
       name: 'screenshots',
       testMatch: /screenshots\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], baseURL: LIVE_URL, viewport: { width: 1280, height: 800 } },
-    },
-    {
-      // Real Gemini through the app's own code, App Check satisfied by a local debug token.
-      // Run with `bun run e2e:ai`; skipped unless the token file exists.
-      name: 'ai',
-      testMatch: /ai\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5174/tasks/' },
     },
     {
       // Read-only smoke test of the deployed site; never signs in or writes data.
@@ -52,9 +45,7 @@ export default defineConfig({
   ],
   webServer: process.env.PW_LIVE_ONLY
     ? undefined
-    : process.env.PW_AI
-      ? [{ command: 'bunx vite --port 5174 --strictPort', url: 'http://localhost:5174/tasks/', reuseExistingServer: true, timeout: 60_000 }]
-      : [
+    : [
         {
           command: 'sh e2e/emulators/fetch-rules.sh && bunx firebase emulators:start --config e2e/emulators/firebase.json --only auth,firestore --project demo-huishouden-tasks',
           url: 'http://127.0.0.1:4400/emulators',

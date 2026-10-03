@@ -1,31 +1,27 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { ArrowUpDown, ChevronDown, Plus, Search, Share2, Trash2, X } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, Plus, Search, Share2, ShoppingCart, Trash2, X } from 'lucide-react';
 import { AddBar, type AddRequest } from '../components/AddBar';
 import { usePref } from '../lib/prefs';
 import { RoleNote } from '@huishouden/pwa-kit/react/roles';
-import { ItemRow, aisleRowProps, type AisleProps } from '../components/ItemRow';
+import { ItemRow } from '../components/ItemRow';
 import { SortableItems } from '../components/SortableItems';
-import { StaplesShelf } from '../components/StaplesShelf';
 import { Chip, ListIconBadge, ghostButton } from '../components/ui';
-import { AISLE_ORDER, formatListForSharing, isTaskList, needsDoing, sortItems, type ListItem, type ShoppingList, type Staple } from '../data/model';
+import { GROCERIES_PATH, formatListForSharing, needsDoing, sortItems, type ListItem, type ShoppingList } from '../data/model';
 import { TodayPanel } from '../components/TodayPanel';
 
 interface Props {
-  /** The shopping banner (detected store, or the store being shopped), shown above the list. */
+  /** Shown above the list: Google Tasks suggestions, a nearby errand. */
   banner?: ReactNode;
   lists: ShoppingList[];
   items: ListItem[];
-  staples: Staple[];
   selectedList: ShoppingList;
   onSelectList: (id: string) => void;
   onNewList: () => void;
   onReorderLists: () => void;
   onDeleteList: (list: ShoppingList) => void;
   onAdd: (req: AddRequest) => void;
-  onAddStaple: (s: Staple) => void;
   onToggle: (item: ListItem) => void;
   onToggleSubtask: (item: ListItem, subtaskId: string) => void;
-  aisle?: AisleProps;
   onEdit: (item: ListItem) => void;
   onDelete: (item: ListItem) => void;
   onClearCompleted: (items: ListItem[]) => void;
@@ -37,12 +33,9 @@ interface Props {
 }
 
 export function ListsView(props: Props) {
-  const { lists, items, staples, selectedList } = props;
+  const { lists, items, selectedList } = props;
   const mine = (item: ListItem) => props.mayChange?.(item) !== false;
   const setUp = props.canSetUp !== false;
-  // To-dos are not grouped by store section, so their rows and filters leave it out.
-  const task = isTaskList(selectedList.icon);
-  const [filter, setFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [showDone, setShowDone] = usePref('showDone', true);
   const [shared, setShared] = useState(false);
@@ -52,15 +45,11 @@ export function ListsView(props: Props) {
     const q = search.trim().toLowerCase();
     return listItems.filter(
       (i) =>
-        (!filter || i.category === filter) &&
-        (!q || i.name.toLowerCase().includes(q) || i.notes.toLowerCase().includes(q) || i.addedBy.toLowerCase().includes(q)),
+        !q || i.name.toLowerCase().includes(q) || i.notes.toLowerCase().includes(q) || i.addedBy.toLowerCase().includes(q),
     );
-  }, [listItems, filter, search]);
+  }, [listItems, search]);
   const pending = sortItems(visible.filter((i) => !i.completed));
   const done = visible.filter((i) => i.completed).sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));
-  const categoryCounts = AISLE_ORDER.map((c) => [c, listItems.filter((i) => !i.completed && i.category === c).length] as const).filter(
-    ([, n]) => n > 0,
-  );
   const pendingCount = (listId: string) => items.filter((i) => i.listId === listId && !i.completed).length;
   const now = Date.now();
   const today = needsDoing(items, now);
@@ -108,6 +97,9 @@ export function ListsView(props: Props) {
             <ArrowUpDown size={18} /> Reorder lists
           </button>
         )}
+        <a href={GROCERIES_PATH} className={`${ghostButton} mt-4 justify-start text-sm text-stone-600 dark:text-stone-300`}>
+          <ShoppingCart size={18} /> Shopping lists are in Groceries
+        </a>
       </nav>
 
       <div className="min-w-0 flex-1 overflow-y-auto">
@@ -120,6 +112,9 @@ export function ListsView(props: Props) {
           ))}
           {setUp && <Chip onClick={props.onNewList}>+ New</Chip>}
           {setUp && lists.length > 1 && <Chip onClick={props.onReorderLists}>Reorder</Chip>}
+          <a href={GROCERIES_PATH} className="inline-flex min-h-11 shrink-0 items-center gap-1.5 px-2 text-sm whitespace-nowrap text-stone-600 underline underline-offset-2 dark:text-stone-300">
+            <ShoppingCart size={16} aria-hidden /> Shopping lists are in Groceries
+          </a>
         </div>
 
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-4 p-4 sm:p-6">
@@ -130,7 +125,7 @@ export function ListsView(props: Props) {
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-2xl font-bold">{selectedList.name}</h1>
               <p className="text-sm text-stone-500">
-                {listItems.filter((i) => !i.completed).length} {task ? 'to do' : 'to get'} · {listItems.filter((i) => i.completed).length} done
+                {listItems.filter((i) => !i.completed).length} to do · {listItems.filter((i) => i.completed).length} done
               </p>
             </div>
             <button onClick={() => void share()} className={ghostButton} aria-label="Share list">
@@ -150,31 +145,17 @@ export function ListsView(props: Props) {
             )}
           </header>
 
-          <AddBar staples={staples} listIcon={selectedList.icon} onAdd={props.onAdd} />
-          <StaplesShelf staples={staples} activeItems={listItems} onAdd={props.onAddStaple} />
+          <AddBar onAdd={props.onAdd} />
 
           {(listItems.length > 6 || search) && (
             <div className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 dark:border-forest-700 dark:bg-forest-800">
               <Search size={18} className="text-stone-400" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items, notes or people" className="min-w-0 flex-1 bg-transparent py-2 outline-none" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tasks, notes or people" className="min-w-0 flex-1 bg-transparent py-2 outline-none" />
               {search && (
                 <button onClick={() => setSearch('')} aria-label="Clear search">
                   <X size={18} className="text-stone-400" />
                 </button>
               )}
-            </div>
-          )}
-
-          {!task && categoryCounts.length > 1 && (
-            <div className="scrollbar-none flex gap-2 overflow-x-auto">
-              <Chip active={!filter} onClick={() => setFilter(null)}>
-                All
-              </Chip>
-              {categoryCounts.map(([c, n]) => (
-                <Chip key={c} active={filter === c} onClick={() => setFilter(filter === c ? null : c)}>
-                  {c} ({n})
-                </Chip>
-              ))}
             </div>
           )}
 
@@ -186,17 +167,17 @@ export function ListsView(props: Props) {
             <SortableItems
               items={pending}
               // Moving within a filtered view has no clear place among the hidden items.
-              disabled={Boolean(filter || search.trim())}
+              disabled={Boolean(search.trim())}
               onMove={(from, to) => props.onMove(pending, from, to)}
               renderItem={(item, drag) => (
                 <ItemRow
                   key={item.id}
                   item={item}
                   drag={drag}
-                  onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)}
+                  onToggle={() => props.onToggle(item)}
+                  onToggleSubtask={(id) => props.onToggleSubtask(item, id)}
                   onEdit={mine(item) ? () => props.onEdit(item) : undefined}
                   onDelete={mine(item) ? () => props.onDelete(item) : undefined}
-                  showCategory={!filter && !task}
                 />
               )}
             />
@@ -217,7 +198,7 @@ export function ListsView(props: Props) {
               {showDone && (
                 <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2">
                   {done.map((item) => (
-                    <ItemRow key={item.id} item={item} onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} {...aisleRowProps(props.aisle, item)} onDelete={mine(item) ? () => props.onDelete(item) : undefined} />
+                    <ItemRow key={item.id} item={item} onToggle={() => props.onToggle(item)} onToggleSubtask={(id) => props.onToggleSubtask(item, id)} onDelete={mine(item) ? () => props.onDelete(item) : undefined} />
                   ))}
                 </ul>
               )}

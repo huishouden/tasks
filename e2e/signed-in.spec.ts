@@ -12,20 +12,20 @@ test.beforeAll(async () => {
   await seedTestHousehold({ accessToken: process.env.HH_STAGING_ACCESS_TOKEN! });
 });
 
-/** The household's Groceries list; a household the seed made fresh gets the default lists first. */
-async function openGroceries(page: Page) {
+/** The household's Chores & Notes list; a household the seed made fresh gets the default lists first. */
+async function openChores(page: Page) {
   const restore = page.getByRole('button', { name: 'Add the default lists' });
-  const groceries = page.getByRole('button', { name: /^Groceries/ }).first();
-  await expect(restore.or(groceries)).toBeVisible({ timeout: 30_000 });
+  const chores = page.getByRole('button', { name: /^Chores & Notes/ }).first();
+  await expect(restore.or(chores)).toBeVisible({ timeout: 30_000 });
   if (await restore.isVisible()) await restore.click();
-  await groceries.click();
-  await expect(page.getByRole('heading', { name: 'Groceries' })).toBeVisible();
+  await chores.click();
+  await expect(page.getByRole('heading', { name: 'Chores & Notes' })).toBeVisible();
 }
 
-test('a grocery item one member adds shows for the other, and checking it off syncs back', async ({ page, browser }) => {
+test('a to-do one member adds shows for the other, and checking it off syncs back', async ({ page, browser }) => {
   await signInTestUser(page, { email: 'test-a@example.com' });
-  await openGroceries(page);
-  const name = `Test oats ${Date.now().toString(36)}`;
+  await openChores(page);
+  const name = `Test call the plumber ${Date.now().toString(36)}`;
   await page.getByLabel('New item').fill(name);
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.locator('main li', { hasText: name })).toBeVisible();
@@ -35,7 +35,7 @@ test('a grocery item one member adds shows for the other, and checking it off sy
   try {
     const theirs = await other.newPage();
     await signInTestUser(theirs, { email: 'test-b@example.com' });
-    await openGroceries(theirs);
+    await openChores(theirs);
     await expect(theirs.locator('main li', { hasText: name })).toBeVisible({ timeout: 20_000 });
     await theirs.getByRole('button', { name: `Mark ${name} done` }).click();
     await expect(page.getByRole('button', { name: `Mark ${name} not done` })).toBeVisible({ timeout: 20_000 });
@@ -50,8 +50,8 @@ test('a grocery item one member adds shows for the other, and checking it off sy
 
 test('a helper ticks off a member’s item and adds their own, but can’t delete the member’s or set up lists', async ({ page, browser }) => {
   await signInTestUser(page, { email: 'test-a@example.com' });
-  await openGroceries(page);
-  const theirs = `Test rice ${Date.now().toString(36)}`;
+  await openChores(page);
+  const theirs = `Test water the plants ${Date.now().toString(36)}`;
   await page.getByLabel('New item').fill(theirs);
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.locator('main li', { hasText: theirs })).toBeVisible();
@@ -60,7 +60,7 @@ test('a helper ticks off a member’s item and adds their own, but can’t delet
   try {
     const helper = await other.newPage();
     await signInTestUser(helper, { email: 'test-helper@example.com' });
-    await openGroceries(helper);
+    await openChores(helper);
     await expect(helper.locator('main li', { hasText: theirs })).toBeVisible({ timeout: 20_000 });
     // Refused: deleting test-a's item and setting up lists; the reason is shown where lists are set up.
     await expect(helper.getByRole('button', { name: `Delete ${theirs}` })).toHaveCount(0);
@@ -69,7 +69,7 @@ test('a helper ticks off a member’s item and adds their own, but can’t delet
     // Permitted: ticking test-a's item off, and adding and deleting one of their own.
     await helper.getByRole('button', { name: `Mark ${theirs} done` }).click();
     await expect(page.getByRole('button', { name: `Mark ${theirs} not done` })).toBeVisible({ timeout: 20_000 });
-    const mine = `Test juice ${Date.now().toString(36)}`;
+    const mine = `Test feed the cat ${Date.now().toString(36)}`;
     await helper.getByLabel('New item').fill(mine);
     await helper.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(page.locator('main li', { hasText: mine })).toBeVisible({ timeout: 20_000 });

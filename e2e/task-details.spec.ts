@@ -1,6 +1,6 @@
 import { addItem, createHousehold, expect, readHouseholdCollection, signIn, test } from './fixtures';
 
-// A task list asks for the details a task has (when, where, steps), not a shopping list's.
+// A task asks for the details a task has: when, where, steps.
 test.beforeEach(async ({ page }) => {
   // The household is created at the real time (the rules refuse a backdated one), then the clock is
   // fixed in the morning, so "before 6" is later today.
@@ -94,7 +94,11 @@ test('a dated task goes on the household calendar with a reminder, and leaves bo
 test('Today, above every list, leads with what is due today and can check it off', async ({ page }) => {
   await page.getByLabel('New item').fill('Drycleaners dropoff before 6');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('button', { name: /^Groceries/ }).first().click();
+  // Another to-do list is open: Today still shows what is due from every list.
+  await page.getByRole('button', { name: 'New list' }).click();
+  await page.getByPlaceholder(/Weekend chores/).fill('House projects');
+  await page.getByRole('button', { name: 'Create list' }).click();
+  await expect(page.getByRole('heading', { name: 'House projects', level: 1 })).toBeVisible();
   const today = page.getByRole('region', { name: 'Today' });
   await expect(today).toContainText('Drycleaners dropoff');
   await expect(today).toContainText(/Today · by 6:00\s?PM · Chores & Notes/);
@@ -140,18 +144,6 @@ test('Need today is offered until there is a time, then the time replaces it', a
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(row).toContainText(/Today · 2:00\s?PM/);
   await expect(row.getByText('Today', { exact: true })).toHaveCount(0);
-});
-
-test('a shopping item keeps quantity and section, with the rest folded away', async ({ page }) => {
-  await page.getByRole('button', { name: /Groceries/ }).first().click();
-  await addItem(page, 'Greek yogurt');
-  await page.getByRole('button', { name: 'Edit Greek yogurt' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit item' });
-  await expect(dialog.getByLabel('Quantity')).toBeVisible();
-  await expect(dialog.getByLabel('Section')).toBeVisible();
-  await expect(dialog.getByLabel('Date', { exact: true })).toBeHidden();
-  await dialog.getByText('Date, place, list and link').click();
-  await expect(dialog.getByLabel('Date', { exact: true })).toBeVisible();
 });
 
 test.describe('with location allowed', () => {

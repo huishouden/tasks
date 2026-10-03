@@ -7,7 +7,7 @@ import { setRole } from '@huishouden/pwa-kit/roles';
 import { RoleNote, useRole } from '@huishouden/pwa-kit/react/roles';
 import { AppBar } from '@huishouden/pwa-kit/react/app-bar';
 import { NotificationsCard } from '@huishouden/pwa-kit/react/push';
-import { SampleBanner, SectionTabs, cardClass } from '@huishouden/pwa-kit/react/ui';
+import { SampleBanner, cardClass } from '@huishouden/pwa-kit/react/ui';
 import { CloudOff, Loader2, Settings } from 'lucide-react';
 import type { AddRequest } from './components/AddBar';
 import { ErrorNotice } from './components/ErrorNotice';
@@ -15,9 +15,7 @@ import { friendlyError, type FriendlyError } from './lib/errors';
 import { EditItemDialog, NewListDialog, ReorderListsDialog, SettingsDialog } from './components/dialogs';
 import { inputClass, primaryButton } from './components/ui';
 import { UndoToast, type UndoAction } from './components/UndoToast';
-import { CATEGORIES, firstName, mayChangeItem, removedMessage, type Household, type ListIcon, type ListItem, type ShoppingList, type Staple } from './data/model';
-
-const FOOD_LIST_ICONS: ListIcon[] = ['grocery', 'pantry', 'bulk'];
+import { GROCERIES_PATH, firstName, mayChangeItem, removedMessage, type Household, type ListItem, type ShoppingList } from './data/model';
 import {
   HouseholdRepo,
   createHousehold,
@@ -25,38 +23,19 @@ import {
   signOut,
   useAuth,
   useHousehold,
-  useFavorites,
-  useFood,
-  useMealPlan,
   usePublish,
   useHouseholdData,
-  useMenus,
-  useStoreAisles,
-  useStores,
-  settled,
 } from './data/store';
-import { DEMO_AUTH, DEMO_EMAIL, DEMO_HOUSEHOLD, openDemo, suggestDemoMeals } from './data/demo';
+import { DEMO_AUTH, DEMO_EMAIL, DEMO_HOUSEHOLD, openDemo } from './data/demo';
 import { googleTaskItem, markHandled, saveGoogleTasksLinks, watchTasksSettings, type TasksSettings } from './data/googleTasks';
 import { GoogleTasksSettings } from './components/GoogleTasksSettings';
 import { GoogleTasksSuggestions, useGoogleTasksSuggestions } from '@huishouden/pwa-kit/react/google-tasks';
 import type { GoogleTask } from '@huishouden/pwa-kit/google-tasks';
-import { classifyItem, suggestMeals } from './lib/ai';
 import { getFirebase, googleClientId, useEmulators } from './lib/firebase';
 import { PrefScope, useApplyTheme, useInstallPrompt, useOnline, usePref, type ThemeMode } from './lib/prefs';
-import { HubView } from './views/HubView';
 import { ListsView } from './views/ListsView';
-import { StoreView } from './views/StoreView';
 import { NearbyErrand } from './components/NearbyErrand';
-import { StoreBanner } from './components/StoreBanner';
-import { AislePrompt } from './components/AislePrompt';
-import { placeLabel } from './data/places';
-import { isTaskList, stapleKey } from './data/model';
-import { storeSearchLink } from './data/chains';
-import { MealsView } from './views/MealsView';
-import { planDays, planMeal, unplanMeal } from './data/mealPlan';
-import { trackView } from '@huishouden/pwa-kit/observability';
-
-type Mode = 'lists' | 'hub' | 'store' | 'meals';
+import { groceriesRedirect } from './lib/groceriesLink';
 
 /** The Huishouden portal, at the root of the site Tasks shares (pwa-kit docs/one-site.md). */
 const PORTAL_URL = '/';
@@ -71,11 +50,10 @@ interface FrameProps {
 }
 
 /** The Huishouden frame (DESIGN.md "Frame"): the kit's app bar over the page. */
-function Frame({ user, dark, signingIn, onSignIn, onSignOut, nav, actions, children }: FrameProps & { nav?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+function Frame({ user, dark, signingIn, onSignIn, onSignOut, actions, children }: FrameProps & { actions?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex h-full flex-col">
       <AppBar app="Tasks" glyph="check" portalUrl={PORTAL_URL} version={VERSION} theme={dark ? 'dark' : 'light'} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut}>
-        {nav}
         {actions}
       </AppBar>
       {children}
@@ -225,7 +203,7 @@ function Onboarding({ db, email, displayName }: { db: Firestore; email: string; 
             <a href={PORTAL_URL} className="font-medium text-forest-700 underline underline-offset-2 dark:text-forest-300">
               Huishouden
             </a>{' '}
-            or in Tasks' Settings. This screen switches to your shared lists as soon as they do.
+            or in Tasks' Settings. This screen switches to your shared to-dos as soon as they do.
           </p>
         </div>
         <div className="border-t border-stone-200 pt-5 dark:border-forest-700">
@@ -251,14 +229,6 @@ function Onboarding({ db, email, displayName }: { db: Firestore; email: string; 
       </div>
     </Centered>
   );
-}
-
-function initialMode(): Mode | null {
-  const params = new URLSearchParams(window.location.search);
-  // A link to an item (from the household calendar or a reminder) opens it in its list.
-  if (params.get('list')) return 'lists';
-  const m = params.get('mode');
-  return m === 'hub' || m === 'store' || m === 'lists' || m === 'meals' ? m : null;
 }
 
 /** The list and item a deep link names (`?list=<id>&item=<id>`), read once on open. */
@@ -294,29 +264,13 @@ function HouseholdApp({
   auth?: Auth;
 }) {
   const data = useHouseholdData(db, household.id);
-  const menus = useMenus(db, household.id);
-  const loadedStores = useStores(db, household.id);
-  const stores = useMemo(() => loadedStores ?? [], [loadedStores]);
-  const [storeId, setStoreId] = usePref<string | null>('store', null);
-
-  const favorites = useFavorites(db, household.id);
-  const food = useFood(db, household.id);
-  const planWeek = useMemo(() => planDays(), []);
-  const plan = useMealPlan(db, household.id, planWeek);
   const role = useRole(household, email);
   // Admins and members change anything; helpers and kids only what they added (the rules check `by`).
   const mayChange = (item: ListItem) => mayChangeItem(item, role.role, email);
   const canSetUp = role.can('change-settings');
-  usePublish(db, household.id, email, data, plan, !demo, role.restricted);
+  usePublish(db, household.id, email, data, !demo, role.restricted);
   const repo = useMemo(() => new HouseholdRepo(db, household.id, demo), [db, household.id, demo]);
-  const [savedMode, setMode] = usePref<Mode>('mode', 'lists');
-  const [urlMode, setUrlMode] = useState<Mode | null>(initialMode);
-  const mode = urlMode ?? savedMode;
-  // Anonymous counts of which views are used, per visit (the portal's /privacy page).
-  useEffect(() => {
-    trackView(mode);
-  }, [mode]);
-  const [selectedId, setSelectedId] = usePref<string>('list', 'groceries');
+  const [selectedId, setSelectedId] = usePref<string>('list', 'chores');
   const [link, setLink] = useState(linkedItem);
   useEffect(() => {
     if (link.list) setSelectedId(link.list);
@@ -327,11 +281,17 @@ function HouseholdApp({
   const [editing, setEditing] = useState<ListItem | null>(null);
   useEffect(() => {
     if (!data.loaded || (!link.list && !link.item)) return;
+    // An old link to a shopping list or one of its items (from before Groceries had them) opens there.
+    const moved = groceriesRedirect(window.location.search, new Set(data.otherLists.map((l) => l.id)));
+    if (moved) {
+      window.location.replace(moved);
+      return;
+    }
     const item = link.item ? data.items.find((i) => i.id === link.item) : undefined;
     if (item && mayChangeItem(item, role.role, email)) setEditing(item);
     setLink({ list: null, item: null });
     window.history.replaceState(null, '', window.location.pathname);
-  }, [data.loaded, data.items, link]);
+  }, [data.loaded, data.items, data.otherLists, link]);
   const [newList, setNewList] = useState(false);
   const [reorderLists, setReorderLists] = useState(false);
   const [settings, setSettings] = useState(false);
@@ -346,58 +306,15 @@ function HouseholdApp({
     if (!hasJoined) void markJoined(db, { ...household, joined: household.joined ?? [] }, email).catch(() => {});
   }, [hasJoined, db, household, email]);
 
-  // A shopping trip: aisle prompts only appear while one is running, and it ends on its own.
-  const [session, setSession] = usePref<{ storeId: string; until: number } | null>('shopping', null);
-  const shoppingStoreId = session && session.until > Date.now() && stores.some((st) => st.id === session.storeId) ? session.storeId : null;
-  const startShopping = (id: string) => {
-    setStoreId(id);
-    setSession({ storeId: id, until: Date.now() + 3 * 60 * 60 * 1000 });
-  };
-  const endShopping = () => setSession(null);
-  const aisleStoreId = shoppingStoreId ?? (mode === 'store' ? storeId : null);
-  const aisles = useStoreAisles(db, household.id, aisleStoreId);
-  const [askAisleFor, setAskAisleFor] = useState<string | null>(null);
-  const toggle = (item: ListItem) => {
-    repo.toggleCompleted(item);
-    // Just checked off in a store, with no aisle on record there yet: offer to note it.
-    setAskAisleFor(!item.completed && shoppingStoreId && !aisles.has(stapleKey(item.name)) ? item.id : null);
-  };
-  const findStore = stores.find((st) => st.id === aisleStoreId);
-  const listIcon = (listId: string) => data.lists.find((l) => l.id === listId)?.icon;
-  const aisleProps = aisleStoreId
-    ? {
-        aisleFor: (item: ListItem) => aisles.get(stapleKey(item.name)),
-        onAisle: (item: ListItem, aisle: string) => {
-          repo.setAisle(aisleStoreId, item.name, aisle, addedAs);
-          setAskAisleFor(null);
-        },
-        onDismissAisle: () => setAskAisleFor(null),
-        findAt: (item: ListItem) => (findStore && !isTaskList(listIcon(item.listId)) ? storeSearchLink(findStore.name, item.name) : null),
-      }
-    : undefined;
-  // Waits for the first stores snapshot, so a saved store is never offered as a new shop.
-  const storeBanner = loadedStores && (
-    <StoreBanner
-      // A fresh banner per screen, so switching to Groceries or Store mode checks again.
-      key={mode}
-      stores={stores}
-      activeStore={stores.find((st) => st.id === shoppingStoreId) ?? null}
-      onUseStore={startShopping}
-      onCreateFromPlace={
-        canSetUp
-          ? (place) => startShopping(repo.createStore(placeLabel(place), [], { location: place.location, osmId: place.osmId, address: place.address }))
-          : undefined
-      }
-      onEnd={endShopping}
-    />
-  );
-  // The tablet stays home, so the errand line is for Lists and Store on the go.
+  const toggle = (item: ListItem) => repo.toggleCompleted(item);
   const errandBanner = <NearbyErrand items={data.items} onDone={toggle} />;
 
-  // Google Tasks: what the Gemini app or Google Assistant added there, brought into the chosen lists.
+  // Google Tasks: what the Gemini app or Google Assistant added there, offered for the chosen to-do
+  // lists. The settings document is shared with Groceries, whose shopping lists take their own links.
   const [tasksSettings, setTasksSettings] = useState<TasksSettings | null>(null);
   useEffect(() => (demo ? undefined : watchTasksSettings(db, household.id, setTasksSettings)), [db, household.id, demo]);
-  const links = useMemo(() => tasksSettings?.googleTasks ?? [], [tasksSettings]);
+  const allLinks = useMemo(() => tasksSettings?.googleTasks ?? [], [tasksSettings]);
+  const links = useMemo(() => allLinks.filter((l) => data.lists.some((list) => list.id === l.listId)), [allLinks, data.lists]);
   const takenIn = useMemo(() => new Set([...(tasksSettings?.handled ?? []), ...data.items.flatMap((i) => (i.googleTaskId ? [i.googleTaskId] : []))]), [tasksSettings, data.items]);
   const googleTasks = useGoogleTasksSuggestions({
     auth,
@@ -418,8 +335,8 @@ function HouseholdApp({
     },
     [tasksSettings, links, data.lists, repo, addedAs, db, household.id, email],
   );
-  // Shopping lists take new tasks straight away; each is written under a fixed id, so two devices
-  // bringing in the same task write one item.
+  // Links set to add straight away (older settings) still do; each is written under a fixed id, so
+  // two devices bringing in the same task write one item.
   const autoAdd = googleTasks.suggestions.filter((t) => links.find((l) => l.googleListId === t.listId)?.mode === 'add');
   const autoKey = autoAdd.map((t) => t.id).join(',');
   useEffect(() => {
@@ -439,33 +356,15 @@ function HouseholdApp({
       onDismiss={googleTasks.dismiss}
     />
   );
-  const shoppingHere =
-    mode === 'store' || (mode === 'lists' && ['grocery', 'pantry', 'bulk'].includes(data.lists.find((l) => l.id === selectedId)?.icon ?? ''));
 
   // Falls back for display only: a just-created list is briefly missing until its snapshot
   // arrives, and resetting the saved choice then would jump back to the first list.
   const selectedList: ShoppingList | undefined = data.lists.find((l) => l.id === selectedId) ?? data.lists[0];
 
-  function switchMode(m: Mode) {
-    setUrlMode(null);
-    setMode(m);
-    if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
-  }
-
   const add = (req: AddRequest) => {
     if (!selectedList) return;
-    const id = repo.addItem({ ...req, listId: selectedList.id, listIcon: selectedList.icon, addedBy: addedAs, by: email });
-    // Names the word list could not place get a second opinion from Gemini, in the background.
-    if (!demo && id && req.category === CATEGORIES.OTHER && FOOD_LIST_ICONS.includes(selectedList.icon) && navigator.onLine) {
-      void classifyItem(req.name).then((category) => {
-        if (!category) return;
-        repo.updateItem(id, { category });
-        repo.setStapleCategory(req.name, category);
-      });
-    }
+    repo.addItem({ ...req, listId: selectedList.id, listIcon: selectedList.icon, addedBy: addedAs, by: email });
   };
-  const addStaple = (s: Staple) =>
-    selectedList && repo.addItem({ listId: selectedList.id, name: s.displayName, category: s.category, quantity: s.defaultQuantity, addedBy: addedAs, by: email });
 
   function offerUndo(removed: ListItem[], how: 'deleted' | 'cleared') {
     if (removed.length === 0) return;
@@ -478,17 +377,9 @@ function HouseholdApp({
   };
   const clearCompleted = (items: ListItem[]) => offerUndo(repo.clearCompleted(items.filter(mayChange)), 'cleared');
 
-  const modes: { id: Mode; label: string }[] = [
-    { id: 'lists', label: 'Lists' },
-    { id: 'hub', label: 'Kitchen' },
-    { id: 'store', label: 'Store' },
-    { id: 'meals', label: 'Meals' },
-  ];
-
   return (
     <Frame
       {...frame}
-      nav={<SectionTabs tabs={modes} tab={mode} onTab={(id) => switchMode(id as Mode)} />}
       actions={
         <span slot="actions" className="flex items-center gap-1">
           {demo ? null : !online ? (
@@ -502,7 +393,7 @@ function HouseholdApp({
         </span>
       }
     >
-      <main className={`min-h-0 flex-1 overflow-y-auto ${undoAction || askAisleFor ? 'pb-20' : ''}`}>
+      <main className={`min-h-0 flex-1 overflow-y-auto ${undoAction ? 'pb-20' : ''}`}>
         {banner}
         {!data.loaded ? (
           <Centered>
@@ -519,7 +410,7 @@ function HouseholdApp({
         ) : !selectedList ? (
           <Centered>
             <div className="grid max-w-sm justify-items-center gap-3 text-center">
-              <p className="text-stone-600 dark:text-stone-300">This household has no lists.</p>
+              <p className="text-stone-600 dark:text-stone-300">This household has no to-do lists.</p>
               {canSetUp ? (
                 <>
                   <button onClick={() => repo.restoreDefaultLists()} className={primaryButton}>
@@ -532,86 +423,15 @@ function HouseholdApp({
               ) : (
                 <RoleNote action="change-settings" />
               )}
+              <a href={GROCERIES_PATH} className="text-sm font-medium text-forest-700 underline underline-offset-2 dark:text-forest-300">
+                Shopping lists are in Groceries
+              </a>
             </div>
           </Centered>
-        ) : mode === 'hub' ? (
-          <HubView
-            lists={data.lists}
-            items={data.items}
-            staples={data.staples}
-            selectedList={selectedList}
-            onSelectList={setSelectedId}
-            onAdd={add}
-            onAddStaple={addStaple}
-            onToggle={toggle}
-            onToggleSubtask={(i, id) => repo.toggleSubtask(i, id)}
-            aisle={aisleProps}
-            onEdit={(item) => mayChange(item) && setEditing(item)}
-            mayChange={mayChange}
-            onMove={(ordered, from, to) => repo.moveItem(ordered, from, to)}
-          />
-        ) : mode === 'meals' ? (
-          <MealsView
-            lists={data.lists}
-            items={data.items}
-            menus={menus}
-            favorites={favorites}
-            food={food}
-            planWeek={planWeek}
-            plan={plan ?? []}
-            onPlan={(day, type, meal) => settled(planMeal(db, household.id, day, type, meal, email), demo)}
-            onUnplan={(day, type) => settled(unplanMeal(db, household.id, day, type), demo)}
-            suggest={demo ? suggestDemoMeals : suggestMeals}
-            onSave={(ingredients, meals) => repo.saveMenu(ingredients, meals, addedAs)}
-            onDelete={(id) => {
-              const menu = menus.find((m) => m.id === id);
-              repo.deleteMenu(id);
-              if (menu) {
-                const undoId = ++undoCount.current;
-                setUndoAction({ id: undoId, message: menu.meals.length === 1 ? "Deleted 1 meal idea" : `Deleted ${menu.meals.length} meal ideas`, undo: () => void repo.restoreMenu(menu) });
-              }
-            }}
-            onSaveFavorite={(meal) => repo.saveFavorite(meal, addedAs)}
-            onRemoveFavorite={(id) => repo.removeFavorite(id)}
-            onAddItems={(listId, names, notes) => names.forEach((name) => repo.addItem({ listId, name, notes, addedBy: addedAs, by: email }))}
-            readOnly={!canSetUp}
-          />
-        ) : mode === 'store' ? (
-          <StoreView
-            lists={data.lists}
-            items={data.items}
-            selectedList={selectedList}
-            onSelectList={setSelectedId}
-            onToggle={toggle}
-            onToggleSubtask={(i, id) => repo.toggleSubtask(i, id)}
-            aisle={aisleProps}
-            onClearCompleted={clearCompleted}
-            stores={stores}
-            storeId={storeId}
-            onSelectStore={(id) => {
-              if (id) startShopping(id);
-              else {
-                setStoreId(null);
-                endShopping();
-              }
-            }}
-            aisles={aisles}
-            banner={
-              <>
-                {errandBanner}
-                {storeBanner}
-              </>
-            }
-            canSetUp={canSetUp}
-            onCreateStore={(name) => repo.createStore(name, [])}
-            onUpdateStore={(id, changes) => repo.updateStore(id, changes)}
-            onDeleteStore={(id) => repo.deleteStore(id)}
-          />
         ) : (
           <ListsView
             lists={data.lists}
             items={data.items}
-            staples={data.staples}
             selectedList={selectedList}
             onSelectList={setSelectedId}
             onNewList={() => setNewList(true)}
@@ -620,17 +440,14 @@ function HouseholdApp({
               <>
                 {googleTasksCard}
                 {errandBanner}
-                {shoppingHere ? storeBanner : null}
               </>
             }
             onDeleteList={(l) => void repo.deleteList(l.id)}
             canSetUp={canSetUp}
             mayChange={mayChange}
             onAdd={add}
-            onAddStaple={addStaple}
             onToggle={toggle}
             onToggleSubtask={(i, id) => repo.toggleSubtask(i, id)}
-            aisle={aisleProps}
             onEdit={(item) => mayChange(item) && setEditing(item)}
             onDelete={deleteItem}
             onClearCompleted={clearCompleted}
@@ -643,13 +460,7 @@ function HouseholdApp({
         <EditItemDialog
           item={editing}
           lists={data.lists}
-          // The store being shopped first, then the household's other stores.
-          storeNames={[...(findStore ? [findStore.name] : []), ...stores.filter((st) => st !== findStore).map((st) => st.name)]}
-          onSave={(changes) => {
-            repo.updateItem(editing.id, changes);
-            // A corrected aisle sticks: the next time this item is added it lands there.
-            if (changes.category && changes.category !== editing.category) repo.setStapleCategory(changes.name ?? editing.name, changes.category);
-          }}
+          onSave={(changes) => repo.updateItem(editing.id, changes)}
           // The dialog holds the item as it was when opened; restore what is stored now.
           onDelete={() => deleteItem(data.items.find((i) => i.id === editing.id) ?? editing)}
           onClose={() => setEditing(null)}
@@ -668,23 +479,6 @@ function HouseholdApp({
           onDismiss={() => setUndoAction((a) => (a?.id === undoAction.id ? null : a))}
         />
       )}
-      {askAisleFor && shoppingStoreId && (() => {
-        const item = data.items.find((i) => i.id === askAisleFor);
-        const store = stores.find((st) => st.id === shoppingStoreId);
-        if (!item || !store || undoAction) return null;
-        return (
-          <AislePrompt
-            key={item.id}
-            itemName={item.name}
-            storeName={store.name}
-            onSave={(aisle) => {
-              repo.setAisle(store.id, item.name, aisle, addedAs);
-              setAskAisleFor(null);
-            }}
-            onSkip={() => setAskAisleFor(null)}
-          />
-        );
-      })()}
       {reorderLists && <ReorderListsDialog lists={data.lists} onReorder={(ids) => repo.reorderLists(ids)} onClose={() => setReorderLists(false)} />}
       {settings && (
         <SettingsDialog
@@ -700,7 +494,8 @@ function HouseholdApp({
               <GoogleTasksSettings
                 auth={auth}
                 lists={data.lists}
-                links={links}
+                otherLists={data.otherLists}
+                links={allLinks}
                 onSave={(next) => saveGoogleTasksLinks(db, household.id, next, email)}
                 onConnected={() => void googleTasks.scan()}
               />

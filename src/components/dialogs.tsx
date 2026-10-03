@@ -1,15 +1,13 @@
 import { ROLE_LABELS, can, householdRole, type Role } from '@huishouden/pwa-kit/roles';
 import { RoleNote, RoleSelect } from '@huishouden/pwa-kit/react/roles';
 import { useEffect, useId, useRef, useState } from 'react';
-import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Search, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
+import { CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
 import { describeDay, parseOpeningHours } from '@huishouden/pwa-kit/hours';
 import { PlaceSearchUnavailable, formatDistance, mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '@huishouden/pwa-kit/calendar';
 import { getFirebase } from '../lib/firebase';
 import {
-  ALL_CATEGORIES,
   URGENCY,
-  isTaskList,
   LIST_COLORS,
   moveInOrder,
   formatDue,
@@ -17,7 +15,6 @@ import {
   newSubtask,
   splitIntoChecklist,
   type Subtask,
-  type Category,
   type Household,
   type ItemPlace,
   type ListIcon,
@@ -31,34 +28,8 @@ import { currentPosition, locationPermission } from '../lib/location';
 import { hoursWarning } from '../data/hours';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { ErrorNotice } from './ErrorNotice';
-import { Dialog, LIST_ICONS, ListIconBadge, ghostButton, inputClass, primaryButton } from './ui';
+import { Dialog, ListIconBadge, ghostButton, inputClass, primaryButton } from './ui';
 import { SortableRows } from './SortableRows';
-import { storeSearchLinks } from '../data/chains';
-
-/** "Find it at" the household's stores: each store's own search, or a web search, with the item filled in. */
-function FindAtStores({ storeNames, itemName }: { storeNames: string[]; itemName: string }) {
-  const links = storeSearchLinks(storeNames, itemName).slice(0, 6);
-  if (links.length === 0) return null;
-  return (
-    <div className="grid gap-1.5" role="group" aria-label="Find it at a store">
-      <span className="text-sm text-stone-500">Find it at</span>
-      <div className="flex flex-wrap gap-2">
-        {links.map((l) => (
-          <a
-            key={l.url}
-            href={l.url}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={l.storeSite ? `Find ${itemName.trim()} at ${l.store}` : `Search the web for ${itemName.trim()} at ${l.store}`}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-stone-200 px-3 text-sm text-forest-700 hover:border-forest-500 dark:border-forest-600 dark:text-forest-300"
-          >
-            <Search size={14} /> {l.store}
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function EditItemDialog({
   item,
@@ -66,12 +37,9 @@ export function EditItemDialog({
   onSave,
   onDelete,
   onClose,
-  storeNames = [],
 }: {
   item: ListItem;
   lists: ShoppingList[];
-  /** The household's stores, the one being shopped first: each offers its own search for the item. */
-  storeNames?: string[];
   onSave: (changes: Partial<ListItem>) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -80,9 +48,7 @@ export function EditItemDialog({
   const [readFromName] = useState(() => (item.dueAt ? null : parseWhen(item.name)));
   const [showRead, setShowRead] = useState(readFromName !== null);
   const [name, setName] = useState(readFromName?.rest ?? item.name);
-  const [quantity, setQuantity] = useState(item.quantity);
   const [notes, setNotes] = useState(item.notes);
-  const [category, setCategory] = useState<Category>(item.category);
   const [urgency, setUrgency] = useState<Urgency>(item.urgency);
   const [listId, setListId] = useState(item.listId);
   const [date, setDate] = useState(item.dueAt ? toDateInput(item.dueAt) : readFromName ? toDateInput(readFromName.dueAt) : '');
@@ -98,8 +64,6 @@ export function EditItemDialog({
   const [searching, setSearching] = useState(false);
   const [matches, setMatches] = useState<CalendarMatch[] | null>(null);
   const [calendarError, setCalendarError] = useState<FriendlyError | null>(null);
-
-  const task = isTaskList(lists.find((l) => l.id === listId)?.icon);
 
   async function searchCalendar() {
     setSearching(true);
@@ -222,7 +186,7 @@ export function EditItemDialog({
     <WhereField
       name={name}
       value={location}
-      suggest={task}
+      suggest
       onChange={(text) => {
         setLocation(text);
         // Typing over a chosen place means it is somewhere else now.
@@ -295,7 +259,7 @@ export function EditItemDialog({
   const quick = 'inline-flex items-center gap-1.5 rounded-full border border-stone-200 px-3 py-1.5 text-sm text-stone-700 hover:border-forest-500 dark:border-forest-600 dark:text-stone-200';
 
   return (
-    <Dialog title={task ? 'Edit task' : 'Edit item'} onClose={onClose}>
+    <Dialog title="Edit task" onClose={onClose}>
       <form
         className="grid gap-3"
         onSubmit={(e) => {
@@ -304,9 +268,7 @@ export function EditItemDialog({
           if (!linkValid) return;
           onSave({
             name: name.trim(),
-            quantity: quantity.trim() || '1',
             notes: notes.trim(),
-            category,
             // A due time replaces "Need today".
             urgency: dueAt !== null && urgency === URGENCY.URGENT ? URGENCY.NORMAL : urgency,
             listId,
@@ -322,7 +284,7 @@ export function EditItemDialog({
         }}
       >
         <label className="text-sm text-stone-500">
-          {task ? 'Task' : 'Item'}
+          Task
           <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} mt-1`} autoFocus />
         </label>
         {showRead && readFromName && date && (
@@ -358,37 +320,16 @@ export function EditItemDialog({
           </button>
         )}
 
-        {task ? (
-          <>
-            <fieldset className="grid gap-2">
-              <legend className="mb-1 text-sm text-stone-500">When</legend>
-              {whenFields}
-            </fieldset>
-            {whereField}
-          </>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-sm text-stone-500">
-              Quantity
-              <input value={quantity} onChange={(e) => setQuantity(e.target.value)} className={`${inputClass} mt-1`} />
-            </label>
-            <label className="text-sm text-stone-500">
-              Section
-              <select value={category} onChange={(e) => setCategory(e.target.value as Category)} className={`${inputClass} mt-1`}>
-                {ALL_CATEGORIES.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        )}
+        <fieldset className="grid gap-2">
+          <legend className="mb-1 text-sm text-stone-500">When</legend>
+          {whenFields}
+        </fieldset>
+        {whereField}
 
         <label className="text-sm text-stone-500">
           Notes
-          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={task ? 'Ticket number, what to bring…' : 'Brand, size, organic…'} className={`${inputClass} mt-1`} />
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ticket number, what to bring…" className={`${inputClass} mt-1`} />
         </label>
-
-        {!task && <FindAtStores storeNames={storeNames} itemName={name} />}
 
         {showSteps ? (
           stepsFields
@@ -425,18 +366,12 @@ export function EditItemDialog({
           </div>
         )}
 
-        <details className="group rounded-2xl border border-stone-200 dark:border-forest-700" open={!task && (dueAt !== null || !!location || !!link)}>
+        <details className="group rounded-2xl border border-stone-200 dark:border-forest-700">
           <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm text-stone-600 dark:text-stone-300">
-            {task ? 'List and link' : 'Date, place, list and link'}
+            List and link
             <ChevronDown size={16} className="transition group-open:rotate-180" />
           </summary>
           <div className="grid gap-3 border-t border-stone-200 p-3 dark:border-forest-700">
-            {!task && (
-              <>
-                {whenFields}
-                {whereField}
-              </>
-            )}
             <label className="text-sm text-stone-500">
               List
               <select value={listId} onChange={(e) => setListId(e.target.value)} className={`${inputClass} mt-1`}>
@@ -678,9 +613,12 @@ function fromInputs(date: string, time: string): number {
   return new Date(y, m - 1, d, hh, mm).getTime();
 }
 
+/** Tasks makes to-do lists; shopping lists are made in Groceries. */
+const TASK_LIST_ICONS: ListIcon[] = ['chores', 'notes'];
+
 export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, icon: ListIcon, color: string) => void; onClose: () => void }) {
   const [name, setName] = useState('');
-  const [icon, setIcon] = useState<ListIcon>('grocery');
+  const [icon, setIcon] = useState<ListIcon>('chores');
   const [color, setColor] = useState(LIST_COLORS[0]);
   return (
     <Dialog title="New list" onClose={onClose}>
@@ -693,11 +631,11 @@ export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, 
           onClose();
         }}
       >
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Target, Home Depot, Weekend chores…" className={inputClass} autoFocus />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Weekend chores, House projects…" className={inputClass} autoFocus />
         <div>
           <p className="mb-2 text-sm text-stone-500">Icon</p>
           <div className="flex flex-wrap gap-2">
-            {(Object.keys(LIST_ICONS) as ListIcon[]).map((i) => (
+            {TASK_LIST_ICONS.map((i) => (
               <button
                 type="button"
                 key={i}
@@ -736,7 +674,7 @@ export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, 
 }
 
 export function inviteMessage(email: string, householdName: string, url: string): string {
-  return `I added you to "${householdName}" on Huishouden Tasks, our shared grocery and chores lists.\n\nOpen ${url} and sign in with Google as ${email}. Then use Chrome's menu, "Install app" (or Share, "Add to Home Screen" on iPhone) to keep it on your home screen.`;
+  return `I added you to "${householdName}" on Huishouden Tasks, our shared to-dos and chores.\n\nOpen ${url} and sign in with Google as ${email}. Then use Chrome's menu, "Install app" (or Share, "Add to Home Screen" on iPhone) to keep it on your home screen.`;
 }
 
 /** Opens the share sheet (text, WhatsApp, email…) or, where there is none, a prefilled email. */

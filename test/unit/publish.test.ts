@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { allDayStart } from '@huishouden/pwa-kit/agenda';
 import { agendaItems, itemAgenda, itemReminder, itemUrl, reminderItems, LEAD_MS } from '../../src/data/publish';
 import { CATEGORIES, URGENCY, type ListItem, type ShoppingList } from '../../src/data/model';
-import type { PlannedMeal } from '../../src/data/mealPlan';
 
 const at = (y: number, m: number, d: number, hh = 0, mm = 0) => new Date(y, m - 1, d, hh, mm).getTime();
 const chores: ShoppingList = { id: 'chores', name: 'Chores & Notes', description: '', icon: 'chores', color: '#8a6f9e', sortOrder: 4, createdAt: 0 };
@@ -36,13 +35,9 @@ describe('itemAgenda', () => {
     expect(itemAgenda(item({ dueAt: at(2031, 1, 6), name: '  ' }), chores)).toBeNull();
   });
 
-  it('agendaItems adds planned dinners, not other meals', () => {
-    const plan: PlannedMeal[] = [
-      { day: '2031-01-07', type: 'dinner', name: 'Mushroom rice bowl', meal: {} as PlannedMeal['meal'], by: 'alex@example.com', updatedAt: 0 },
-      { day: '2031-01-07', type: 'lunch', name: 'Egg sandwich', meal: {} as PlannedMeal['meal'], by: 'alex@example.com', updatedAt: 0 },
-    ];
-    const all = agendaItems([item({ dueAt: at(2031, 1, 6, 15) }), item({ id: 'i2' })], [chores], plan);
-    expect(all.map((a) => a.title)).toEqual(['Drop off dry cleaning', 'Dinner: Mushroom rice bowl']);
+  it('agendaItems has the dated to-dos only (planned dinners are Groceries\')', () => {
+    const all = agendaItems([item({ dueAt: at(2031, 1, 6, 15) }), item({ id: 'i2' })], [chores]);
+    expect(all.map((a) => a.title)).toEqual(['Drop off dry cleaning']);
   });
 });
 

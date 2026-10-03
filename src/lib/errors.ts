@@ -2,7 +2,7 @@ import { calendarError } from '@huishouden/pwa-kit/calendar';
 import { popupCancelled } from '@huishouden/pwa-kit/feedback';
 /** What went wrong, phrased for the household rather than for a developer. */
 export interface FriendlyError {
-  kind: 'offline' | 'busy' | 'quota' | 'timeout' | 'verification' | 'permission' | 'empty' | 'cancelled' | 'unknown';
+  kind: 'offline' | 'busy' | 'timeout' | 'verification' | 'permission' | 'cancelled' | 'unknown';
   message: string;
   /** Whether trying the same thing again soon is likely to work. */
   retryable: boolean;
@@ -10,22 +10,7 @@ export interface FriendlyError {
   detail: string;
 }
 
-export type ErrorContext = 'meals' | 'sign-in' | 'save' | 'calendar';
-
-/** Thrown when a reply arrives but contains nothing usable. */
-export class EmptyResultError extends Error {
-  constructor() {
-    super('No usable results');
-    this.name = 'EmptyResultError';
-  }
-}
-
-export class TimeoutError extends Error {
-  constructor() {
-    super('Timed out');
-    this.name = 'TimeoutError';
-  }
-}
+export type ErrorContext = 'sign-in' | 'save' | 'calendar';
 
 function text(e: unknown): string {
   if (e instanceof Error) {
@@ -45,11 +30,7 @@ export function friendlyError(e: unknown, context: ErrorContext, online = typeof
   const make = (kind: FriendlyError['kind'], message: string, retryable: boolean): FriendlyError => ({ kind, message, retryable, detail });
 
   if (!online || /network-request-failed|failed to fetch|networkerror|err_internet_disconnected|load failed/.test(all)) {
-    return make(
-      'offline',
-      context === 'meals' ? "You're offline. Meal ideas need a connection." : "Couldn't reach the internet. Check the connection and try again.",
-      true,
-    );
+    return make('offline', "Couldn't reach the internet. Check the connection and try again.", true);
   }
   if (context === 'calendar') {
     // Google's permission window (Google Identity Services) in the kit's words, like every other app.
@@ -59,18 +40,11 @@ export function friendlyError(e: unknown, context: ErrorContext, online = typeof
   if (/user-mismatch/.test(all)) {
     return make('verification', 'Pick the same Google account you are signed in with.', true);
   }
-  if (e instanceof TimeoutError || /timed out|timeout|deadline/.test(all)) {
+  if (/timed out|timeout|deadline/.test(all)) {
     return make('timeout', 'That took too long. Try again.', true);
   }
-  if (e instanceof EmptyResultError) {
-    return make('empty', 'No usable ideas came back. Try again, or add a few more ingredients.', true);
-  }
-  // 429 covers both per-minute and per-day limits; only the daily one is worth waiting a day for.
-  if (/(quota|resource_exhausted|limit).*(per ?day|daily)|(per ?day|daily).*(quota|limit)/.test(all)) {
-    return make('quota', "Today's free meal ideas are used up. Try again tomorrow.", false);
-  }
   if (/\[(500|502|503|429)|resource_exhausted|quota|high demand|overloaded|unavailable|is busy/.test(all)) {
-    return make('busy', context === 'meals' ? 'Gemini is busy right now. Try again in a minute.' : 'The service is busy right now. Try again in a minute.', true);
+    return make('busy', 'The service is busy right now. Try again in a minute.', true);
   }
   if (/app.?check|appcheck|recaptcha|unauthenticated|\[403|attestation/.test(all)) {
     return make('verification', "Couldn't verify this device. Reload the page and try again.", true);
@@ -82,21 +56,4 @@ export function friendlyError(e: unknown, context: ErrorContext, online = typeof
     return make('verification', "This address isn't set up for sign-in yet.", false);
   }
   return make('unknown', 'Something went wrong. Try again in a bit.', true);
-}
-
-/** Rejects with TimeoutError if `promise` has not settled within `ms`. */
-export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new TimeoutError()), ms);
-    promise.then(
-      (v) => {
-        clearTimeout(timer);
-        resolve(v);
-      },
-      (err: unknown) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
 }

@@ -18,25 +18,6 @@ export const CATEGORIES = {
 
 export type Category = (typeof CATEGORIES)[keyof typeof CATEGORIES];
 
-export const ALL_CATEGORIES: Category[] = Object.values(CATEGORIES);
-
-/** The order a typical store is walked in. */
-export const AISLE_ORDER: Category[] = [
-  CATEGORIES.PRODUCE,
-  CATEGORIES.BAKERY,
-  CATEGORIES.MEAT_SEAFOOD,
-  CATEGORIES.DAIRY_EGGS,
-  CATEGORIES.PANTRY,
-  CATEGORIES.SNACKS,
-  CATEGORIES.BEVERAGES,
-  CATEGORIES.FROZEN,
-  CATEGORIES.HOUSEHOLD,
-  CATEGORIES.PERSONAL_CARE,
-  CATEGORIES.HARDWARE_HOME,
-  CATEGORIES.CHORES,
-  CATEGORIES.OTHER,
-];
-
 export const URGENCY = {
   NORMAL: 'Standard',
   URGENT: 'Need Today',
@@ -49,7 +30,10 @@ export const ALL_URGENCIES: Urgency[] = [URGENCY.NORMAL, URGENCY.URGENT, URGENCY
 
 export type ListIcon = 'grocery' | 'pantry' | 'bulk' | 'hardware' | 'notes' | 'chores';
 
-/** Lists of to-dos and errands rather than things to buy: no quantities or store aisles. */
+/**
+ * Lists of to-dos and errands rather than things to buy. Tasks shows these; Huishouden Groceries
+ * (huishouden/groceries) shows the rest, from the same `lists` and `items` collections.
+ */
 export function isTaskList(icon: ListIcon | undefined): boolean {
   return icon === 'chores' || icon === 'notes';
 }
@@ -111,16 +95,6 @@ export interface Subtask {
   done: boolean;
 }
 
-export interface Staple {
-  id: string;
-  displayName: string;
-  category: Category;
-  defaultQuantity: string;
-  timesAdded: number;
-  timesCompleted: number;
-  lastAddedAt: number;
-}
-
 export interface Household {
   id: string;
   name: string;
@@ -132,6 +106,10 @@ export interface Household {
   createdAt: number;
 }
 
+/**
+ * The lists a new household starts with, shopping and to-do alike: Tasks and Groceries both create
+ * all of them, so whichever app starts the household sets up the other too.
+ */
 export const DEFAULT_LISTS: Omit<ShoppingList, 'createdAt'>[] = [
   { id: 'groceries', name: 'Groceries', description: 'Weekly supermarket and fresh market run', icon: 'grocery', color: '#2d6a4f', sortOrder: 0 },
   { id: 'pantry', name: 'Pantry Restock', description: 'Dry goods, spices and kitchen essentials', icon: 'pantry', color: '#b08d57', sortOrder: 1 },
@@ -140,22 +118,14 @@ export const DEFAULT_LISTS: Omit<ShoppingList, 'createdAt'>[] = [
   { id: 'chores', name: 'Chores & Notes', description: 'Reminders, repairs and weekend to-dos', icon: 'chores', color: '#8a6f9e', sortOrder: 4 },
 ];
 
+/** Tasks' own default lists (to-dos), what "Add the default lists" brings back. */
+export const TASK_DEFAULT_LISTS = DEFAULT_LISTS.filter((l) => isTaskList(l.icon));
+
+/** Huishouden Groceries, on the suite's one site: shopping lists, stores and meals (pwa-kit docs/one-site.md). */
+export const GROCERIES_PATH = '/groceries/';
+
 /** The suite's muted categorical set (DESIGN.md), in its order. */
 export const LIST_COLORS = ['#2d6a4f', '#c86d51', '#b08d57', '#5b7a99', '#8a6f9e', '#6f8f72', '#a8735a', '#78716c'];
-
-/** Firestore document IDs cannot contain "/", and staples are keyed by normalized name. */
-export function stapleKey(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ').replace(/\//g, '-');
-}
-
-export function groupByAisle(items: ListItem[]): [Category, ListItem[]][] {
-  const groups = new Map<Category, ListItem[]>();
-  for (const item of items) {
-    const key = AISLE_ORDER.includes(item.category) ? item.category : CATEGORIES.OTHER;
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return AISLE_ORDER.filter((c) => groups.has(c)).map((c) => [c, sortItems(groups.get(c)!)]);
-}
 
 export function itemPosition(item: ListItem): number {
   return item.position ?? item.createdAt;
@@ -184,37 +154,22 @@ export function moveInOrder<T>(ordered: T[], from: number, to: number): T[] {
   return next;
 }
 
-export function matchSuggestions(staples: Staple[], query: string, limit = 6): Staple[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  return staples
-    .filter((s) => s.displayName.toLowerCase().includes(q))
-    .sort((a, b) => {
-      const aPrefix = a.displayName.toLowerCase().startsWith(q) ? 0 : 1;
-      const bPrefix = b.displayName.toLowerCase().startsWith(q) ? 0 : 1;
-      return aPrefix - bPrefix || b.timesAdded - a.timesAdded;
-    })
-    .slice(0, limit);
-}
-
-export function formatListForSharing(listName: string, items: ListItem[]): string {
-  const active = items.filter((i) => !i.completed);
+export function formatListForSharing(listName: string, items: ListItem[], now: number = Date.now()): string {
+  const active = sortItems(items.filter((i) => !i.completed));
   const done = items.filter((i) => i.completed);
   const lines = [`${listName}`, ''];
   if (active.length === 0) {
     lines.push('Everything on this list is done.');
   } else {
-    for (const [category, group] of groupByAisle(active)) {
-      lines.push(`${category}:`);
-      for (const item of group) {
-        let line = `- ${item.name}`;
-        if (item.quantity && item.quantity !== '1') line += ` (${item.quantity})`;
-        if (item.notes) line += `, ${item.notes}`;
-        if (item.urgency === URGENCY.URGENT) line += ' [need today]';
-        lines.push(line);
-      }
-      lines.push('');
+    for (const item of active) {
+      let line = `- ${item.name}`;
+      const due = formatDue(item, now);
+      if (due) line += ` (${due})`;
+      if (item.notes) line += `, ${item.notes}`;
+      if (item.urgency === URGENCY.URGENT && !item.dueAt) line += ' [need today]';
+      lines.push(line);
     }
+    lines.push('');
   }
   if (done.length > 0) {
     lines.push(`Already done (${done.length}): ${done.map((i) => i.name).join(', ')}`);
