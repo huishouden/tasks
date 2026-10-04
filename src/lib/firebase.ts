@@ -45,7 +45,7 @@ export function getFirebase(): Promise<FirebaseHandles> {
   handles ??= loadConfig().then((config) => {
     const app = initializeApp(config);
     const auth = getAuth(app);
-    // Error, speed and anonymous usage reports (the portal's /privacy page); off without VITE_NEWRELIC_*.
+    // Error, speed and anonymous usage reports (the portal's /privacy page); settings from the site's /hh-observability.json.
     startObservability({ app: 'tasks', env: import.meta.env });
     // Persistent cache; writes from @huishouden/pwa-kit/firestore, so one made just before the app closes is kept.
     const db = initFirestore(app, { auth });
