@@ -15,7 +15,7 @@ import { friendlyError, type FriendlyError } from './lib/errors';
 import { EditItemDialog, NewListDialog, ReorderListsDialog, SettingsDialog } from './components/dialogs';
 import { inputClass, primaryButton } from './components/ui';
 import { UndoToast, type UndoAction } from './components/UndoToast';
-import { GROCERIES_PATH, firstName, mayChangeItem, removedMessage, type Household, type ListItem, type ShoppingList } from './data/model';
+import { GROCERIES_PATH, firstName, listName, mayChangeItem, removedMessage, type Household, type ListItem, type ShoppingList } from './data/model';
 import {
   HouseholdRepo,
   createHousehold,
@@ -36,6 +36,8 @@ import { PrefScope, useInstallPrompt, useOnline, usePref } from './lib/prefs';
 import { ListsView } from './views/ListsView';
 import { NearbyErrand } from './components/NearbyErrand';
 import { groceriesRedirect } from './lib/groceriesLink';
+import { t, useT } from './i18n';
+import { richT } from './lib/rich';
 
 /** The Huishouden portal, at the root of the site Tasks shares (pwa-kit docs/one-site.md). */
 const PORTAL_URL = '/';
@@ -50,9 +52,10 @@ interface FrameProps {
 
 /** The Huishouden frame (DESIGN.md "Frame"): the kit's app bar over the page. */
 function Frame({ user, signingIn, onSignIn, onSignOut, actions, children }: FrameProps & { actions?: ReactNode; children: ReactNode }) {
+  const t = useT();
   return (
     <div className="flex h-full flex-col">
-      <AppBar app="Tasks" glyph="check" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut}>
+      <AppBar app={t('app.name')} glyph="check" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut}>
         {actions}
       </AppBar>
       {children}
@@ -65,7 +68,7 @@ function Centered({ children }: { children: ReactNode }) {
 }
 
 function Spinner() {
-  return <Loader2 className="animate-spin text-forest-500" size={36} aria-label="Loading" />;
+  return <Loader2 className="animate-spin text-forest-500" size={36} aria-label={t('common.loading')} />;
 }
 
 function LoadFailure({ error }: { error: FriendlyError }) {
@@ -138,7 +141,7 @@ function DemoApp({ frame, signInError }: { frame: FrameProps; signInError: Frien
   }
   const banner = (
     <SampleBanner
-      text="An invented household; nothing is saved. Sign in for your own."
+      text={t('demo.banner')}
       notice={signInError ? <ErrorNotice error={signInError} /> : undefined}
       className="mx-3 mt-3 sm:mx-4"
     />
@@ -187,38 +190,43 @@ function SignedIn({ db, auth, email, user, frame }: { db: Firestore; auth: Auth;
 }
 
 function Onboarding({ db, email, displayName }: { db: Firestore; email: string; displayName: string | null }) {
-  const [name, setName] = useState(`${firstName(displayName, email)}'s household`);
+  const t = useT();
+  const [name, setName] = useState(() => t('onboarding.suggestedName', { name: firstName(displayName, email) }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<FriendlyError | null>(null);
   return (
     <Centered>
       <div className={`${cardClass} grid w-full max-w-md gap-5 p-6`}>
         <div>
-          <h2 className="mb-1 font-semibold">Joining someone?</h2>
+          <h2 className="mb-1 font-semibold">{t('onboarding.joining')}</h2>
           <p className="text-sm text-muted">
-            Ask them to add <strong>{email}</strong> to the household in{' '}
-            <a href={PORTAL_URL} className="font-medium text-link underline underline-offset-2">
-              Huishouden
-            </a>{' '}
-            or in Tasks' Settings. This screen switches to your shared to-dos as soon as they do.
+            {richT('onboarding.ask', {
+              email: <strong translate="no">{email}</strong>,
+              portal: (
+                // i18n-ignore: the suite's name
+                <a href={PORTAL_URL} className="font-medium text-link underline underline-offset-2">
+                  Huishouden
+                </a>
+              ),
+            })}
           </p>
         </div>
         <div className="border-t border-line pt-5">
-          <h2 className="mb-2 font-semibold">Starting fresh?</h2>
+          <h2 className="mb-2 font-semibold">{t('onboarding.fresh')}</h2>
           <form
             className="grid gap-3"
             onSubmit={(e) => {
               e.preventDefault();
               setBusy(true);
               setError(null);
-              createHousehold(db, email, name.trim() || 'Our household')
+              createHousehold(db, email, name.trim() || t('onboarding.ourHousehold'))
                 .catch((err: unknown) => setError(friendlyError(err, 'save')))
                 .finally(() => setBusy(false));
             }}
           >
-            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} aria-label="Household name" />
+            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} aria-label={t('onboarding.nameLabel')} />
             <button type="submit" disabled={busy} className={primaryButton}>
-              {busy ? <Loader2 className="animate-spin" size={18} /> : null} Create household
+              {busy ? <Loader2 className="animate-spin" size={18} /> : null} {t('onboarding.create')}
             </button>
             {error && <ErrorNotice error={error} />}
           </form>
@@ -256,6 +264,7 @@ function HouseholdApp({
   /** Firebase Auth, for Google services (Calendar, Google Tasks); none for the sample. */
   auth?: Auth;
 }) {
+  const t = useT();
   const data = useHouseholdData(db, household.id);
   const role = useRole(household, email);
   // Admins and members change anything; helpers and kids only what they added (the rules check `by`).
@@ -343,7 +352,8 @@ function HouseholdApp({
       suggestions={offered}
       listTitle={(id) => {
         const link = links.find((l) => l.googleListId === id);
-        return link ? `${link.title}, for ${data.lists.find((l) => l.id === link.listId)?.name ?? 'a list'}` : undefined;
+        const list = data.lists.find((l) => l.id === link?.listId);
+        return link ? t('googleTasks.forList', { title: link.title, list: list ? listName(list) : t('googleTasks.aList') }) : undefined;
       }}
       onAdd={(t) => bringIn([t])}
       onDismiss={googleTasks.dismiss}
@@ -371,7 +381,7 @@ function HouseholdApp({
   const cancelItem = (item: ListItem) => {
     repo.cancelItem(item, email);
     const id = ++undoCount.current;
-    setUndoAction({ id, message: `Cancelled "${item.name}"`, undo: () => repo.restoreItems([item]) });
+    setUndoAction({ id, message: t('undo.cancelled', { name: item.name }), undo: () => repo.restoreItems([item]) });
   };
   const clearCompleted = (items: ListItem[]) => offerUndo(repo.clearCompleted(items.filter(mayChange)), 'cleared');
 
@@ -381,11 +391,11 @@ function HouseholdApp({
       actions={
         <span slot="actions" className="flex items-center gap-1">
           {demo ? null : !online ? (
-            <CloudOff size={20} className="text-terracotta" aria-label="Offline: changes sync when back online" role="img" />
+            <CloudOff size={20} className="text-terracotta" aria-label={t('status.offline')} role="img" />
           ) : data.pendingWrites ? (
-            <Loader2 size={18} className="animate-spin text-muted" aria-label="Syncing" role="img" />
+            <Loader2 size={18} className="animate-spin text-muted" aria-label={t('status.syncing')} role="img" />
           ) : null}
-          <button onClick={() => setSettings(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted hover:bg-stone-100 dark:hover:bg-forest-700" aria-label="Tasks settings">
+          <button onClick={() => setSettings(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted hover:bg-stone-100 dark:hover:bg-forest-700" aria-label={t('settings.open')}>
             <Settings size={20} />
           </button>
         </span>
@@ -399,7 +409,7 @@ function HouseholdApp({
               <Loader2 className="animate-spin text-forest-500" size={36} />
               {data.error && (
                 <p className="max-w-sm text-sm text-muted" role="status">
-                  Still connecting. Retrying automatically.
+                  {t('status.connecting')}
                   <span className="mt-1 block text-xs text-muted">{data.error}</span>
                 </p>
               )}
@@ -408,21 +418,21 @@ function HouseholdApp({
         ) : !selectedList ? (
           <Centered>
             <div className="grid max-w-sm justify-items-center gap-3 text-center">
-              <p className="text-muted">This household has no to-do lists.</p>
+              <p className="text-muted">{t('lists.none')}</p>
               {canSetUp ? (
                 <>
                   <button onClick={() => repo.restoreDefaultLists()} className={primaryButton}>
-                    Add the default lists
+                    {t('lists.addDefaults')}
                   </button>
                   <button onClick={() => setNewList(true)} className="text-sm text-muted underline">
-                    Or create your own
+                    {t('lists.createOwn')}
                   </button>
                 </>
               ) : (
                 <RoleNote action="change-settings" />
               )}
               <a href={GROCERIES_PATH} className="text-sm font-medium text-link underline underline-offset-2">
-                Shopping lists are in Groceries
+                {t('lists.shoppingInGroceries')}
               </a>
             </div>
           </Centered>
@@ -505,8 +515,8 @@ function HouseholdApp({
               user={{ email }}
               app="tasks"
               vapidKey={import.meta.env.VITE_VAPID_PUBLIC_KEY}
-              offText="Get a notification here an hour before a task is due, and on the morning of a task due that day."
-              onText="On. This device tells you an hour before a task is due, and on the morning of a task due that day."
+              offText={t('notifications.off')}
+              onText={t('notifications.on')}
               plain
             />
           }

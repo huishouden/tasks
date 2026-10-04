@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { groceriesRedirect } from './lib/groceriesLink';
+import { startI18n } from './i18n';
 import './index.css';
 
 // Kitchen, Store and Meals moved to Huishouden Groceries: old links and shortcuts go there.
@@ -19,10 +20,14 @@ registerSW({
   },
 });
 
-if (!moved) createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </StrictMode>,
-);
+// The language's messages load before the first render, so no English flashes.
+if (!moved)
+  void startI18n().finally(() =>
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </StrictMode>,
+    ),
+  );

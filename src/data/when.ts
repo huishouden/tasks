@@ -1,3 +1,4 @@
+import { getLocale } from '@huishouden/pwa-kit/i18n';
 /**
  * Reads a due date and time out of what someone typed, so "Drycleaners dropoff before 6" becomes
  * "Drycleaners dropoff", due today by 6 PM, and "Cancel trial by October 4th" becomes "Cancel
@@ -87,7 +88,7 @@ function startOfDay(t: number): Date {
 }
 
 /** Whether a locale (the device's by default) writes dates day first, "4/10" for 4 October. */
-export function localeDayFirst(locale?: string): boolean {
+export function localeDayFirst(locale: string = getLocale()): boolean {
   try {
     const parts = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'numeric' }).formatToParts(new Date(2000, 11, 31));
     return parts.findIndex((p) => p.type === 'day') < parts.findIndex((p) => p.type === 'month');

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useT } from '../i18n';
 
 export const UNDO_TIMEOUT_MS = 6000;
 
@@ -12,6 +13,7 @@ export interface UndoAction {
 export function UndoToast({ action, onDismiss }: { action: UndoAction; onDismiss: () => void }) {
   // The parent re-renders often (every snapshot); keeping the latest callback in a ref stops
   // those renders from restarting the timer.
+  const t = useT();
   const dismiss = useRef(onDismiss);
   useEffect(() => {
     dismiss.current = onDismiss;
@@ -34,7 +36,7 @@ export function UndoToast({ action, onDismiss }: { action: UndoAction; onDismiss
           }}
           className="shrink-0 rounded-xl px-3 py-2 font-semibold text-forest-300 hover:bg-white/10 dark:text-forest-700 dark:hover:bg-forest-900/10"
         >
-          Undo
+          {t('common.undo')}
         </button>
       </div>
     </div>

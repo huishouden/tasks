@@ -1,4 +1,4 @@
-import { ROLE_LABELS, can, householdRole, type Role } from '@huishouden/pwa-kit/roles';
+import { can, householdRole, roleLabel, type Role } from '@huishouden/pwa-kit/roles';
 import { RoleNote, RoleSelect } from '@huishouden/pwa-kit/react/roles';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Ban, CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
@@ -12,6 +12,7 @@ import {
   moveInOrder,
   formatDue,
   googleCalendarLink,
+  listName as shownName,
   newSubtask,
   splitIntoChecklist,
   type Subtask,
@@ -22,7 +23,7 @@ import {
   type ShoppingList,
   type Urgency,
 } from '../data/model';
-import { THEME_LABELS, THEME_MODES, useTheme } from '@huishouden/pwa-kit/react/theme';
+import { THEME_MODES, themeLabel, useTheme } from '@huishouden/pwa-kit/react/theme';
 import { parseWhen } from '../data/when';
 import { currentPosition, locationPermission } from '../lib/location';
 import { hoursWarning } from '../data/hours';
@@ -30,6 +31,9 @@ import { friendlyError, type FriendlyError } from '../lib/errors';
 import { ErrorNotice } from './ErrorNotice';
 import { Dialog, ListIconBadge, ghostButton, inputClass, primaryButton } from './ui';
 import { SortableRows } from './SortableRows';
+import { t, useT } from '../i18n';
+import { getLocale } from '@huishouden/pwa-kit/i18n';
+import { formatTime as formatClock } from '@huishouden/pwa-kit/time';
 
 export function EditItemDialog({
   item,
@@ -47,6 +51,7 @@ export function EditItemDialog({
   onCancel?: () => void;
   onClose: () => void;
 }) {
+  const t = useT();
   // A date or time still in the name ("Cancel trial by October 4th") fills the empty date fields.
   const [readFromName] = useState(() => (item.dueAt ? null : parseWhen(item.name)));
   const [showRead, setShowRead] = useState(readFromName !== null);
@@ -99,7 +104,8 @@ export function EditItemDialog({
   // "before 6" typed into the name or notes, offered as a due time while there is none.
   const inferred = date ? null : (parseWhen(name) ?? (notes ? parseWhen(notes) : null));
   const linkValid = !link.trim() || /^https?:\/\/\S+$/i.test(link.trim());
-  const listName = lists.find((l) => l.id === listId)?.name ?? '';
+  const currentList = lists.find((l) => l.id === listId);
+  const listName = currentList ? shownName(currentList) : '';
 
   function applyInferred() {
     if (!inferred) return;
@@ -114,11 +120,11 @@ export function EditItemDialog({
     <>
       <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
         <label className="text-sm text-muted">
-          Date
+          {t('common.date')}
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} mt-1`} />
         </label>
         <label className="text-sm text-muted">
-          Time (optional)
+          {t('edit.timeOptional')}
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={!date} className={`${inputClass} mt-1`} />
         </label>
         {date && (
@@ -130,17 +136,17 @@ export function EditItemDialog({
               setDueBy(false);
             }}
             className="mb-1 rounded-lg p-2 text-stone-400 hover:text-stone-700"
-            aria-label="Clear date"
+            aria-label={t('edit.clearDate')}
           >
             <X size={18} />
           </button>
         )}
       </div>
       {date && time && (
-        <div className="flex gap-1.5" role="group" aria-label="Kind of time">
+        <div className="flex gap-1.5" role="group" aria-label={t('edit.kindOfTime')}>
           {[
-            { by: false, label: `At ${formatTime(time)}` },
-            { by: true, label: `By ${formatTime(time)}` },
+            { by: false, label: t('publish.atTime', { time: formatTime(time) }) },
+            { by: true, label: t('publish.byTime', { time: formatTime(time) }) },
           ].map((o) => (
             <button
               key={o.label}
@@ -155,16 +161,16 @@ export function EditItemDialog({
         </div>
       )}
       <button type="button" onClick={() => void searchCalendar()} disabled={searching || !name.trim()} className={`${ghostButton} justify-self-start px-2 py-1 text-sm text-link`}>
-        {searching ? <Loader2 size={16} className="animate-spin" /> : <CalendarSearch size={16} />} {searching ? 'Searching your calendars…' : 'Find in my calendar'}
+        {searching ? <Loader2 size={16} className="animate-spin" /> : <CalendarSearch size={16} />} {searching ? t('edit.searchingCalendars') : t('edit.findInCalendar')}
       </button>
       {calendarError && <ErrorNotice error={calendarError} onRetry={() => void searchCalendar()} retrying={searching} />}
       {matches && matches.length === 0 && (
         <p className="text-sm text-muted" role="status">
-          No events matching "{name.trim()}" in your calendars from last week to a year ahead.
+          {t('edit.noEvents', { query: name.trim() })}
         </p>
       )}
       {matches && matches.length > 0 && (
-        <ul className="grid gap-1.5" aria-label="Calendar matches">
+        <ul className="grid gap-1.5" aria-label={t('edit.calendarMatches')}>
           {matches.map((m) => (
             <li key={m.id}>
               <button type="button" onClick={() => useMatch(m)} className="w-full rounded-xl border border-line px-3 py-2 text-left hover:border-forest-500 hover:bg-tint">
@@ -206,7 +212,7 @@ export function EditItemDialog({
 
   const stepsFields = (
     <fieldset className="grid gap-2 rounded-2xl border border-line p-3">
-      <legend className="px-1 text-sm text-muted">Steps</legend>
+      <legend className="px-1 text-sm text-muted">{t('edit.steps')}</legend>
       {steps.map((st, i) => (
         <div key={st.id} className="flex items-center gap-2">
           <input
@@ -214,15 +220,15 @@ export function EditItemDialog({
             checked={st.done}
             onChange={() => setSteps(steps.map((x) => (x.id === st.id ? { ...x, done: !x.done } : x)))}
             className="h-4 w-4 shrink-0 accent-forest-600"
-            aria-label={`Step ${i + 1} done`}
+            aria-label={t('edit.stepDone', { n: i + 1 })}
           />
           <input
             value={st.text}
             onChange={(e) => setSteps(steps.map((x) => (x.id === st.id ? { ...x, text: e.target.value } : x)))}
             className={`${inputClass} py-1.5`}
-            aria-label={`Step ${i + 1}`}
+            aria-label={t('edit.step', { n: i + 1 })}
           />
-          <button type="button" onClick={() => setSteps(steps.filter((x) => x.id !== st.id))} className="rounded-lg p-1.5 text-stone-400 hover:text-red-600" aria-label={`Remove step ${i + 1}`}>
+          <button type="button" onClick={() => setSteps(steps.filter((x) => x.id !== st.id))} className="rounded-lg p-1.5 text-stone-400 hover:text-red-600" aria-label={t('edit.removeStep', { n: i + 1 })}>
             <X size={16} />
           </button>
         </div>
@@ -238,9 +244,9 @@ export function EditItemDialog({
               setNewStep('');
             }
           }}
-          placeholder={steps.length ? 'Add another step' : 'First step'}
+          placeholder={steps.length ? t('edit.anotherStep') : t('edit.firstStep')}
           className={`${inputClass} py-1.5`}
-          aria-label="New step"
+          aria-label={t('edit.newStep')}
           autoFocus={steps.length === 0}
         />
         <button
@@ -251,7 +257,7 @@ export function EditItemDialog({
           }}
           disabled={!newStep.trim()}
           className={ghostButton}
-          aria-label="Add step"
+          aria-label={t('edit.addStep')}
         >
           <Plus size={18} />
         </button>
@@ -262,7 +268,7 @@ export function EditItemDialog({
   const quick = 'inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm text-ink-soft hover:border-forest-500';
 
   return (
-    <Dialog title="Edit task" onClose={onClose}>
+    <Dialog title={t('edit.title')} onClose={onClose}>
       <form
         className="grid gap-3"
         onSubmit={(e) => {
@@ -287,13 +293,13 @@ export function EditItemDialog({
         }}
       >
         <label className="text-sm text-muted">
-          Task
+          {t('edit.task')}
           <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} mt-1`} autoFocus />
         </label>
         {showRead && readFromName && date && (
           <p className="-mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted" role="status">
             <CalendarClock size={16} className="shrink-0 text-link" aria-hidden />
-            <span>Read “{readFromName.phrase}” from the name.</span>
+            <span>{t('edit.readFromName', { phrase: readFromName.phrase })}</span>
             <button
               type="button"
               onClick={() => {
@@ -305,7 +311,7 @@ export function EditItemDialog({
               }}
               className="min-h-11 font-medium text-link underline underline-offset-2"
             >
-              Undo
+              {t('common.undo')}
             </button>
           </p>
         )}
@@ -317,21 +323,21 @@ export function EditItemDialog({
           >
             <CalendarClock size={18} className="shrink-0" />
             <span>
-              <span className="block">Due {lowerFirst(formatDue({ dueAt: inferred.dueAt, allDay: inferred.allDay, dueBy: inferred.by }, Date.now()).replace(' · ', ' '))}</span>
-              <span className="block text-sm font-normal text-forest-600 dark:text-forest-200">from “{inferred.phrase}”</span>
+              <span className="block">{t('edit.dueInferred', { due: lowerFirst(formatDue({ dueAt: inferred.dueAt, allDay: inferred.allDay, dueBy: inferred.by }, Date.now()).replace(' · ', ' ')) })}</span>
+              <span className="block text-sm font-normal text-forest-600 dark:text-forest-200">{t('edit.fromPhrase', { phrase: inferred.phrase })}</span>
             </span>
           </button>
         )}
 
         <fieldset className="grid gap-2">
-          <legend className="mb-1 text-sm text-muted">When</legend>
+          <legend className="mb-1 text-sm text-muted">{t('item.when')}</legend>
           {whenFields}
         </fieldset>
         {whereField}
 
         <label className="text-sm text-muted">
-          Notes
-          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ticket number, what to bring…" className={`${inputClass} mt-1`} />
+          {t('common.notes')}
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('add.notesPlaceholder')} className={`${inputClass} mt-1`} />
         </label>
 
         {showSteps ? (
@@ -343,17 +349,17 @@ export function EditItemDialog({
                 type="button"
                 onClick={() => {
                   setName(split.title);
-                  setSteps(split.steps.map((t) => newSubtask(t)));
+                  setSteps(split.steps.map((text) => newSubtask(text)));
                   setShowSteps(true);
                 }}
                 className={`${quick} border-forest-200 bg-tint text-forest-700 dark:text-forest-100`}
               >
-                <ListChecks size={16} /> Split into {split.steps.length} steps
+                <ListChecks size={16} /> {t('edit.split', { count: split.steps.length })}
               </button>
             )}
             {!split && (
               <button type="button" onClick={() => setShowSteps(true)} className={quick}>
-                <ListChecks size={16} /> Add steps
+                <ListChecks size={16} /> {t('edit.addSteps')}
               </button>
             )}
             {dueAt === null && (
@@ -363,7 +369,7 @@ export function EditItemDialog({
                 aria-pressed={urgency === URGENCY.URGENT}
                 className={`${quick} ${urgency === URGENCY.URGENT ? 'border-terracotta bg-attention-tint font-semibold text-attention' : ''}`}
               >
-                <Zap size={16} /> Need today
+                <Zap size={16} /> {t('item.needToday')}
               </button>
             )}
           </div>
@@ -371,32 +377,32 @@ export function EditItemDialog({
 
         <details className="group rounded-2xl border border-line">
           <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm text-muted">
-            List and link
+            {t('edit.listAndLink')}
             <ChevronDown size={16} className="transition group-open:rotate-180" />
           </summary>
           <div className="grid gap-3 border-t border-line p-3">
             <label className="text-sm text-muted">
-              List
+              {t('item.list')}
               <select value={listId} onChange={(e) => setListId(e.target.value)} className={`${inputClass} mt-1`}>
                 {lists.map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.name}
+                    {shownName(l)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="text-sm text-muted">
-              Link
+              {t('edit.link')}
               <input
                 value={link}
                 onChange={(e) => setLink(e.target.value)}
-                placeholder="Paste the Google Calendar event link"
+                placeholder={t('edit.linkPlaceholder')}
                 inputMode="url"
                 className={`${inputClass} mt-1`}
                 aria-invalid={!linkValid}
               />
             </label>
-            {!linkValid && <p className="text-sm text-attention">Links start with https://</p>}
+            {!linkValid && <p className="text-sm text-attention">{t('edit.linkInvalid')}</p>}
             {dueAt !== null && !link.trim() && (
               <a
                 href={googleCalendarLink({ name, notes, dueAt, allDay: !time, location }, listName)}
@@ -404,12 +410,12 @@ export function EditItemDialog({
                 rel="noreferrer"
                 className={`${ghostButton} justify-self-start text-link`}
               >
-                <CalendarPlus size={18} /> Add to Google Calendar
+                <CalendarPlus size={18} /> {t('edit.addToCalendar')}
               </a>
             )}
           </div>
         </details>
-        <p className="text-sm text-muted">Added by {item.addedBy || 'someone'}</p>
+        <p className="text-sm text-muted">{item.addedBy ? t('item.addedBy', { name: item.addedBy }) : t('item.addedBySomeone')}</p>
         <div className="mt-2 flex justify-between gap-2">
           <button
             type="button"
@@ -419,7 +425,7 @@ export function EditItemDialog({
             }}
             className={`${ghostButton} text-red-600 dark:text-red-400`}
           >
-            <Trash2 size={18} /> Delete
+            <Trash2 size={18} /> {t('common.delete')}
           </button>
           {onCancel && !item.completed && (
             <button
@@ -430,11 +436,11 @@ export function EditItemDialog({
               }}
               className={`${ghostButton} mr-auto`}
             >
-              <Ban size={18} /> Cancel task
+              <Ban size={18} /> {t('edit.cancelTask')}
             </button>
           )}
           <button type="submit" className={primaryButton}>
-            Save
+            {t('common.save')}
           </button>
         </div>
       </form>
@@ -466,6 +472,7 @@ function WhereField({
   hours?: string;
   warning?: string | null;
 }) {
+  const t = useT();
   const inputId = useId();
   const query = value.trim() || name.trim();
   // Google Maps searches near the device by itself and knows far more businesses than
@@ -503,10 +510,10 @@ function WhereField({
       const denied = (e as GeolocationPositionError)?.code === 1;
       setError(
         denied
-          ? 'Location is off for this app, so nearby places can’t be found here.'
+          ? t('where.locationOff')
           : e instanceof PlaceSearchUnavailable
-            ? 'The free map service is busy right now.'
-            : 'Couldn’t look up places right now.',
+            ? t('where.mapBusy')
+            : t('where.lookupFailed'),
       );
     } finally {
       setBusy(false);
@@ -516,17 +523,17 @@ function WhereField({
   return (
     <div className="grid gap-2">
       <div className="text-sm text-muted">
-        <label htmlFor={inputId}>Where</label>
+        <label htmlFor={inputId}>{t('where.label')}</label>
         <div className="mt-1 flex gap-2">
-          <input id={inputId} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Place or address" className={inputClass} />
+          <input id={inputId} value={value} onChange={(e) => onChange(e.target.value)} placeholder={t('where.placeholder')} className={inputClass} />
           <button type="button" onClick={() => void findNearby()} disabled={busy || !(value.trim() || name.trim())} className={`${ghostButton} shrink-0 border border-line`}>
-            {busy ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />} {busy ? 'Looking…' : 'Find nearby'}
+            {busy ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />} {busy ? t('where.looking') : t('where.findNearby')}
           </button>
         </div>
       </div>
       {hours && (
         <p className="text-sm text-muted" role="status">
-          {parseOpeningHours(hours) ? hoursToday(hours) : `Hours: ${hours}`}
+          {parseOpeningHours(hours) ? hoursToday(hours) : t('where.hours', { hours })}
         </p>
       )}
       {warning && (
@@ -536,21 +543,21 @@ function WhereField({
       )}
       {error && (
         <p className="text-sm text-muted" role="status">
-          {error} {query && mapsLink('Search Google Maps')}
+          {error} {query && mapsLink(t('where.searchMaps'))}
         </p>
       )}
       {results && results.length === 0 && (
         <p className="text-sm text-muted" role="status">
-          The free map has nothing like "{query}" near you; it misses many businesses. {mapsLink('Search Google Maps')}
+          {t('where.nothing', { query })} {mapsLink(t('where.searchMaps'))}
         </p>
       )}
       {results && results.length > 0 && (
         <p className="sr-only" role="status">
-          {results.length === 1 ? 'Found 1 place nearby' : `Found ${results.length} places nearby`}
+          {t('where.found', { count: results.length })}
         </p>
       )}
       {results && results.length > 0 && (
-        <ul className="grid gap-1.5" aria-label="Nearby places">
+        <ul className="grid gap-1.5" aria-label={t('where.nearbyPlaces')}>
           {results.map((p) => (
             <li key={p.osmUrl}>
               <button
@@ -573,7 +580,7 @@ function WhereField({
           ))}
         </ul>
       )}
-      {results && results.length > 0 && <p className="text-sm">{mapsLink('More in Google Maps')}</p>}
+      {results && results.length > 0 && <p className="text-sm">{mapsLink(t('where.moreInMaps'))}</p>}
     </div>
   );
 }
@@ -593,18 +600,19 @@ declare global {
 /** "Today: 7:00 AM – 6:00 PM" or "Today: Closed" when the hours can be read; otherwise the hours as the map writes them. */
 function hoursToday(hours: string): string {
   const week = parseOpeningHours(hours);
-  return week ? `Today: ${describeDay(week, new Date())}` : hours;
+  return week ? t('where.today', { hours: describeDay(week, new Date()) }) : hours;
 }
 
 /** "Today by 6:00 PM" → "today by 6:00 PM", for use mid-sentence; dates like "Tue, Jan 7" keep their case. */
 function lowerFirst(text: string): string {
-  return /^(Today|Tomorrow|Yesterday|By)\b/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
+  const words = [t('due.today'), t('due.tomorrow'), t('due.yesterday'), t('due.by', { date: '' }).trim()];
+  return words.some((w) => w && text.startsWith(w)) ? text[0].toLocaleLowerCase(getLocale()) + text.slice(1) : text;
 }
 
-/** "18:00" → "6:00 PM" in the device's locale. */
+/** "18:00" → "6:00 PM" ("18:00", "6:00 p.m.") in the active locale. */
 function formatTime(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number);
-  return new Date(2000, 0, 1, h, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return formatClock(new Date(2000, 0, 1, h, m).getTime());
 }
 
 function pad(n: number): string {
@@ -632,11 +640,12 @@ function fromInputs(date: string, time: string): number {
 const TASK_LIST_ICONS: ListIcon[] = ['chores', 'notes'];
 
 export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, icon: ListIcon, color: string) => void; onClose: () => void }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<ListIcon>('chores');
   const [color, setColor] = useState(LIST_COLORS[0]);
   return (
-    <Dialog title="New list" onClose={onClose}>
+    <Dialog title={t('lists.new')} onClose={onClose}>
       <form
         className="grid gap-4"
         onSubmit={(e) => {
@@ -646,9 +655,9 @@ export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, 
           onClose();
         }}
       >
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Weekend chores, House projects…" className={inputClass} autoFocus />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('newList.placeholder')} className={inputClass} autoFocus aria-label={t('newList.name')} />
         <div>
-          <p className="mb-2 text-sm text-muted">Icon</p>
+          <p className="mb-2 text-sm text-muted">{t('newList.icon')}</p>
           <div className="flex flex-wrap gap-2">
             {TASK_LIST_ICONS.map((i) => (
               <button
@@ -656,7 +665,7 @@ export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, 
                 key={i}
                 onClick={() => setIcon(i)}
                 className={`rounded-2xl p-1 ${icon === i ? 'ring-2 ring-forest-500' : ''}`}
-                aria-label={i}
+                aria-label={t(ICON_KEYS[i])}
                 aria-pressed={icon === i}
               >
                 <ListIconBadge icon={i} color={color} />
@@ -665,7 +674,7 @@ export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, 
           </div>
         </div>
         <div>
-          <p className="mb-2 text-sm text-muted">Color</p>
+          <p className="mb-2 text-sm text-muted">{t('newList.color')}</p>
           <div className="flex flex-wrap gap-2">
             {LIST_COLORS.map((c) => (
               <button
@@ -674,22 +683,25 @@ export function NewListDialog({ onCreate, onClose }: { onCreate: (name: string, 
                 onClick={() => setColor(c)}
                 className={`h-9 w-9 rounded-full ${color === c ? 'ring-2 ring-forest-500 ring-offset-2 dark:ring-offset-forest-800' : ''}`}
                 style={{ backgroundColor: c }}
-                aria-label={`Color ${c}`}
+                aria-label={t('newList.colorOption', { color: c })}
                 aria-pressed={color === c}
               />
             ))}
           </div>
         </div>
         <button type="submit" disabled={!name.trim()} className={primaryButton}>
-          Create list
+          {t('newList.create')}
         </button>
       </form>
     </Dialog>
   );
 }
 
+const ICON_KEYS = { grocery: 'icon.grocery', pantry: 'icon.pantry', bulk: 'icon.bulk', hardware: 'icon.hardware', notes: 'icon.notes', chores: 'icon.chores' } as const satisfies Record<ListIcon, string>;
+
+/** The invitation text, in the inviter's language (they choose who to send it to). */
 export function inviteMessage(email: string, householdName: string, url: string): string {
-  return `I added you to "${householdName}" on Huishouden Tasks, our shared to-dos and chores.\n\nOpen ${url} and sign in with Google as ${email}. Then use Chrome's menu, "Install app" (or Share, "Add to Home Screen" on iPhone) to keep it on your home screen.`;
+  return t('invite.message', { household: householdName, url, email });
 }
 
 /** Opens the share sheet (text, WhatsApp, email…) or, where there is none, a prefilled email. */
@@ -698,13 +710,13 @@ async function sendInvite(email: string, householdName: string): Promise<void> {
   const text = inviteMessage(email, householdName, url);
   if (navigator.share) {
     try {
-      await navigator.share({ title: 'Join our household on Huishouden Tasks', text });
+      await navigator.share({ title: t('invite.subject'), text });
       return;
     } catch (e) {
       if ((e as DOMException).name === 'AbortError') return;
     }
   }
-  window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Join our household on Huishouden Tasks')}&body=${encodeURIComponent(text)}`;
+  window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(t('invite.subject'))}&body=${encodeURIComponent(text)}`;
 }
 
 export function SettingsDialog({
@@ -734,6 +746,7 @@ export function SettingsDialog({
   onSetRole: (email: string, role: Role) => Promise<void>;
   onClose: () => void;
 }) {
+  const t = useT();
   const [invite, setInvite] = useState('');
   const [inviteRole, setInviteRole] = useState<Role>('member');
   const myRole = householdRole(household, myEmail);
@@ -742,14 +755,11 @@ export function SettingsDialog({
   const [error, setError] = useState<FriendlyError | null>(null);
   const validInvite = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invite.trim());
   return (
-    <Dialog title="Settings" onClose={onClose}>
+    <Dialog title={t('settings.title')} onClose={onClose}>
       <div className="grid gap-6">
         <section>
-          <h3 className="mb-1 font-semibold">{household.name}</h3>
-          <p className="mb-3 text-sm text-muted">
-            What each person can do depends on their role, in every Huishouden app. Add someone by the Google address they sign in
-            with, then send them the link.
-          </p>
+          <h3 className="mb-1 font-semibold" translate="no">{household.name}</h3>
+          <p className="mb-3 text-sm text-muted">{t('settings.membersHint')}</p>
           <ul className="mb-3 grid gap-1.5">
             {household.members.map((m) => {
               const joined = m === myEmail || (household.joined ?? []).includes(m);
@@ -757,33 +767,33 @@ export function SettingsDialog({
                 <li key={m} className="flex items-center gap-2 rounded-xl bg-sunken px-3 py-2">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">
-                      {m}
-                      {m === myEmail && <span className="ml-1 text-muted">(you)</span>}
+                      <span translate="no">{m}</span>
+                      {m === myEmail && <span className="ml-1 text-muted">{t('settings.you')}</span>}
                     </span>
                     <span className={`text-xs ${joined ? 'text-positive' : 'text-attention'}`}>
-                      {joined ? 'Joined' : 'Invited, not signed in yet'}
+                      {joined ? t('settings.joined') : t('settings.invited')}
                     </span>
-                    {!(admin && m !== myEmail) && <span className="text-xs text-muted"> · {ROLE_LABELS[householdRole(household, m) ?? 'member']}</span>}
+                    {!(admin && m !== myEmail) && <span className="text-xs text-muted"> · {roleLabel(householdRole(household, m) ?? 'member')}</span>}
                   </span>
                   {admin && m !== myEmail && (
                     <RoleSelect
                       value={householdRole(household, m) ?? 'member'}
-                      label={`Role for ${m}`}
+                      label={t('settings.roleFor', { email: m })}
                       onChange={(next) => void onSetRole(m, next).catch((err: unknown) => setError(friendlyError(err, 'save')))}
                     />
                   )}
                   {!joined && (
-                    <button onClick={() => void sendInvite(m, household.name)} className={`${ghostButton} text-sm`} aria-label={`Send invite to ${m}`}>
-                      <Send size={16} /> Send invite
+                    <button onClick={() => void sendInvite(m, household.name)} className={`${ghostButton} text-sm`} aria-label={t('settings.sendInviteTo', { email: m })}>
+                      <Send size={16} /> {t('settings.sendInvite')}
                     </button>
                   )}
                   {admin && m !== myEmail && (
                     <button
                       onClick={() => {
-                        if (confirm(`Remove ${m} from the household?`)) void onRemoveMember(m).catch((err: unknown) => setError(friendlyError(err, 'save')));
+                        if (confirm(t('settings.removeConfirm', { email: m }))) void onRemoveMember(m).catch((err: unknown) => setError(friendlyError(err, 'save')));
                       }}
                       className="rounded-lg p-1.5 text-stone-400 hover:text-red-600"
-                      aria-label={`Remove ${m}`}
+                      aria-label={t('settings.remove', { email: m })}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -809,9 +819,9 @@ export function SettingsDialog({
                 .catch((err: unknown) => setError(friendlyError(err, 'save')));
             }}
           >
-            <input type="email" value={invite} onChange={(e) => setInvite(e.target.value)} placeholder="Their Google account email" className={inputClass} aria-label="Their Google account email" />
-            <RoleSelect value={inviteRole} label="Their role" onChange={setInviteRole} />
-            <button type="submit" disabled={!validInvite} className={primaryButton} aria-label="Add member">
+            <input type="email" value={invite} onChange={(e) => setInvite(e.target.value)} placeholder={t('settings.inviteEmail')} className={inputClass} aria-label={t('settings.inviteEmail')} />
+            <RoleSelect value={inviteRole} label={t('settings.theirRole')} onChange={setInviteRole} />
+            <button type="submit" disabled={!validInvite} className={primaryButton} aria-label={t('settings.addMember')}>
               <UserPlus size={18} />
             </button>
           </form>
@@ -825,10 +835,10 @@ export function SettingsDialog({
 
         <section>
           <label className="text-sm font-semibold">
-            Items added on this device are labelled
+            {t('settings.addedAs')}
             <input value={addedAs} onChange={(e) => setAddedAs(e.target.value)} className={`${inputClass} mt-1 font-normal`} />
           </label>
-          <p className="mt-1 text-sm text-muted">Use "Kitchen" on the shared tablet so you can tell who added what.</p>
+          <p className="mt-1 text-sm text-muted">{t('settings.addedAsHint')}</p>
         </section>
 
         {notifications}
@@ -836,17 +846,17 @@ export function SettingsDialog({
         {googleTasks}
 
         <section>
-          <p id="theme-label" className="mb-1 text-sm font-semibold">Theme</p>
-          <p className="mb-2 text-sm text-muted">For every Huishouden app on this device. Automatic follows the device's setting.</p>
+          <p id="theme-label" className="mb-1 text-sm font-semibold">{t('settings.theme')}</p>
+          <p className="mb-2 text-sm text-muted">{t('settings.themeHint')}</p>
           <div className="flex gap-2" role="group" aria-labelledby="theme-label">
-            {THEME_MODES.map((t) => (
+            {THEME_MODES.map((m) => (
               <button
-                key={t}
-                onClick={() => setMode(t)}
-                aria-pressed={mode === t}
-                className={`flex-1 rounded-xl border px-3 py-2 ${mode === t ? 'border-forest-600 bg-tint font-semibold' : 'border-line'}`}
+                key={m}
+                onClick={() => setMode(m)}
+                aria-pressed={mode === m}
+                className={`flex-1 rounded-xl border px-3 py-2 ${mode === m ? 'border-forest-600 bg-tint font-semibold' : 'border-line'}`}
               >
-                {THEME_LABELS[t]}
+                {themeLabel(m)}
               </button>
             ))}
           </div>
@@ -854,13 +864,13 @@ export function SettingsDialog({
 
         {!install.installed && (
           <section>
-            <p className="mb-2 text-sm font-semibold">Install</p>
+            <p className="mb-2 text-sm font-semibold">{t('settings.install')}</p>
             {install.canInstall ? (
               <button onClick={() => void install.install()} className={primaryButton}>
-                <Download size={18} /> Install Tasks on this device
+                <Download size={18} /> {t('settings.installButton')}
               </button>
             ) : (
-              <p className="text-sm text-muted">In Chrome, open the ⋮ menu and choose "Add to Home screen" or "Install app". On iPhone, use Share, then "Add to Home Screen".</p>
+              <p className="text-sm text-muted">{t('settings.installHint')}</p>
             )}
           </section>
         )}
@@ -871,26 +881,30 @@ export function SettingsDialog({
 }
 
 export function ReorderListsDialog({ lists, onReorder, onClose }: { lists: ShoppingList[]; onReorder: (ids: string[]) => void; onClose: () => void }) {
+  const t = useT();
   const ids = lists.map((l) => l.id);
   return (
-    <Dialog title="Reorder lists" onClose={onClose}>
-      <p className="mb-3 text-sm text-muted">Drag by the grip. Everyone in the household sees the new order.</p>
+    <Dialog title={t('lists.reorder')} onClose={onClose}>
+      <p className="mb-3 text-sm text-muted">{t('reorder.hint')}</p>
       <SortableRows
         ids={ids}
-        label={(id) => lists.find((l) => l.id === id)?.name ?? id}
+        label={(id) => {
+          const list = lists.find((l) => l.id === id);
+          return list ? shownName(list) : id;
+        }}
         onMove={(from, to) => onReorder(moveInOrder(ids, from, to))}
         renderRow={(id) => {
           const list = lists.find((l) => l.id === id)!;
           return (
             <>
               <ListIconBadge icon={list.icon} color={list.color} size="sm" />
-              <span className="min-w-0 flex-1 font-medium [overflow-wrap:anywhere]">{list.name}</span>
+              <span className="min-w-0 flex-1 font-medium [overflow-wrap:anywhere]">{shownName(list)}</span>
             </>
           );
         }}
       />
       <button onClick={onClose} className={`${primaryButton} mt-4 w-full`}>
-        Done
+        {t('common.done')}
       </button>
     </Dialog>
   );

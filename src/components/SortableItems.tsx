@@ -13,6 +13,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import type { ListItem } from '../data/model';
 import type { DragProps } from './ItemRow';
+import { t } from '../i18n';
 
 interface Props {
   items: ListItem[];
@@ -55,7 +56,7 @@ function SortableRow({ item, renderItem }: { item: ListItem; renderItem: Props['
       ref={setActivatorNodeRef}
       {...attributes}
       {...listeners}
-      aria-label={`Move ${item.name}`}
+      aria-label={t('reorder.move', { name: item.name })}
       className="-ml-1 shrink-0 cursor-grab touch-none rounded-lg p-1 text-stone-300 hover:text-stone-500 active:cursor-grabbing dark:text-forest-500"
     >
       <GripVertical size={20} />

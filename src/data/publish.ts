@@ -2,9 +2,10 @@ import { allDayStart, type AgendaInput } from '@huishouden/pwa-kit/agenda';
 import type { ReminderInput } from '@huishouden/pwa-kit/reminders';
 import type { Role } from '@huishouden/pwa-kit/roles';
 import type { TodoAction, TodoInput } from '@huishouden/pwa-kit/todos';
-import { toYmd } from '@huishouden/pwa-kit/time';
+import { formatTime, toYmd } from '@huishouden/pwa-kit/time';
+import { t } from '../i18n';
 import { appLink } from '../lib/appLink';
-import { isTaskList, type ListItem, type ShoppingList } from './model';
+import { isTaskList, listName, type ListItem, type ShoppingList } from './model';
 
 // What Tasks shares with the rest of Huishouden: dated items on the household agenda (the portal's
 // Calendar and Today), reminders the shared sender pushes, and open items on the household to-do list
@@ -26,21 +27,19 @@ export const itemRef = (id: string) => `item:${id}`;
 export function stepsDone(item: Pick<ListItem, 'subtasks'>): string | null {
   const steps = item.subtasks ?? [];
   if (steps.length === 0) return null;
-  return `${steps.filter((s) => s.done).length} of ${steps.length} steps done`;
+  return t('publish.steps', { done: steps.filter((s) => s.done).length, total: steps.length });
 }
 
-function clock(t: number): string {
-  return new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
+const clock = (at: number) => formatTime(at);
 
 /**
  * A dated item as the household calendar shows it: an appointment when it is at a time, a task when
  * it is a deadline or a day. Done items stay, marked done, until they are cleared.
  */
-export function itemAgenda(item: ListItem, list: Pick<ShoppingList, 'name'> | undefined, app = APP_URL): AgendaInput | null {
+export function itemAgenda(item: ListItem, list: Pick<ShoppingList, 'id' | 'name'> | undefined, app = APP_URL): AgendaInput | null {
   if (!item.dueAt || !item.name.trim()) return null;
   const allDay = !!item.allDay;
-  const detail = [item.dueBy && !allDay ? `By ${clock(item.dueAt)}` : null, item.location?.trim() || null, stepsDone(item), list?.name ?? null]
+  const detail = [item.dueBy && !allDay ? t('publish.byTime', { time: clock(item.dueAt) }) : null, item.location?.trim() || null, stepsDone(item), list ? listName(list) : null]
     .filter(Boolean)
     .join(' · ')
     .slice(0, 200);
@@ -84,10 +83,10 @@ export function itemReminder(item: ListItem, app = APP_URL): ReminderInput | nul
   if (item.allDay) {
     const morning = new Date(item.dueAt);
     morning.setHours(MORNING_HOUR, 0, 0, 0);
-    const body = [item.dueBy ? 'Due today' : 'Today', item.location?.trim(), steps].filter(Boolean).join(' · ');
+    const body = [item.dueBy ? t('publish.dueToday') : t('due.today'), item.location?.trim(), steps].filter(Boolean).join(' · ');
     return { app: APP, ref, title: item.name.trim(), body, at: morning.getTime(), url: itemUrl(item, app) };
   }
-  const body = [item.dueBy ? `By ${clock(item.dueAt)}` : `At ${clock(item.dueAt)}`, item.location?.trim(), steps].filter(Boolean).join(' · ');
+  const body = [item.dueBy ? t('publish.byTime', { time: clock(item.dueAt) }) : t('publish.atTime', { time: clock(item.dueAt) }), item.location?.trim(), steps].filter(Boolean).join(' · ');
   return { app: APP, ref, title: item.name.trim(), body, at: item.dueAt - LEAD_MS, url: itemUrl(item, app) };
 }
 
@@ -106,7 +105,7 @@ const EVERYONE: Role[] = ['admin', 'member', 'helper', 'kid'];
 /** Ticks the item off, as its checkbox does: tick fields only, so helpers and kids may on anyone's. */
 export function doneAction(id: string): TodoAction {
   return {
-    label: 'Done',
+    label: t('publish.done'),
     ops: [{ col: ITEMS, id, data: { completed: true, completedAt: '$now', updatedAt: '$now' }, merge: true }],
     roles: EVERYONE,
   };
@@ -115,7 +114,7 @@ export function doneAction(id: string): TodoAction {
 /** Closes the item as not needed: it moves to Done marked "Cancelled". Admins, members and whoever added it. */
 export function cancelAction(id: string): TodoAction {
   return {
-    label: 'Cancel',
+    label: t('publish.cancel'),
     ops: [{ col: ITEMS, id, data: { completed: true, completedAt: '$now', cancelledAt: '$now', cancelledBy: '$me', updatedAt: '$now' }, merge: true }],
     roles: ['admin', 'member'],
     owner: true,
@@ -127,9 +126,9 @@ export function cancelAction(id: string): TodoAction {
  * it is done or cancelled, or when it is not on one of Tasks' lists (shopping lists are Groceries',
  * which publishes its own summary line).
  */
-export function itemTodo(item: ListItem, list: Pick<ShoppingList, 'name' | 'icon'> | undefined, app = APP_URL): TodoInput | null {
+export function itemTodo(item: ListItem, list: Pick<ShoppingList, 'id' | 'name' | 'icon'> | undefined, app = APP_URL): TodoInput | null {
   if (item.completed || !item.name.trim() || !list || !isTaskList(list.icon)) return null;
-  const detail = [list.name, stepsDone(item)].filter(Boolean).join(' · ').slice(0, 200);
+  const detail = [listName(list), stepsDone(item)].filter(Boolean).join(' · ').slice(0, 200);
   return {
     ref: itemRef(item.id),
     title: item.name.trim().slice(0, 120),

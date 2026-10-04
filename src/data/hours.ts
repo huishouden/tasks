@@ -1,4 +1,6 @@
 import { describeDay, isOpenAt, parseOpeningHours } from '@huishouden/pwa-kit/hours';
+import { formatTime } from '@huishouden/pwa-kit/time';
+import { t } from '../i18n';
 
 /**
  * A short note when a task's place is closed at the time it is due: "Closed at 6:30 PM. That day:
@@ -18,13 +20,13 @@ export function hoursWarning(
   const at = new Date(due.dueAt);
   const day = new Date(at);
   day.setHours(0, 0, 0, 0);
-  const that = `That day: ${describeDay(hours, at)}`;
-  const time = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const that = describeDay(hours, at);
+  const time = formatTime(at.getTime());
 
   const periods = hours[at.getDay()];
-  if (periods.length === 0) return `Closed that day.`;
+  if (periods.length === 0) return t('hours.closedThatDay');
   if (due.allDay) return null;
-  if (!due.dueBy) return isOpenAt(hours, at) ? null : `Closed at ${time}. ${that}`;
+  if (!due.dueBy) return isOpenAt(hours, at) ? null : t('hours.closedAt', { time, hours: that });
 
   // "By" a time: some opening between the start of the window and the deadline.
   const from = Math.max(day.getTime(), now);
@@ -32,5 +34,5 @@ export function hoursWarning(
   const windowStart = minutes(from);
   const windowEnd = minutes(due.dueAt);
   const fits = periods.some(([open, close]) => open < windowEnd && close > windowStart);
-  return fits ? null : `Not open before ${time}. ${that}`;
+  return fits ? null : t('hours.notOpenBefore', { time, hours: that });
 }
