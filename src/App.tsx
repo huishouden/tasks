@@ -8,7 +8,7 @@ import { RoleNote, useRole } from '@huishouden/pwa-kit/react/roles';
 import { AppBar } from '@huishouden/pwa-kit/react/app-bar';
 import { NotificationsCard } from '@huishouden/pwa-kit/react/push';
 import { SampleBanner, cardClass } from '@huishouden/pwa-kit/react/ui';
-import { CloudOff, Loader2, Settings } from 'lucide-react';
+import { CloudOff, Loader2 } from 'lucide-react';
 import type { AddRequest } from './components/AddBar';
 import { ErrorNotice } from './components/ErrorNotice';
 import { friendlyError, type FriendlyError } from './lib/errors';
@@ -51,11 +51,11 @@ interface FrameProps {
 }
 
 /** The Huishouden frame (DESIGN.md "Frame"): the kit's app bar over the page. */
-function Frame({ user, signingIn, onSignIn, onSignOut, actions, children }: FrameProps & { actions?: ReactNode; children: ReactNode }) {
+function Frame({ user, signingIn, onSignIn, onSignOut, onSettings, actions, children }: FrameProps & { onSettings?: () => void; actions?: ReactNode; children: ReactNode }) {
   const t = useT();
   return (
     <div className="flex h-full flex-col">
-      <AppBar app={t('app.name')} glyph="check" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut}>
+      <AppBar app={t('app.name')} glyph="check" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut} onSettings={onSettings} settingsLabel={t('settings.open')}>
         {actions}
       </AppBar>
       {children}
@@ -388,6 +388,7 @@ function HouseholdApp({
   return (
     <Frame
       {...frame}
+      onSettings={() => setSettings(true)}
       actions={
         <span slot="actions" className="flex items-center gap-1">
           {demo ? null : !online ? (
@@ -395,9 +396,6 @@ function HouseholdApp({
           ) : data.pendingWrites ? (
             <Loader2 size={18} className="animate-spin text-muted" aria-label={t('status.syncing')} role="img" />
           ) : null}
-          <button onClick={() => setSettings(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted hover:bg-stone-100 dark:hover:bg-forest-700" aria-label={t('settings.open')}>
-            <Settings size={20} />
-          </button>
         </span>
       }
     >

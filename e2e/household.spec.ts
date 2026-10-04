@@ -1,5 +1,6 @@
 import { devices } from '@playwright/test';
 import { addItem, createHousehold, expect, readHouseholdCollection, signIn, slowNetwork, test, watchErrors } from './fixtures';
+import { openAppSettings } from '@huishouden/pwa-kit/e2e';
 
 test('a new household opens its to-do lists even on a slow connection, with the shopping lists made for Groceries', async ({ context, page }) => {
   // Regression: the lists subscribed before the server acknowledged the household, were refused
@@ -40,7 +41,7 @@ test('an invited member sees the same lists and changes sync both ways', async (
   await createHousehold(page);
   await addItem(page, 'Take out the bins');
 
-  await page.getByRole('button', { name: 'Tasks settings' }).click();
+  await openAppSettings(page, 'Tasks settings');
   await page.getByPlaceholder('Their Google account email').fill('bob@example.com');
   await page.getByRole('button', { name: 'Add member' }).click();
   const bobRow = page.locator('li', { hasText: 'bob@example.com' });
@@ -57,7 +58,7 @@ test('an invited member sees the same lists and changes sync both ways', async (
   await addItem(bob, 'Book the vet');
   await expect(page.locator('main li', { hasText: 'Book the vet' })).toContainText('Bob');
 
-  await page.getByRole('button', { name: 'Tasks settings' }).click();
+  await openAppSettings(page, 'Tasks settings');
   await expect(page.locator('li', { hasText: 'bob@example.com' })).toContainText('Joined');
   await page.getByRole('button', { name: 'Close' }).click();
 

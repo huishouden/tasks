@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectCleanLoad, expectCompactSampleBanner, expectGoogleSignInPopup, expectHuishoudenFrame, expectInstallable, expectSecurityHeaders, expectThemeConsistent } from '@huishouden/pwa-kit/e2e';
+import { expectCleanLoad, expectCompactSampleBanner, expectGoogleSignInPopup, expectHuishoudenFrame, expectInstallable, expectSecurityHeaders, expectThemeConsistent, openAppSettings } from '@huishouden/pwa-kit/e2e';
 
 // Smoke tests of the deployed site (the kit runs them after every deploy with BASE_URL set).
 // Read-only: they stop at Google's account picker and never sign in or write data.
@@ -52,7 +52,7 @@ test('follows the suite theme: dark on a dark device, readable', ({ page }) => e
 
 test("Settings' theme choice is the suite's, and the page follows it", async ({ page }) => {
   await page.goto('./');
-  await page.getByRole('button', { name: 'Tasks settings' }).click();
+  await openAppSettings(page, 'Tasks settings');
   const theme = page.getByRole('group', { name: 'Theme' });
   await expect(theme.getByRole('button')).toHaveText(['Automatic', 'Light', 'Dark']);
   await theme.getByRole('button', { name: 'Dark' }).click();
