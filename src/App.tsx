@@ -26,7 +26,8 @@ import {
   usePublish,
   useHouseholdData,
 } from './data/store';
-import { DEMO_AUTH, DEMO_EMAIL, DEMO_HOUSEHOLD, openDemo } from './data/demo';
+import { DEMO_AUTH, DEMO_EMAIL, DEMO_HOME, DEMO_HOUSEHOLD, openDemo } from './data/demo';
+import { setHome } from '@huishouden/pwa-kit/home';
 import { googleTaskItem, markHandled, saveGoogleTasksLinks, watchTasksSettings, type TasksSettings } from './data/googleTasks';
 import { GoogleTasksSettings } from './components/GoogleTasksSettings';
 import { GoogleTasksSuggestions, useGoogleTasksSuggestions } from '@huishouden/pwa-kit/react/google-tasks';
@@ -129,6 +130,9 @@ function DemoApp({ frame, signInError }: { frame: FrameProps; signInError: Frien
   const [db, setDb] = useState<Firestore | null>(null);
   useEffect(() => {
     void openDemo().then(setDb);
+    // The sample household's invented home, so Find nearby shows "Near home" signed out too.
+    setHome(DEMO_HOME);
+    return () => setHome(undefined);
   }, []);
   if (!db) {
     return (

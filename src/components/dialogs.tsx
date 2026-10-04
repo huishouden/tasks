@@ -1,7 +1,7 @@
 import { can, householdRole, roleLabel, type Role } from '@huishouden/pwa-kit/roles';
 import { RoleNote, RoleSelect } from '@huishouden/pwa-kit/react/roles';
 import { useEffect, useId, useRef, useState } from 'react';
-import { Ban, CalendarClock, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
+import { Ban, CalendarClock, CalendarSearch, ChevronDown, Download, House, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
 import { describeDay, parseOpeningHours } from '@huishouden/pwa-kit/hours';
 import { PlaceSearchUnavailable, formatDistance, mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '@huishouden/pwa-kit/calendar';
@@ -26,7 +26,9 @@ import {
   type Urgency,
 } from '../data/model';
 import { parseWhen } from '../data/when';
-import { currentPosition, locationPermission } from '../lib/location';
+import { LocationOff, locationPermission, searchCentre, type SearchCentre } from '../lib/location';
+import { getHome } from '@huishouden/pwa-kit/home';
+import { richT } from '../lib/rich';
 import { hoursWarning } from '../data/hours';
 import { friendlyError, type FriendlyError } from '../lib/errors';
 import { ErrorNotice } from './ErrorNotice';
@@ -446,7 +448,8 @@ export function EditItemDialog({
 /**
  * Where an errand happens, with "Find nearby": the closest places of that kind ("Drycleaners
  * dropoff" → dry cleaners near you) from OpenStreetMap. Searches run only on a tap, as the
- * free service asks, and location is read only then.
+ * free service asks, and location is read only then. Without location allowed, it searches near
+ * the household's home (set in the portal) and says so, with "Use my location" one tap away.
  */
 function WhereField({
   name,
@@ -478,42 +481,43 @@ function WhereField({
     </a>
   );
   const [results, setResults] = useState<Place[] | null>(null);
+  const [centre, setCentre] = useState<SearchCentre | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [noHome, setNoHome] = useState(false);
 
   // "Drop off dry cleaning" with no place yet: show the nearest dry cleaners straight away, without
-  // a prompt (only when location is already allowed; otherwise Find nearby asks on a tap).
+  // a prompt (when location is already allowed, or near home; otherwise Find nearby asks on a tap).
   const auto = useRef(suggest && !value.trim() && placeKinds(name).length > 0);
   useEffect(() => {
     if (!auto.current) return;
     auto.current = false;
     void locationPermission().then((state) => {
-      if (state === 'granted') void findNearby({ quiet: true });
+      if (state === 'granted' || getHome()) void findNearby({ quiet: true });
     });
     // Once, when the editor opens.
   }, []);
 
-  async function findNearby({ quiet = false }: { quiet?: boolean } = {}) {
+  async function findNearby({ quiet = false, ask = false }: { quiet?: boolean; ask?: boolean } = {}) {
     setBusy(true);
     setError(null);
+    setNoHome(false);
     setResults(null);
     try {
-      const here = await currentPosition();
-      setResults(await findPlaces(query, { lat: here.lat, lon: here.lng }));
+      const from = await searchCentre({ ask });
+      setCentre(from);
+      setResults(await findPlaces(query, from.point));
     } catch (e) {
       if (quiet) return;
-      const denied = (e as GeolocationPositionError)?.code === 1;
-      setError(
-        denied
-          ? t('where.locationOff')
-          : e instanceof PlaceSearchUnavailable
-            ? t('where.mapBusy')
-            : t('where.lookupFailed'),
-      );
+      const off = e instanceof LocationOff || (e as GeolocationPositionError)?.code === 1;
+      setNoHome(off);
+      setError(off ? t('where.locationOff') : e instanceof PlaceSearchUnavailable ? t('where.mapBusy') : t('where.lookupFailed'));
     } finally {
       setBusy(false);
     }
   }
+
+  const nearHome = centre?.from === 'home';
 
   return (
     <div className="grid gap-2">
@@ -541,9 +545,34 @@ function WhereField({
           {error} {query && mapsLink(t('where.searchMaps'))}
         </p>
       )}
+      {noHome && (
+        <p className="text-sm text-muted">
+          {richT('where.setHome', {
+            portal: (
+              // i18n-ignore: the suite's name
+              <a href="/#household" className="font-medium text-link underline underline-offset-2">
+                Huishouden
+              </a>
+            ),
+          })}
+        </p>
+      )}
+      {results && centre && (
+        <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted" data-testid="search-centre">
+          <span className="inline-flex items-center gap-1 font-medium">
+            {nearHome ? <House size={16} aria-hidden="true" /> : <LocateFixed size={16} aria-hidden="true" />}
+            {nearHome ? t('where.nearHome') : t('where.nearYou')}
+          </span>
+          {nearHome && centre.canAsk && (
+            <button type="button" onClick={() => void findNearby({ ask: true })} disabled={busy} className="font-medium text-link underline underline-offset-2">
+              {t('where.useMyLocation')}
+            </button>
+          )}
+        </p>
+      )}
       {results && results.length === 0 && (
         <p className="text-sm text-muted" role="status">
-          {t('where.nothing', { query })} {mapsLink(t('where.searchMaps'))}
+          {nearHome ? t('where.nothingNearHome', { query }) : t('where.nothing', { query })} {mapsLink(t('where.searchMaps'))}
         </p>
       )}
       {results && results.length > 0 && (

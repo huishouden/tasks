@@ -52,6 +52,24 @@ export async function seedGroceriesLink(googleListId: string, title: string): Pr
   await emulatorRequest(`${REST}/households/${household}/settings/tasks`, { method: 'PATCH', headers: { ...ADMIN, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) });
 }
 
+/** Gives the household a home (`households/{id}.home`), as the portal's Household panel would, with admin access. */
+export async function seedHome(home: { address: string; lat: number; lng: number; timeZone?: string }): Promise<void> {
+  const household = await onlyHouseholdId();
+  const fields: Record<string, unknown> = {
+    address: { stringValue: home.address },
+    lat: { doubleValue: home.lat },
+    lng: { doubleValue: home.lng },
+    setBy: { stringValue: 'alice@example.com' },
+    updatedAt: { integerValue: String(Date.now()) },
+    ...(home.timeZone ? { timeZone: { stringValue: home.timeZone } } : {}),
+  };
+  await emulatorRequest(`${REST}/households/${household}?updateMask.fieldPaths=home`, {
+    method: 'PATCH',
+    headers: { ...ADMIN, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: { home: { mapValue: { fields } } } }),
+  });
+}
+
 /** The Google lists linked in the shared Google Tasks settings, with the household list each feeds. */
 export async function googleTasksLinks(): Promise<string[]> {
   const household = await onlyHouseholdId();

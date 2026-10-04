@@ -4,6 +4,7 @@ import { collection, disableNetwork, doc, initializeFirestore, memoryLocalCache,
 // On a Firestore that didn't come from initFirestore the kit's writes are Firestore's own (no outbox).
 import { writeBatch } from '@huishouden/pwa-kit/firestore';
 import { DAY, HOUR, startOfDay } from '@huishouden/pwa-kit/time';
+import type { HouseholdHome } from '@huishouden/pwa-kit/home';
 import { CATEGORIES, DEFAULT_LISTS, URGENCY, type Household, type ListItem, type ShoppingList, type Subtask, type Urgency } from './model';
 
 // Signed out, Tasks shows an invented household so it can be tried and screenshotted (CI's
@@ -18,6 +19,16 @@ export const DEMO_HOUSEHOLD: Household = {
   members: [DEMO_EMAIL, 'sam@example.com'],
   joined: [DEMO_EMAIL, 'sam@example.com'],
   createdAt: 0,
+};
+
+/** The sample household's home: an invented address in Springfield, Illinois. */
+export const DEMO_HOME: HouseholdHome = {
+  address: '12 Example Lane, Springfield, Illinois 62701',
+  lat: 39.7817,
+  lng: -89.6501,
+  timeZone: 'America/Chicago',
+  setBy: DEMO_EMAIL,
+  updatedAt: 0,
 };
 
 const at = (now: number, days: number, hour: number, minute = 0) => {
@@ -100,7 +111,7 @@ export function openDemo(now: number = Date.now()): Promise<Firestore> {
     await disableNetwork(db);
     const col = (name: string) => collection(db, 'households', DEMO_HOUSEHOLD.id, name);
     const batch = writeBatch(db);
-    batch.set(doc(db, 'households', DEMO_HOUSEHOLD.id), { name: DEMO_HOUSEHOLD.name, members: DEMO_HOUSEHOLD.members, joined: DEMO_HOUSEHOLD.joined, createdAt: now - 90 * DAY });
+    batch.set(doc(db, 'households', DEMO_HOUSEHOLD.id), { name: DEMO_HOUSEHOLD.name, members: DEMO_HOUSEHOLD.members, joined: DEMO_HOUSEHOLD.joined, home: DEMO_HOME, createdAt: now - 90 * DAY });
     // Every default list, as a real household has; Tasks shows the to-do ones.
     for (const list of [...DEFAULT_LISTS, DEMO_PROJECTS]) batch.set(doc(col('lists'), list.id), { ...list, createdAt: now - 90 * DAY });
     for (const i of demoItems(now)) {

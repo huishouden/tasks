@@ -216,5 +216,10 @@
   "where.today": "Today: {hours}",
   "where.locationOff": "Location is off for this app, so nearby places can’t be found here.",
   "where.mapBusy": "The free map service is busy right now.",
-  "where.lookupFailed": "Couldn’t look up places right now."
+  "where.lookupFailed": "Couldn’t look up places right now.",
+  "where.nearYou": "Near you",
+  "where.nearHome": "Near home",
+  "where.useMyLocation": "Use my location",
+  "where.nothingNearHome": "The free map has nothing like \"{query}\" near home; it misses many businesses.",
+  "where.setHome": "Or set the household’s home in {portal}, and Find nearby will look around it."
 }
