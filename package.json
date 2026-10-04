@@ -1,6 +1,7 @@
 {
   "name": "huishouden-tasks",
   "private": true,
+  "license": "PolyForm-Shield-1.0.0",
   "version": "2.4.1",
   "type": "module",
   "scripts": {
