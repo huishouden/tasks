@@ -411,7 +411,8 @@ export function EditItemDialog({
           </div>
         </details>
         <p className="text-sm text-muted">{item.addedBy ? t('item.addedBy', { name: item.addedBy }) : t('item.addedBySomeone')}</p>
-        <div className="mt-2 flex justify-between gap-2">
+        {/* Labels stay on one line ("Taak annuleren"): on a narrow phone the buttons share rows and grow to fill them. */}
+        <div className="mt-2 flex flex-wrap items-center gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:grow">
           <button
             type="button"
             onClick={() => {
@@ -434,7 +435,7 @@ export function EditItemDialog({
               <Ban size={18} /> {t('edit.cancelTask')}
             </button>
           )}
-          <button type="submit" className={primaryButton}>
+          <button type="submit" className={`${primaryButton} ml-auto`}>
             {t('common.save')}
           </button>
         </div>

@@ -8,6 +8,8 @@ playwright-report
 .claude/
 .twapp-notes-*.json
 .env
+.env.local
+.env*.local
 .DS_Store
 .twapp-asks.json
 e2e/emulators/firestore.rules

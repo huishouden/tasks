@@ -1,4 +1,5 @@
 import { createHousehold, expect, googleTasksLinks, seedGroceriesLink, signIn, test } from './fixtures';
+import { openAppSettings } from '@huishouden/pwa-kit/e2e';
 
 // Google Tasks has no emulator: the kit's stand-ins answer instead (window.__mockGoogleTasksToken,
 // __mockGoogleTaskLists, __mockGoogleTasks), as Google would to a member who connected.
@@ -23,7 +24,7 @@ test('to-dos told to an assistant are offered first; a Google list Groceries tak
     ];
   });
 
-  await page.getByRole('button', { name: 'Tasks settings' }).click();
+  await openAppSettings(page, 'Tasks settings');
   const settings = page.getByRole('region', { name: 'Google Tasks', exact: true });
   await settings.getByRole('button', { name: 'Connect Google Tasks' }).click();
   // Groceries' link is shown, not offered for change; only to-do lists are choices.
