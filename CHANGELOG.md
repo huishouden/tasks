@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/huishouden/tasks/compare/v2.4.0...v2.4.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* Theme lives in the app bar's menu only; Settings drop their copy ([#68](https://github.com/huishouden/tasks/issues/68)) ([f6710b8](https://github.com/huishouden/tasks/commit/f6710b8a6181f390905f64b38efc95d59aa3678f))
+
 ## [2.4.0](https://github.com/huishouden/tasks/compare/v2.3.0...v2.4.0) (2026-10-04)
 
 
