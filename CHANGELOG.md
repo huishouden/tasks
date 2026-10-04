@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.0](https://github.com/huishouden/tasks/compare/v2.3.0...v2.4.0) (2026-10-04)
+
+
+### Features
+
+* dated items in your own calendar: Add to calendar on every dated item, and changes made in Google Calendar come back ([#64](https://github.com/huishouden/tasks/issues/64)) ([0c0c97a](https://github.com/huishouden/tasks/commit/0c0c97a6a00d66d04383e21614dd734af255bed6))
+
+
+### Bug Fixes
+
+* Tasks settings in the app bar's menu, one button signed out; kit 0.70.0 ([#67](https://github.com/huishouden/tasks/issues/67)) ([466021e](https://github.com/huishouden/tasks/commit/466021e98663ab512e35c904622def0998af302d))
+
 ## [2.3.0](https://github.com/huishouden/tasks/compare/v2.2.1...v2.3.0) (2026-10-04)
 
 
