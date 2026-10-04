@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/huishouden/tasks/compare/v2.2.1...v2.3.0) (2026-10-04)
+
+
+### Features
+
+* Tasks in Spanish and Dutch ([#62](https://github.com/huishouden/tasks/issues/62)) ([15c1807](https://github.com/huishouden/tasks/commit/15c180705b75ed775f6c6a4e00765f61ce805f8d))
+
 ## [2.2.1](https://github.com/huishouden/tasks/compare/v2.2.0...v2.2.1) (2026-10-03)
 
 
