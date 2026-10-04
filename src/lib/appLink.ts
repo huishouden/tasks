@@ -1,7 +1,7 @@
-import { appUrl } from '@huishouden/pwa-kit/site';
+import { appUrl, SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
 
 /** Production, for code without a page (unit tests, scripts). */
-const SITE = 'https://huishouden-piekstra.web.app';
+const SITE = SUITE_ORIGIN;
 
 /**
  * The page's origin when it is https, so staging links to staging. The household rules accept only

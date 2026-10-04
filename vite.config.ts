@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { pwaApp } from '@huishouden/pwa-kit/vite';
+import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
 
 const BASE = '/tasks/';
 
@@ -15,7 +16,7 @@ export default defineConfig({
   },
   server: {
     // Against the real project in development, Firebase's config comes from the deployed site.
-    proxy: { '/__/firebase': { target: 'https://huishouden-piekstra.web.app', changeOrigin: true } },
+    proxy: { '/__/firebase': { target: SUITE_ORIGIN, changeOrigin: true } },
   },
   plugins: [
     react(),
@@ -26,7 +27,6 @@ export default defineConfig({
       name: 'Huishouden Tasks',
       shortName: 'Tasks',
       description: 'Shared to-dos and chores',
-      url: 'https://huishouden-piekstra.web.app/tasks/',
       // Shows the shared sender's reminders (pwa-kit push) and opens their links into Tasks.
       push: true,
       themeColor: '#1b4332',

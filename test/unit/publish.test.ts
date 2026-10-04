@@ -5,6 +5,7 @@ import { resolveOps, todoOpsAllowed } from '@huishouden/pwa-kit/todos';
 import { agendaDoc, agendaOpsAllowed, canEdit, fillEditOps } from '@huishouden/pwa-kit/agenda';
 import { agendaItems, cancelAction, doneAction, itemAgenda, itemEdit, itemReminder, itemTodo, itemUrl, reminderItems, todoItems, LEAD_MS } from '../../src/data/publish';
 import { CATEGORIES, URGENCY, isCancelled, type ListItem, type ShoppingList } from '../../src/data/model';
+import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
 
 const at = (y: number, m: number, d: number, hh = 0, mm = 0) => new Date(y, m - 1, d, hh, mm).getTime();
 const chores: ShoppingList = { id: 'chores', name: 'Chores & Notes', description: '', icon: 'chores', color: '#8a6f9e', sortOrder: 4, createdAt: 0 };
@@ -46,7 +47,7 @@ describe('itemAgenda', () => {
   it('a time is an appointment; a deadline says "By"; both link to the item', () => {
     expect(itemAgenda(item({ dueAt: at(2031, 1, 6, 15), location: 'Example Cleaners' }), chores)).toEqual({
       ref: 'item:i1', kind: 'appointment', title: 'Drop off dry cleaning', start: at(2031, 1, 6, 15), allDay: false,
-      detail: 'Example Cleaners · Chores & Notes', url: 'https://huishouden-piekstra.web.app/tasks/?list=chores&item=i1', status: 'upcoming',
+      detail: 'Example Cleaners · Chores & Notes', url: `${SUITE_ORIGIN}/tasks/?list=chores&item=i1`, status: 'upcoming',
       edit: expect.any(Object),
     });
     expect(itemAgenda(item({ dueAt: at(2031, 1, 6, 18), dueBy: true }), chores)).toMatchObject({ kind: 'task', detail: expect.stringMatching(/^By 6:00\s?PM · Chores & Notes$/) });
@@ -105,7 +106,7 @@ describe('todoItems', () => {
     const todo = itemTodo(item({ createdAt: at(2031, 1, 2, 8), dueAt: at(2031, 1, 20), allDay: true, dueBy: true, subtasks: steps, by: 'alex@example.com' }), chores);
     expect(todo).toEqual({
       ref: 'item:i1', title: 'Drop off dry cleaning', detail: 'Chores & Notes · 1 of 2 steps done', createdAt: at(2031, 1, 2, 8),
-      due: allDayStart('2031-01-20'), url: 'https://huishouden-piekstra.web.app/tasks/?list=chores&item=i1', owner: 'alex@example.com', private: false,
+      due: allDayStart('2031-01-20'), url: `${SUITE_ORIGIN}/tasks/?list=chores&item=i1`, owner: 'alex@example.com', private: false,
       done: doneAction('i1'), cancel: cancelAction('i1'),
     });
     // At a time, it is due then; undated, it has no due and no owner when no one signed it.
