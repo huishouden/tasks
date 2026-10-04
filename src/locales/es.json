@@ -196,8 +196,6 @@
   "settings.addMember": "Agregar miembro",
   "settings.addedAs": "Lo que se agregue en este dispositivo se marca como",
   "settings.addedAsHint": "Usa «Cocina» en la tableta compartida para saber quién agregó qué.",
-  "settings.theme": "Tema",
-  "settings.themeHint": "Para todas las apps de Huishouden en este dispositivo. Automático sigue al dispositivo.",
   "settings.install": "Instalar",
   "settings.installHint": "En Chrome, abre el menú ⋮ y elige «Agregar a la pantalla principal» o «Instalar app». En iPhone, usa Compartir y luego «Agregar a inicio».",
   "reorder.hint": "Arrastra desde el asa. Todos en el hogar ven el nuevo orden.",

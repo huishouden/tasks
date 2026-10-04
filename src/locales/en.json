@@ -196,8 +196,6 @@
   "settings.addMember": "Add member",
   "settings.addedAs": "Items added on this device are labelled",
   "settings.addedAsHint": "Use \"Kitchen\" on the shared tablet so you can tell who added what.",
-  "settings.theme": "Theme",
-  "settings.themeHint": "For every Huishouden app on this device. Automatic follows the device.",
   "settings.install": "Install",
   "settings.installHint": "In Chrome, open the ⋮ menu and choose \"Add to Home screen\" or \"Install app\". On iPhone, use Share, then \"Add to Home Screen\".",
   "reorder.hint": "Drag by the grip. Everyone in the household sees the new order.",

@@ -50,10 +50,18 @@ test('signed out, the Sample data banner is one line on a phone', ({ page }) => 
 
 test('follows the suite theme: dark on a dark device, readable', ({ page }) => expectThemeConsistent(page, { path: './' }));
 
-test("Settings' theme choice is the suite's, and the page follows it", async ({ page }) => {
+test("the theme is the app bar's, for the whole suite; Tasks settings have none of their own", async ({ page }) => {
   await page.goto('./');
   await openAppSettings(page, 'Tasks settings');
-  const theme = page.getByRole('group', { name: 'Theme' });
+  const settings = page.getByRole('dialog', { name: 'Settings' });
+  await expect(settings).toBeVisible();
+  await expect(settings.getByRole('group', { name: 'Theme' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(settings).toHaveCount(0);
+
+  const bar = page.locator('hh-app-bar');
+  await bar.locator('[data-trigger]').click();
+  const theme = bar.getByRole('group', { name: 'Theme' });
   await expect(theme.getByRole('button')).toHaveText(['Automatic', 'Light', 'Dark']);
   await theme.getByRole('button', { name: 'Dark' }).click();
   await expect(theme.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
