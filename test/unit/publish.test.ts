@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { allDayStart } from '@huishouden/pwa-kit/agenda';
 import { applyOps } from '@huishouden/pwa-kit/store';
 import { resolveOps, todoOpsAllowed } from '@huishouden/pwa-kit/todos';
-import { agendaItems, cancelAction, doneAction, itemAgenda, itemReminder, itemTodo, itemUrl, reminderItems, todoItems, LEAD_MS } from '../../src/data/publish';
+import { agendaDoc, agendaOpsAllowed, canEdit, fillEditOps } from '@huishouden/pwa-kit/agenda';
+import { agendaItems, cancelAction, doneAction, itemAgenda, itemEdit, itemReminder, itemTodo, itemUrl, reminderItems, todoItems, LEAD_MS } from '../../src/data/publish';
 import { CATEGORIES, URGENCY, isCancelled, type ListItem, type ShoppingList } from '../../src/data/model';
 
 const at = (y: number, m: number, d: number, hh = 0, mm = 0) => new Date(y, m - 1, d, hh, mm).getTime();
@@ -15,11 +16,38 @@ function item(overrides: Partial<ListItem>): ListItem {
   };
 }
 
+describe('itemEdit: changes from a person\'s own Google Calendar', () => {
+  it('moves, renames and re-notes the item in items/{id}, writing only those fields', () => {
+    const edit = itemEdit(item({ by: 'Kim@Example.com' }));
+    for (const kind of ['reschedule', 'rename', 'notes'] as const) expect(agendaOpsAllowed('tasks', edit[kind]!.ops)).toBe(true);
+    const [move] = resolveOps(fillEditOps(edit.reschedule!.ops, { start: at(2031, 1, 7, 9) }), { now: 5, me: 'kim@example.com' });
+    expect(move).toEqual({ col: 'items', id: 'i1', data: { dueAt: at(2031, 1, 7, 9), updatedAt: 5 }, merge: true });
+    const [rename] = resolveOps(fillEditOps(edit.rename!.ops, { title: 'Pick up dry cleaning' }), { now: 5, me: 'kim@example.com' });
+    expect(rename.data).toEqual({ name: 'Pick up dry cleaning', updatedAt: 5 });
+    const [notes] = resolveOps(fillEditOps(edit.notes!.ops, { notes: 'Ticket 42' }), { now: 5, me: 'kim@example.com' });
+    expect(notes.data).toEqual({ notes: 'Ticket 42', updatedAt: 5 });
+  });
+
+  it('admins and members on any item; helpers and kids only on their own, as the rules allow', () => {
+    const own = { app: 'tasks', edit: itemEdit(item({ by: 'kim@example.com' })) };
+    expect(canEdit(own, 'reschedule', 'member', 'sam@example.com')).toBe(true);
+    expect(canEdit(own, 'reschedule', 'kid', 'kim@example.com')).toBe(true);
+    expect(canEdit(own, 'reschedule', 'helper', 'helen@example.com')).toBe(false);
+    expect(canEdit({ app: 'tasks', edit: itemEdit(item({})) }, 'rename', 'kid', 'kim@example.com')).toBe(false);
+  });
+
+  it('the published agenda item carries them, as the kit stores it', () => {
+    const entry = itemAgenda(item({ dueAt: at(2031, 1, 6, 15), by: 'kim@example.com' }), chores)!;
+    expect(agendaDoc('tasks', entry, 'kim@example.com', 1).edit?.reschedule?.emails).toEqual(['kim@example.com']);
+  });
+});
+
 describe('itemAgenda', () => {
   it('a time is an appointment; a deadline says "By"; both link to the item', () => {
     expect(itemAgenda(item({ dueAt: at(2031, 1, 6, 15), location: 'Example Cleaners' }), chores)).toEqual({
       ref: 'item:i1', kind: 'appointment', title: 'Drop off dry cleaning', start: at(2031, 1, 6, 15), allDay: false,
       detail: 'Example Cleaners · Chores & Notes', url: 'https://huishouden-piekstra.web.app/tasks/?list=chores&item=i1', status: 'upcoming',
+      edit: expect.any(Object),
     });
     expect(itemAgenda(item({ dueAt: at(2031, 1, 6, 18), dueBy: true }), chores)).toMatchObject({ kind: 'task', detail: expect.stringMatching(/^By 6:00\s?PM · Chores & Notes$/) });
   });

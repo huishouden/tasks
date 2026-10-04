@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await createHousehold(page);
 });
 
-test('an appointment shows its date and place, and links to Google Calendar', async ({ page }) => {
+test('an appointment shows its date and place, and goes into Google Calendar or a .ics file', async ({ page }) => {
   await addItem(page, 'Get car inspected at the dealer');
   await page.getByRole('button', { name: 'Edit Get car inspected at the dealer' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit task' });
@@ -14,16 +14,23 @@ test('an appointment shows its date and place, and links to Google Calendar', as
   await dialog.getByLabel('Where').fill('Main St Service Center');
   await dialog.getByText('List and link').click();
 
-  const add = dialog.getByRole('link', { name: 'Add to Google Calendar' });
-  const url = new URL((await add.getAttribute('href'))!);
+  const add = dialog.getByRole('button', { name: 'Add to calendar' });
+  await add.click();
+  const google = dialog.getByRole('menuitem', { name: 'Google Calendar' });
+  const url = new URL((await google.getAttribute('href'))!);
   expect(url.searchParams.get('text')).toBe('Get car inspected at the dealer');
   expect(url.searchParams.get('location')).toBe('Main St Service Center');
+  expect(url.searchParams.get('dates')).toBe('20300614T103000/20300614T113000');
+  const download = page.waitForEvent('download');
+  await dialog.getByRole('menuitem', { name: /\.ics/ }).click();
+  expect((await download).suggestedFilename()).toBe('Get-car-inspected-at-the-dealer.ics');
 
   await dialog.getByLabel('Link').fill('https://calendar.google.com/calendar/event?eid=abc123');
   await expect(add).toHaveCount(0); // an existing event replaces "add"
   await dialog.getByRole('button', { name: 'Save' }).click();
 
   const row = page.locator('main li', { hasText: 'Get car inspected' });
+  await expect(row.getByRole('button', { name: 'Add Get car inspected at the dealer to a calendar' })).toBeVisible();
   await expect(row).toContainText(/Jun 14.*10:30/);
   await expect(row).toContainText('Main St Service Center');
   await expect(row.getByRole('link', { name: 'Open in Calendar' })).toHaveAttribute('href', 'https://calendar.google.com/calendar/event?eid=abc123');

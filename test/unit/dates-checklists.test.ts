@@ -3,7 +3,7 @@ import {
   CATEGORIES,
   URGENCY,
   formatDue,
-  googleCalendarLink,
+  calendarEntry,
   isOverdue,
   needsDoing,
   splitIntoChecklist,
@@ -75,25 +75,18 @@ describe('upcomingItems', () => {
   });
 });
 
-describe('googleCalendarLink', () => {
-  it('prefills a one-hour event with place and notes', () => {
-    const url = new URL(
-      googleCalendarLink(
-        { name: 'Car inspection', notes: 'Bring registration', dueAt: Date.UTC(2026, 9, 14, 14, 0), allDay: false, location: 'Service center' },
-        'Weekend Projects',
-      ),
-    );
-    expect(url.origin + url.pathname).toBe('https://calendar.google.com/calendar/render');
-    expect(url.searchParams.get('action')).toBe('TEMPLATE');
-    expect(url.searchParams.get('text')).toBe('Car inspection');
-    expect(url.searchParams.get('dates')).toBe('20261014T140000Z/20261014T150000Z');
-    expect(url.searchParams.get('location')).toBe('Service center');
-    expect(url.searchParams.get('details')).toBe('Bring registration\nFrom Huishouden Tasks: Weekend Projects');
+describe('calendarEntry: Add to calendar', () => {
+  it('a timed item is an hour, with its place, notes, list and link', () => {
+    expect(calendarEntry({ name: 'Car inspection', notes: 'Bring registration', dueAt: at(2026, 10, 14, 14), allDay: false, location: 'Service center' }, 'Weekend Projects', 'https://example.com/tasks/?item=i1')).toEqual({
+      title: 'Car inspection', start: at(2026, 10, 14, 14), end: at(2026, 10, 14, 15), allDay: false,
+      detail: 'Bring registration\nFrom Huishouden Tasks: Weekend Projects', location: 'Service center', url: 'https://example.com/tasks/?item=i1', kind: 'appointment',
+    });
   });
 
-  it('uses date-only stamps for all-day items', () => {
-    const url = new URL(googleCalendarLink({ name: 'Bin day', notes: '', dueAt: at(2026, 10, 14), allDay: true }, 'Chores'));
-    expect(url.searchParams.get('dates')).toBe('20261014/20261015');
+  it('an all-day item is its day; a deadline is a task; no date, no entry', () => {
+    expect(calendarEntry({ name: 'Bin day', notes: '', dueAt: at(2026, 10, 14, 9), allDay: true }, 'Chores')).toMatchObject({ start: at(2026, 10, 14), allDay: true, kind: 'task' });
+    expect(calendarEntry({ name: 'Pay rent', notes: '', dueAt: at(2026, 10, 14, 18), allDay: false, dueBy: true }, 'Chores')?.kind).toBe('task');
+    expect(calendarEntry({ name: 'x', notes: '', dueAt: null }, 'Chores')).toBeNull();
   });
 });
 
