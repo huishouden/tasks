@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { ChevronDown, Plus, Zap } from 'lucide-react';
-import { ALL_URGENCIES, URGENCY, type Urgency } from '../data/model';
+import { ALL_URGENCIES, URGENCY, urgencyLabel, type Urgency } from '../data/model';
+import { useT } from '../i18n';
 import { inputClass } from './ui';
 
 export interface AddRequest {
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function AddBar({ onAdd, placeholder }: Props) {
+  const t = useT();
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const [urgency, setUrgency] = useState<Urgency>(URGENCY.NORMAL);
@@ -43,17 +45,17 @@ export function AddBar({ onAdd, placeholder }: Props) {
           ref={inputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={placeholder ?? 'Add a task: drop off dry cleaning before 6…'}
+          placeholder={placeholder ?? t('add.placeholder')}
           enterKeyHint="done"
           autoComplete="off"
           className={`min-w-0 flex-1 bg-transparent px-3 outline-none py-2 text-base`}
-          aria-label="New item"
+          aria-label={t('add.newItem')}
         />
         <button
           type="button"
           onClick={() => setShowDetails((v) => !v)}
           className={`rounded-xl p-2 text-muted hover:bg-stone-100 dark:hover:bg-forest-700 ${showDetails ? 'bg-stone-100 dark:bg-forest-700' : ''}`}
-          aria-label="More details"
+          aria-label={t('add.moreDetails')}
           aria-expanded={showDetails}
         >
           <ChevronDown size={20} className={showDetails ? 'rotate-180 transition' : 'transition'} />
@@ -63,18 +65,18 @@ export function AddBar({ onAdd, placeholder }: Props) {
           disabled={!name.trim()}
           className={`inline-flex items-center gap-1.5 rounded-xl bg-primary font-semibold text-on-primary disabled:opacity-40 px-4 py-2`}
         >
-          <Plus size={18} strokeWidth={2.5} /> Add
+          <Plus size={18} strokeWidth={2.5} /> {t('common.add')}
         </button>
       </form>
 
       {showDetails && (
         <div className="mt-2 grid gap-2 rounded-2xl border border-line bg-surface p-3 sm:grid-cols-2">
           <label className="text-sm text-muted">
-            Notes
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ticket number, what to bring…" className={`${inputClass} mt-1`} />
+            {t('common.notes')}
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('add.notesPlaceholder')} className={`${inputClass} mt-1`} />
           </label>
           <div className="text-sm text-muted">
-            When
+            {t('item.when')}
             <div className="mt-1 flex gap-1.5">
               {ALL_URGENCIES.map((u) => (
                 <button
@@ -90,7 +92,7 @@ export function AddBar({ onAdd, placeholder }: Props) {
                   }`}
                 >
                   {u === URGENCY.URGENT && <Zap size={12} className="mr-0.5 inline" />}
-                  {u}
+                  {urgencyLabel(u)}
                 </button>
               ))}
             </div>

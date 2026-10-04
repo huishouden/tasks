@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { syncAgenda, type AgendaInput } from '@huishouden/pwa-kit/agenda';
-import { syncReminders, type ReminderInput } from '@huishouden/pwa-kit/reminders';
-import { syncTodos, type TodoInput } from '@huishouden/pwa-kit/todos';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { localizeAgenda, syncAgenda } from '@huishouden/pwa-kit/agenda';
+import { localizeReminders, syncReminders } from '@huishouden/pwa-kit/reminders';
+import { localizeTodos, syncTodos } from '@huishouden/pwa-kit/todos';
 import { APP, agendaItems, reminderItems, todoItems } from './publish';
 import {
   GoogleAuthProvider,
@@ -449,19 +449,38 @@ export function usePublish(db: Firestore, householdId: string, by: string, data:
   const agendaKey = agenda ? JSON.stringify(agenda) : null;
   const todosKey = todos ? JSON.stringify(todos) : null;
   const remindersKey = reminders ? JSON.stringify(reminders) : null;
+  // The keys notice a change; each write builds the records again in every language, so every
+  // member's device reads its own (docs/i18n.md step 8).
+  const latest = useRef(data);
+  latest.current = data;
   useEffect(() => {
     if (!agendaKey) return;
-    const timer = setTimeout(() => void syncAgenda(db, householdId, APP, JSON.parse(agendaKey) as AgendaInput[], { by, restricted }).catch(() => {}), PUBLISH_DELAY_MS);
+    const timer = setTimeout(() => {
+      const { items, lists } = latest.current;
+      void localizeAgenda(() => agendaItems(items, lists))
+        .then((records) => syncAgenda(db, householdId, APP, records, { by, restricted }))
+        .catch(() => {});
+    }, PUBLISH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [db, householdId, by, agendaKey, restricted]);
   useEffect(() => {
     if (!todosKey) return;
-    const timer = setTimeout(() => void syncTodos(db, householdId, APP, JSON.parse(todosKey) as TodoInput[], { by, restricted }).catch(() => {}), PUBLISH_DELAY_MS);
+    const timer = setTimeout(() => {
+      const { items, lists } = latest.current;
+      void localizeTodos(() => todoItems(items, lists))
+        .then((records) => syncTodos(db, householdId, APP, records, { by, restricted }))
+        .catch(() => {});
+    }, PUBLISH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [db, householdId, by, todosKey, restricted]);
   useEffect(() => {
     if (!remindersKey) return;
-    const timer = setTimeout(() => void syncReminders(db, householdId, APP, JSON.parse(remindersKey) as ReminderInput[], by, undefined, { restricted }).catch(() => {}), PUBLISH_DELAY_MS);
+    const timer = setTimeout(() => {
+      const { items } = latest.current;
+      void localizeReminders(() => reminderItems(items))
+        .then((records) => syncReminders(db, householdId, APP, records, by, undefined, { restricted }))
+        .catch(() => {});
+    }, PUBLISH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [db, householdId, by, remindersKey, restricted]);
 }

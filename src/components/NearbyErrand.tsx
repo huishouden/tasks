@@ -4,6 +4,8 @@ import type { ListItem } from '../data/model';
 import { distanceKm } from '@huishouden/pwa-kit/places';
 import { currentPosition, locationPermission } from '../lib/location';
 import { usePref } from '../lib/prefs';
+import { useT } from '../i18n';
+import { richT } from '../lib/rich';
 
 /** Close enough to stop in: a car park, or across the street. */
 const NEAR_METERS = 250;
@@ -15,6 +17,7 @@ const SNOOZE_MS = 3 * 60 * 60 * 1000;
  * comes to the foreground, at most once a minute; it never asks by itself.
  */
 export function NearbyErrand({ items, onDone }: { items: ListItem[]; onDone: (item: ListItem) => void }) {
+  const t = useT();
   const [snoozed, setSnoozed] = usePref<Record<string, number>>('snoozedErrands', {});
   const [near, setNear] = useState<ListItem[]>([]);
   const errands = items.filter((i) => !i.completed && i.place);
@@ -52,24 +55,24 @@ export function NearbyErrand({ items, onDone }: { items: ListItem[]; onDone: (it
   if (!item) return null;
   const others = near.filter((i) => i.id !== item.id && !(snoozed[i.id] > now)).length;
   return (
-    <div role="status" aria-label="Nearby errand" className="flex items-center gap-2 rounded-2xl border border-forest-200 bg-surface px-3 py-2 text-sm dark:border-forest-600">
+    <div role="status" aria-label={t('errand.label')} className="flex items-center gap-2 rounded-2xl border border-forest-200 bg-surface px-3 py-2 text-sm dark:border-forest-600">
       <MapPin size={16} className="shrink-0 text-positive" />
       <span className="min-w-0 flex-1">
-        Near <strong>{item.place!.name}</strong>: {item.name}
-        {others > 0 && <span className="text-muted"> and {others} more</span>}
+        {richT('errand.near', { place: <strong translate="no">{item.place!.name}</strong>, item: <span translate="no">{item.name}</span> })}
+        {others > 0 && <span className="text-muted"> {t('errand.more', { count: others })}</span>}
       </span>
       <button onClick={() => onDone(item)} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl bg-primary px-3 font-semibold text-on-primary">
-        <Check size={14} /> Done
+        <Check size={14} /> {t('common.done')}
       </button>
       <button
         onClick={() => {
           // Keep only snoozes still running, so the stored list does not grow forever.
-          const t = Date.now();
-          const live = Object.fromEntries(Object.entries(snoozed).filter(([, until]) => until > t));
-          setSnoozed({ ...live, [item.id]: t + SNOOZE_MS });
+          const at = Date.now();
+          const live = Object.fromEntries(Object.entries(snoozed).filter(([, until]) => until > at));
+          setSnoozed({ ...live, [item.id]: at + SNOOZE_MS });
         }}
         className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted hover:bg-stone-100 dark:hover:bg-forest-700"
-        aria-label={`Not now: ${item.name}`}
+        aria-label={t('errand.notNow', { name: item.name })}
       >
         <X size={16} />
       </button>

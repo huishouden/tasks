@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { Ban, CalendarClock, Check, ChevronDown, ExternalLink, ListChecks, MapPin, Pencil, Trash2, Zap } from 'lucide-react';
 import { mapsSearchUrl } from '@huishouden/pwa-kit/places';
 import { URGENCY, formatDue, isCancelled, isOverdue, type ListItem } from '../data/model';
+import { useT } from '../i18n';
 
 interface Props {
   item: ListItem;
@@ -25,6 +26,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
   const [expanded, setExpanded] = useState(false);
   const steps = item.subtasks ?? [];
   const stepsDone = steps.filter((st) => st.done).length;
+  const t = useT();
   // A due time says more than "Need today", so the badge only shows on undated items.
   const urgent = item.urgency === URGENCY.URGENT && !item.completed && !item.dueAt;
   const now = Date.now();
@@ -43,7 +45,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
       {drag?.handle}
       <button
         onClick={onToggle}
-        aria-label={cancelled ? `Restore ${item.name}` : item.completed ? `Mark ${item.name} not done` : `Mark ${item.name} done`}
+        aria-label={cancelled ? t('item.restore', { name: item.name }) : item.completed ? t('item.markNotDone', { name: item.name }) : t('item.markDone', { name: item.name })}
         className={`flex shrink-0 items-center justify-center rounded-full border-2 transition ${large ? 'h-10 w-10' : 'h-8 w-8'} ${
           cancelled
             ? 'border-stone-300 text-muted dark:border-forest-500'
@@ -57,15 +59,15 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
       <div className="min-w-0 flex-1">
         <button onClick={onEdit ?? onToggle} className="block w-full text-left">
           <span className={`${large ? 'text-xl' : 'text-base'} ${item.completed && !cancelled ? 'line-through' : ''}`}>
-            <span className="font-medium [overflow-wrap:anywhere]">{item.name}</span>
+            <span className="font-medium [overflow-wrap:anywhere]" translate="no">{item.name}</span>
             {cancelled && (
               <span className="ml-2 inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 align-middle text-xs font-semibold text-muted dark:bg-forest-700">
-                Cancelled
+                {t('item.cancelled')}
               </span>
             )}
             {urgent && (
               <span className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-attention-tint px-2 py-0.5 align-middle text-xs font-semibold text-attention">
-                <Zap size={12} /> Today
+                <Zap size={12} /> {t('due.today')}
               </span>
             )}
           </span>
@@ -73,7 +75,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
             <span className={`block text-muted [overflow-wrap:anywhere] ${large ? 'text-base' : 'text-sm'}`}>
               {details.join(' · ')}
               {details.length > 0 && item.addedBy ? ' · ' : ''}
-              {item.addedBy}
+              <span translate="no">{item.addedBy}</span>
             </span>
           )}
         </button>
@@ -83,12 +85,12 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
             aria-expanded={expanded}
             className={`mt-1 inline-flex items-center gap-1 rounded-full bg-tint px-2 py-0.5 font-medium text-forest-700 dark:text-forest-100 ${large ? 'text-base' : 'text-sm'}`}
           >
-            <ListChecks size={14} /> {stepsDone} of {steps.length} done
+            <ListChecks size={14} /> {t('item.stepsDone', { done: stepsDone, total: steps.length })}
             <ChevronDown size={14} className={expanded ? 'rotate-180' : ''} />
           </button>
         )}
         {steps.length > 0 && expanded && (
-          <ul className="mt-2 grid gap-1" aria-label={`Steps for ${item.name}`}>
+          <ul className="mt-2 grid gap-1" aria-label={t('item.steps', { name: item.name })}>
             {steps.map((st) => (
               <li key={st.id}>
                 <label className={`flex cursor-pointer items-start gap-2 ${large ? 'text-lg' : 'text-sm'}`}>
@@ -110,7 +112,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
             {item.dueAt ? (
               <span className={`inline-flex items-center gap-1 font-medium ${overdue ? 'text-attention' : 'text-positive'}`}>
                 <CalendarClock size={14} /> {formatDue(item, now)}
-                {overdue && <span className="font-normal">(overdue)</span>}
+                {overdue && <span className="font-normal">{t('item.overdue')}</span>}
               </span>
             ) : null}
             {item.location && (
@@ -119,7 +121,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex min-w-0 items-center gap-1 text-muted underline-offset-2 hover:underline"
-                aria-label={`${item.location}, open in Maps`}
+                aria-label={t('item.openInMaps', { place: item.location })}
               >
                 <MapPin size={14} className="shrink-0" /> <span className="[overflow-wrap:anywhere]">{item.location}</span>
               </a>
@@ -131,19 +133,19 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 font-medium text-link underline-offset-2 hover:underline"
               >
-                <ExternalLink size={14} /> {/calendar\.google\.com|google\.com\/calendar/.test(item.link) ? 'Open in Calendar' : 'Open link'}
+                <ExternalLink size={14} /> {/calendar\.google\.com|google\.com\/calendar/.test(item.link) ? t('item.openCalendar') : t('item.openLink')}
               </a>
             )}
           </div>
         )}
       </div>
       {onEdit && (
-        <button onClick={onEdit} className="hidden shrink-0 rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 sm:block dark:hover:bg-forest-700" aria-label={`Edit ${item.name}`}>
+        <button onClick={onEdit} className="hidden shrink-0 rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 sm:block dark:hover:bg-forest-700" aria-label={t('item.edit', { name: item.name })}>
           <Pencil size={18} />
         </button>
       )}
       {onDelete && (
-        <button onClick={onDelete} className="shrink-0 rounded-lg p-2 text-stone-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" aria-label={`Delete ${item.name}`}>
+        <button onClick={onDelete} className="shrink-0 rounded-lg p-2 text-stone-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" aria-label={t('item.delete', { name: item.name })}>
           <Trash2 size={18} />
         </button>
       )}

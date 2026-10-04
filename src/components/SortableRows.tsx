@@ -3,6 +3,7 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
+import { t } from '../i18n';
 
 /** A vertical list of string keys reordered by each row's grip (touch, mouse or Space + arrows). */
 export function SortableRows({
@@ -51,7 +52,7 @@ function Row({ id, label, children }: { id: string; label: string; children: Rea
         ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
-        aria-label={`Move ${label}`}
+        aria-label={t('reorder.move', { name: label })}
         className="shrink-0 cursor-grab touch-none rounded-lg p-1 text-stone-300 hover:text-stone-500 active:cursor-grabbing dark:text-forest-500"
       >
         <GripVertical size={20} />
