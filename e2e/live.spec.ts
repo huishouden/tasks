@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { expectCleanLoad, expectCompactSampleBanner, expectGoogleSignInPopup, expectHuishoudenFrame, expectInstallable, expectSecurityHeaders, expectThemeConsistent, openAppSettings } from '@huishouden/pwa-kit/e2e';
+import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
 
 // Smoke tests of the deployed site (the kit runs them after every deploy with BASE_URL set).
 // Read-only: they stop at Google's account picker and never sign in or write data.
@@ -27,7 +28,7 @@ test('a shared link shows a preview', async ({ page, request }) => {
   await page.goto('./');
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Shared to-dos and chores');
   const image = await page.locator('meta[property="og:image"]').getAttribute('content');
-  expect(image).toBe('https://huishouden-piekstra.web.app/tasks/og.png');
+  expect(image).toBe(`${SUITE_ORIGIN}/tasks/og.png`);
   expect((await request.get('og.png')).ok()).toBe(true);
 });
 

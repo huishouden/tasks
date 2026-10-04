@@ -35,7 +35,6 @@ jobs:
       pull-requests: write # before/after comment on PRs
     with:
       base: /tasks/
-      site-url: https://huishouden-piekstra.web.app/tasks/
       staging-ref: ${{ inputs.staging-ref }}
 
   # What only this app has: every signed-in browser flow, run against the Auth and Firestore
