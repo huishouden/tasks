@@ -1,17 +1,19 @@
 import { can, householdRole, roleLabel, type Role } from '@huishouden/pwa-kit/roles';
 import { RoleNote, RoleSelect } from '@huishouden/pwa-kit/react/roles';
 import { useEffect, useId, useRef, useState } from 'react';
-import { Ban, CalendarClock, CalendarPlus, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
+import { Ban, CalendarClock, CalendarSearch, ChevronDown, Download, ListChecks, Loader2, LocateFixed, MapPin, Plus, Send, Trash2, UserPlus, X, Zap } from 'lucide-react';
 import { describeDay, parseOpeningHours } from '@huishouden/pwa-kit/hours';
 import { PlaceSearchUnavailable, formatDistance, mapsSearchUrl, placeKinds, searchPlaces, type Place } from '@huishouden/pwa-kit/places';
 import { findCalendarEvents, type CalendarMatch } from '@huishouden/pwa-kit/calendar';
+import { AddToCalendar } from '@huishouden/pwa-kit/react/calendar';
+import { itemUrl } from '../data/publish';
 import { getFirebase } from '../lib/firebase';
 import {
   URGENCY,
   LIST_COLORS,
   moveInOrder,
   formatDue,
-  googleCalendarLink,
+  calendarEntry,
   listName as shownName,
   newSubtask,
   splitIntoChecklist,
@@ -404,14 +406,7 @@ export function EditItemDialog({
             </label>
             {!linkValid && <p className="text-sm text-attention">{t('edit.linkInvalid')}</p>}
             {dueAt !== null && !link.trim() && (
-              <a
-                href={googleCalendarLink({ name, notes, dueAt, allDay: !time, location }, listName)}
-                target="_blank"
-                rel="noreferrer"
-                className={`${ghostButton} justify-self-start text-link`}
-              >
-                <CalendarPlus size={18} /> {t('edit.addToCalendar')}
-              </a>
+              <AddToCalendar className="justify-self-start" entry={calendarEntry({ name, notes, dueAt, allDay: !time, dueBy: !!time && dueBy, location }, listName, itemUrl(item))!} />
             )}
           </div>
         </details>

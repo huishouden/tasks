@@ -169,7 +169,6 @@
   "edit.link": "Enlace",
   "edit.linkPlaceholder": "Pega el enlace del evento de Google Calendar",
   "edit.linkInvalid": "Los enlaces empiezan con https://",
-  "edit.addToCalendar": "Agregar a Google Calendar",
   "edit.cancelTask": "Cancelar tarea",
   "newList.name": "Nombre de la lista",
   "newList.icon": "Ícono",

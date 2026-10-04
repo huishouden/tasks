@@ -1,7 +1,9 @@
 import { useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { Ban, CalendarClock, Check, ChevronDown, ExternalLink, ListChecks, MapPin, Pencil, Trash2, Zap } from 'lucide-react';
 import { mapsSearchUrl } from '@huishouden/pwa-kit/places';
-import { URGENCY, formatDue, isCancelled, isOverdue, type ListItem } from '../data/model';
+import { AddToCalendar } from '@huishouden/pwa-kit/react/calendar';
+import { URGENCY, calendarEntry, formatDue, isCancelled, isOverdue, type ListItem } from '../data/model';
+import { itemUrl } from '../data/publish';
 import { useT } from '../i18n';
 
 interface Props {
@@ -115,6 +117,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
                 {overdue && <span className="font-normal">{t('item.overdue')}</span>}
               </span>
             ) : null}
+            {item.dueAt && !item.completed ? <AddToCalendar compact entry={calendarEntry(item, undefined, itemUrl(item))!} /> : null}
             {item.location && (
               <a
                 href={mapsSearchUrl(item.location)}

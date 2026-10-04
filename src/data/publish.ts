@@ -1,4 +1,4 @@
-import { allDayStart, type AgendaInput } from '@huishouden/pwa-kit/agenda';
+import { allDayStart, type AgendaEdit, type AgendaInput } from '@huishouden/pwa-kit/agenda';
 import type { ReminderInput } from '@huishouden/pwa-kit/reminders';
 import type { Role } from '@huishouden/pwa-kit/roles';
 import type { TodoAction, TodoInput } from '@huishouden/pwa-kit/todos';
@@ -8,7 +8,7 @@ import { appLink } from '../lib/appLink';
 import { isTaskList, listName, type ListItem, type ShoppingList } from './model';
 
 // What Tasks shares with the rest of Huishouden: dated items on the household agenda (the portal's
-// Calendar and Today), reminders the shared sender pushes, and open items on the household to-do list
+// Calendar and Today, and each person's own calendar, with the edits a change there comes back by), reminders the shared sender pushes, and open items on the household to-do list
 // (the portal's To-do tab). Both are worked out from the items
 // themselves, so any device can publish them and they always match the lists.
 
@@ -23,6 +23,9 @@ export function itemUrl(item: Pick<ListItem, 'id' | 'listId'>, app = APP_URL): s
 
 export const itemRef = (id: string) => `item:${id}`;
 
+/** The Firestore collection Tasks' to-do actions and agenda edits write (`TODO_COLLECTIONS.tasks`, `AGENDA_EDIT_COLLECTIONS.tasks`). */
+const ITEMS = 'items';
+
 /** "2 of 5 steps done" for a checklist. */
 export function stepsDone(item: Pick<ListItem, 'subtasks'>): string | null {
   const steps = item.subtasks ?? [];
@@ -31,6 +34,22 @@ export function stepsDone(item: Pick<ListItem, 'subtasks'>): string | null {
 }
 
 const clock = (at: number) => formatTime(at);
+
+/**
+ * How a change made in someone's own Google Calendar comes back to the item (huishouden/calendar,
+ * as that person, so the rules still decide): moved to another day or time (`dueAt`), renamed
+ * (`name`), new notes (`notes`). Admins and members may on any item; helpers and kids on their own,
+ * as in the app.
+ */
+export function itemEdit(item: Pick<ListItem, 'id' | 'by'>): AgendaEdit {
+  const who = { roles: ['admin', 'member'] as Role[], ...(item.by ? { emails: [item.by.toLowerCase()] } : {}) };
+  const write = (data: Record<string, unknown>) => [{ col: ITEMS, id: item.id, data: { ...data, updatedAt: '$now' }, merge: true }];
+  return {
+    reschedule: { ops: write({ dueAt: '$start' }), ...who },
+    rename: { ops: write({ name: '$title' }), ...who },
+    notes: { ops: write({ notes: '$notes' }), ...who },
+  };
+}
 
 /**
  * A dated item as the household calendar shows it: an appointment when it is at a time, a task when
@@ -52,6 +71,7 @@ export function itemAgenda(item: ListItem, list: Pick<ShoppingList, 'id' | 'name
     ...(detail ? { detail } : {}),
     url: itemUrl(item, app),
     status: item.completed ? 'done' : 'upcoming',
+    edit: itemEdit(item),
   };
 }
 
@@ -98,8 +118,6 @@ export function reminderItems(items: ListItem[], app = APP_URL): ReminderInput[]
   });
 }
 
-/** The Firestore collection Tasks' to-do actions write (`TODO_COLLECTIONS.tasks`). */
-const ITEMS = 'items';
 const EVERYONE: Role[] = ['admin', 'member', 'helper', 'kid'];
 
 /** Ticks the item off, as its checkbox does: tick fields only, so helpers and kids may on anyone's. */

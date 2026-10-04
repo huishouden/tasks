@@ -2,6 +2,7 @@ import { can, type Role } from '@huishouden/pwa-kit/roles';
 import { DAY, HOUR, formatTime, startOfDay } from '@huishouden/pwa-kit/time';
 import { getLocale } from '@huishouden/pwa-kit/i18n';
 import { t } from '../i18n';
+import type { CalendarEntry } from '@huishouden/pwa-kit/calendar-export';
 export const CATEGORIES = {
   PRODUCE: 'Produce & Greens',
   DAIRY_EGGS: 'Dairy & Eggs',
@@ -307,28 +308,24 @@ export function upcomingItems(items: ListItem[], now: number, days = 14): ListIt
   return items.filter((i) => !i.completed && i.dueAt && i.dueAt < until).sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
 }
 
-function calendarStamp(t: number, allDay: boolean): string {
-  const d = new Date(t);
-  if (allDay) {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
-  }
-  return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-}
-
-/** A Google Calendar "new event" link prefilled from the item; timed events default to one hour. */
-export function googleCalendarLink(item: Pick<ListItem, 'name' | 'notes' | 'dueAt' | 'allDay' | 'location'>, listName: string): string {
-  if (!item.dueAt) return '';
-  const start = item.allDay ? startOfDay(item.dueAt) : item.dueAt;
-  const end = item.allDay ? start + DAY : start + HOUR;
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: item.name,
-    dates: `${calendarStamp(start, !!item.allDay)}/${calendarStamp(end, !!item.allDay)}`,
-    details: [item.notes, t('calendar.from', { list: listName })].filter(Boolean).join('\n'),
-  });
-  if (item.location) params.set('location', item.location);
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+/**
+ * The item as "Add to calendar" puts it in someone's own calendar (`AddToCalendar`, Google Calendar
+ * or a .ics file): a timed one for an hour, an all-day one on its day, with its place, notes and a
+ * link back. Null when it has no date.
+ */
+export function calendarEntry(item: Pick<ListItem, 'name' | 'notes' | 'dueAt' | 'allDay' | 'dueBy' | 'location'>, listName?: string, url?: string): CalendarEntry | null {
+  if (!item.dueAt) return null;
+  const allDay = !!item.allDay;
+  return {
+    title: item.name.trim(),
+    start: allDay ? startOfDay(item.dueAt) : item.dueAt,
+    ...(allDay ? {} : { end: item.dueAt + HOUR }),
+    allDay,
+    detail: [item.notes?.trim(), listName ? t('calendar.from', { list: listName }) : null].filter(Boolean).join('\n'),
+    ...(item.location?.trim() ? { location: item.location.trim() } : {}),
+    ...(url ? { url } : {}),
+    kind: allDay || item.dueBy ? 'task' : 'appointment',
+  };
 }
 
 /**
