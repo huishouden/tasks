@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/huishouden/tasks/compare/v2.5.0...v2.5.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **items:** done items read as done, not faded; kit 0.86.0 ([#76](https://github.com/huishouden/tasks/issues/76)) ([e8e4802](https://github.com/huishouden/tasks/commit/e8e480226c7ec772bf323083be05a4c06591e10d))
+
 ## [2.5.0](https://github.com/huishouden/tasks/compare/v2.4.1...v2.5.0) (2026-10-05)
 
 
