@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, MapPin, X } from 'lucide-react';
+import { MapPin, X } from 'lucide-react';
+import { CompleteButton } from '@huishouden/pwa-kit/react/ui';
 import type { ListItem } from '../data/model';
 import { distanceKm } from '@huishouden/pwa-kit/places';
 import { currentPosition, locationPermission } from '../lib/location';
@@ -61,9 +62,7 @@ export function NearbyErrand({ items, onDone }: { items: ListItem[]; onDone: (it
         {richT('errand.near', { place: <strong translate="no">{item.place!.name}</strong>, item: <span translate="no">{item.name}</span> })}
         {others > 0 && <span className="text-muted"> {t('errand.more', { count: others })}</span>}
       </span>
-      <button onClick={() => onDone(item)} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl bg-primary px-3 font-semibold text-on-primary">
-        <Check size={14} /> {t('common.done')}
-      </button>
+      <CompleteButton done={false} name={item.name} onDone={() => onDone(item)} />
       <button
         onClick={() => {
           // Keep only snoozes still running, so the stored list does not grow forever.

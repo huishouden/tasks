@@ -5,6 +5,8 @@ import { AddToCalendar } from '@huishouden/pwa-kit/react/calendar';
 import { URGENCY, calendarEntry, formatDue, isCancelled, isOverdue, type ListItem } from '../data/model';
 import { itemUrl } from '../data/publish';
 import { useT } from '../i18n';
+import { doneLine } from '@huishouden/pwa-kit/react/ui';
+import { daysBetween, relativeDay } from '@huishouden/pwa-kit/time';
 
 interface Props {
   item: ListItem;
@@ -42,7 +44,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
       style={drag?.rowStyle}
       className={`group flex min-w-0 ${drag?.dragging ? 'relative z-10 shadow-lg' : ''} items-center gap-3 rounded-2xl border bg-surface px-3 ${large ? 'py-4' : 'py-2.5'} ${
         urgent || overdue ? 'border-terracotta/60' : 'border-line'
-      } ${item.completed ? 'opacity-60' : ''}`}
+      }`}
     >
       {drag?.handle}
       <button
@@ -52,7 +54,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
           cancelled
             ? 'border-stone-300 text-muted dark:border-forest-500'
             : item.completed
-              ? 'border-forest-500 bg-forest-500 text-white'
+              ? 'border-primary bg-primary text-on-primary'
               : 'border-stone-300 hover:border-forest-500 dark:border-forest-500'
         }`}
       >
@@ -60,7 +62,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
       </button>
       <div className="min-w-0 flex-1">
         <button onClick={onEdit ?? onToggle} className="block w-full text-left">
-          <span className={`${large ? 'text-xl' : 'text-base'} ${item.completed && !cancelled ? 'line-through' : ''}`}>
+          <span className={`${large ? 'text-xl' : 'text-base'} ${item.completed ? 'text-muted' : ''} ${item.completed && !cancelled ? 'line-through' : ''}`}>
             <span className="font-medium [overflow-wrap:anywhere]" translate="no">{item.name}</span>
             {cancelled && (
               <span className="ml-2 inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 align-middle text-xs font-semibold text-muted dark:bg-forest-700">
@@ -80,6 +82,7 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
               <span translate="no">{item.addedBy}</span>
             </span>
           )}
+          {item.completed && !cancelled && <span className={`block text-muted ${large ? 'text-base' : 'text-sm'}`}>{doneWhen(item.completedAt, Date.now())}</span>}
         </button>
         {steps.length > 0 && (
           <button
@@ -154,4 +157,10 @@ export function ItemRow({ item, onToggle, onEdit, onDelete, large, drag, onToggl
       )}
     </li>
   );
+}
+
+/** When it was ticked off: "Done · 10:02 AM" today, "Done · Yesterday" before (DESIGN.md "Completion"). */
+function doneWhen(at: number | null | undefined, now: number): string {
+  if (!at) return doneLine({});
+  return doneLine({ at: daysBetween(now, at) === 0 ? at : relativeDay(at, now) });
 }

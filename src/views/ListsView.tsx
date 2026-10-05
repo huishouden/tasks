@@ -188,7 +188,7 @@ export function ListsView(props: Props) {
           {done.length > 0 && (
             <section>
               <div className="flex items-center justify-between">
-                <button onClick={() => setShowDone(!showDone)} className={`${ghostButton} -ml-3`}>
+                <button onClick={() => setShowDone(!showDone)} aria-expanded={showDone} className={`${ghostButton} -ml-3`}>
                   <ChevronDown size={18} className={showDone ? 'rotate-180' : ''} /> {t('lists.done', { count: done.length })}
                 </button>
                 {done.some(mine) && (
