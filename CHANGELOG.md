@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.5.4](https://github.com/huishouden/tasks/compare/v2.5.3...v2.5.4) (2026-10-05)
+
+### Tests
+
+* signed-in tests on a household of the run's own; all but the portal To-do round trip run on the kit's emulators (`bun run e2e:emulator`), and an emulator build takes their project and host ([#71](https://github.com/huishouden/tasks/issues/71))
+
 ## [2.5.3](https://github.com/huishouden/tasks/compare/v2.5.2...v2.5.3) (2026-10-05)
 
 ### Other
