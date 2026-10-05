@@ -17,7 +17,8 @@ test('open and done items carry different names and a done line', async ({ page 
   await expect(markNotDone).toBeVisible();
   await expect(markDone).toHaveCount(0);
   const done = page.locator('main li', { has: markNotDone });
-  await expect(done).toContainText(/Done · \d{1,2}:\d{2}/);
+  // On the hour the time reads "1 AM", without minutes.
+  await expect(done).toContainText(/Done · \d{1,2}(:\d{2})?\b/);
   await expect(done).not.toHaveCSS('opacity', /^0\./);
   // Done sorts after what is still open.
   const rows = await page.locator('main li').evaluateAll((li) => li.map((r) => r.textContent ?? ''));
