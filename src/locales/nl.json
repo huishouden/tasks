@@ -216,5 +216,10 @@
   "where.today": "Vandaag: {hours}",
   "where.locationOff": "Locatie staat uit voor deze app, dus plekken in de buurt kunnen hier niet worden gevonden.",
   "where.mapBusy": "De gratis kaartdienst heeft het nu druk.",
-  "where.lookupFailed": "Plekken opzoeken lukt nu niet."
+  "where.lookupFailed": "Plekken opzoeken lukt nu niet.",
+  "where.nearYou": "Bij jou in de buurt",
+  "where.nearHome": "In de buurt van thuis",
+  "where.useMyLocation": "Mijn locatie gebruiken",
+  "where.nothingNearHome": "De gratis kaart heeft niets zoals “{query}” in de buurt van thuis; er ontbreken veel bedrijven.",
+  "where.setHome": "Of stel het thuisadres van het huishouden in via {portal}; dan wordt daaromheen gezocht."
 }

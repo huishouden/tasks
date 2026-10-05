@@ -216,5 +216,10 @@
   "where.today": "Hoy: {hours}",
   "where.locationOff": "La ubicación está desactivada para esta app, así que no se pueden buscar lugares cercanos.",
   "where.mapBusy": "El servicio de mapas gratuito está ocupado.",
-  "where.lookupFailed": "No se pudieron buscar lugares ahora."
+  "where.lookupFailed": "No se pudieron buscar lugares ahora.",
+  "where.nearYou": "Cerca de ti",
+  "where.nearHome": "Cerca de casa",
+  "where.useMyLocation": "Usar mi ubicación",
+  "where.nothingNearHome": "El mapa gratuito no tiene nada como «{query}» cerca de casa; le faltan muchos negocios.",
+  "where.setHome": "O indica la dirección de casa del hogar en {portal} y se buscará cerca de ella."
 }
