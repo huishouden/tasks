@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.3](https://github.com/huishouden/tasks/compare/v2.7.2...v2.7.3) (2026-10-05)
+
+### Bug Fixes
+
+* Rebuild against the re-tagged kit ([29e2807](https://github.com/huishouden/tasks/commit/29e2807c19e0e501f07479bb68e5481721515305))
+
 ## [2.7.2](https://github.com/huishouden/tasks/compare/v2.7.1...v2.7.2) (2026-10-05)
 
 ### Changes
