@@ -1,5 +1,6 @@
 import { devices } from '@playwright/test';
 import { addItem, createHousehold, expect, readHouseholdCollection, signIn, slowNetwork, test, watchErrors } from './fixtures';
+import { APP_URL } from './ports';
 import { openAppSettings } from '@huishouden/pwa-kit/e2e';
 
 test('a new household opens its to-do lists even on a slow connection, with the shopping lists made for Groceries', async ({ context, page }) => {
@@ -49,7 +50,7 @@ test('an invited member sees the same lists and changes sync both ways', async (
   await expect(bobRow.getByRole('button', { name: 'Send invite to bob@example.com' })).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
 
-  const phone = await browser.newContext({ ...devices['Pixel 7'], baseURL: 'http://localhost:5173/tasks/' });
+  const phone = await browser.newContext({ ...devices['Pixel 7'], baseURL: APP_URL });
   const bob = await phone.newPage();
   await signIn(bob, 'bob@example.com', 'Bob Example');
   await expect(bob.getByRole('heading', { name: 'Chores & Notes' })).toBeVisible();
@@ -72,7 +73,7 @@ test('someone not in the household cannot see it', async ({ browser, page }) => 
   await createHousehold(page);
   await addItem(page, 'Secret item');
 
-  const other = await browser.newContext({ baseURL: 'http://localhost:5173/tasks/' });
+  const other = await browser.newContext({ baseURL: APP_URL });
   const mallory = await other.newPage();
   await signIn(mallory, 'mallory@example.com', 'Mallory');
   await expect(mallory.getByText('Joining someone?')).toBeVisible();

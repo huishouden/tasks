@@ -50,8 +50,9 @@ export function getFirebase(): Promise<FirebaseHandles> {
     // Persistent cache; writes from @huishouden/pwa-kit/firestore, so one made just before the app closes is kept.
     const db = initFirestore(app, { auth });
     if (useEmulators) {
-      connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-      connectFirestoreEmulator(db, '127.0.0.1', 8080);
+      // The browser tests may move the emulators (e2e/ports.ts); Firebase's ports otherwise.
+      connectAuthEmulator(auth, `http://127.0.0.1:${Number(import.meta.env.VITE_AUTH_EMULATOR_PORT) || 9099}`, { disableWarnings: true });
+      connectFirestoreEmulator(db, '127.0.0.1', Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT) || 8080);
       // Browser tests sign in with an emulator-only Google credential instead of driving the popup.
       Object.assign(window, {
         __testSignIn: (email: string, name: string) =>
