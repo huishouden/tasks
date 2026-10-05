@@ -2,7 +2,7 @@
   "name": "huishouden-tasks",
   "private": true,
   "license": "PolyForm-Shield-1.0.0",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
@@ -29,7 +29,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.98.2",
+    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.100.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.14.0",
