@@ -61,7 +61,7 @@
   "publish.byTime": "Uiterlijk {time}",
   "publish.atTime": "Om {time}",
   "publish.dueToday": "Vandaag",
-  "publish.done": "Klaar",
+  "publish.done": "Afvinken",
   "publish.cancel": "Annuleren",
   "demo.banner": "Een verzonnen huishouden; er wordt niets opgeslagen. Log in voor je eigen huishouden.",
   "onboarding.suggestedName": "Huishouden van {name}",

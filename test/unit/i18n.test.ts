@@ -35,9 +35,9 @@ describe('due dates in Spanish and Dutch', () => {
 describe('what other devices read', () => {
   it('a to-do carries its words and buttons in every language', async () => {
     const [todo] = await localizeTodos(() => todoItems([item({})], [chores]));
-    expect(todo.done?.label).toBe('Done');
-    expect(todo.texts?.es).toMatchObject({ title: 'Drop off dry cleaning', detail: 'Tareas y notas', done: 'Listo', cancel: 'Cancelar' });
-    expect(todo.texts?.nl).toMatchObject({ detail: 'Klusjes en notities', done: 'Klaar', cancel: 'Annuleren' });
+    expect(todo.done?.label).toBe('Mark done');
+    expect(todo.texts?.es).toMatchObject({ title: 'Drop off dry cleaning', detail: 'Tareas y notas', done: 'Marcar como hecho', cancel: 'Cancelar' });
+    expect(todo.texts?.nl).toMatchObject({ detail: 'Klusjes en notities', done: 'Afvinken', cancel: 'Annuleren' });
     expect(itemTodo(item({}), chores)?.title).toBe('Drop off dry cleaning');
   });
 
