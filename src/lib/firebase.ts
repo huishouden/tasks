@@ -24,7 +24,9 @@ const APP_ID = '1:865471112898:web:88de281c1be2181a4afd5b';
 
 async function loadConfig(): Promise<FirebaseOptions> {
   if (useEmulators) {
-    return { apiKey: 'demo-key', projectId: 'demo-huishouden-tasks', authDomain: 'localhost', appId: 'demo-app' };
+    // A build for the kit's emulators (`bun run e2e:emulator`) has their project, demo-huishouden; `bun run e2e:local` this app's own.
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID?.startsWith('demo-') ? import.meta.env.VITE_FIREBASE_PROJECT_ID : 'demo-huishouden-tasks';
+    return { apiKey: 'demo-key', projectId, authDomain: 'localhost', appId: 'demo-app' };
   }
   // CI builds get the web config from the repo's VITE_FIREBASE_* variables (public by design).
   if (import.meta.env.VITE_FIREBASE_API_KEY) return firebaseConfigFromEnv(import.meta.env);
@@ -50,9 +52,10 @@ export function getFirebase(): Promise<FirebaseHandles> {
     // Persistent cache; writes from @huishouden/pwa-kit/firestore, so one made just before the app closes is kept.
     const db = initFirestore(app, { auth });
     if (useEmulators) {
-      // The browser tests may move the emulators (e2e/ports.ts); Firebase's ports otherwise.
-      connectAuthEmulator(auth, `http://127.0.0.1:${Number(import.meta.env.VITE_AUTH_EMULATOR_PORT) || 9099}`, { disableWarnings: true });
-      connectFirestoreEmulator(db, '127.0.0.1', Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT) || 8080);
+      // The browser tests may move the emulators (e2e/ports.ts); Firebase's ports otherwise. The host as the kit's initApp.
+      const host = import.meta.env.VITE_EMULATOR_HOST || '127.0.0.1';
+      connectAuthEmulator(auth, `http://${host}:${Number(import.meta.env.VITE_AUTH_EMULATOR_PORT) || 9099}`, { disableWarnings: true });
+      connectFirestoreEmulator(db, host, Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT) || 8080);
       // Browser tests sign in with an emulator-only Google credential instead of driving the popup.
       Object.assign(window, {
         __testSignIn: (email: string, name: string) =>

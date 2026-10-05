@@ -36,8 +36,9 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: LIVE_URL },
     },
     {
-      // Key flows signed in as the staging project's invented test users (`bun run e2e:signed-in`,
-      // run by the kit's staging job against huishouden-staging-tasks.web.app/tasks/).
+      // Key flows signed in as the invented people of a household of the run's own: on the emulators
+      // (`bun run e2e:emulator`, against an emulator build at BASE_URL) and,
+      // for the @staging ones, on the staging site (`bun run e2e:signed-in`, the kit's staging job).
       name: 'signed-in',
       testMatch: /signed-in\.spec\.ts/,
       timeout: 60_000,
