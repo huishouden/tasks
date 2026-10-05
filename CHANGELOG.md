@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.0](https://github.com/huishouden/tasks/compare/v2.4.1...v2.5.0) (2026-10-05)
+
+
+### Features
+
+* **nearby:** Find nearby searches near the household's home without location ([#73](https://github.com/huishouden/tasks/issues/73)) ([fc33360](https://github.com/huishouden/tasks/commit/fc333605c8bb65b690428f2af4a7ee58bfe2a7f6))
+
+
+### Bug Fixes
+
+* **nearby:** link "set the household's home" to the portal's Apps tab ([#75](https://github.com/huishouden/tasks/issues/75)) ([0324197](https://github.com/huishouden/tasks/commit/0324197ba8b7af59cd659e14ff1d2c7622a071f9))
+
 ## [2.4.1](https://github.com/huishouden/tasks/compare/v2.4.0...v2.4.1) (2026-10-04)
 
 
