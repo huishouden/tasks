@@ -2,9 +2,9 @@
 
 ## [2.7.1](https://github.com/huishouden/tasks/compare/v2.7.0...v2.7.1) (2026-10-05)
 
-### Other
+### Bug Fixes
 
-* Maintenance
+* a change saved just before the app closed and written again when it next opens never puts back an older value; another member's newer change is kept (pwa-kit 0.102.0)
 
 ## [2.7.0](https://github.com/huishouden/tasks/compare/v2.6.0...v2.7.0) (2026-10-05)
 
