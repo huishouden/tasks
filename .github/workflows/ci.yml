@@ -29,6 +29,8 @@ jobs:
     with:
       base: /tasks/
       staging-ref: ${{ inputs.staging-ref }}
+    # CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, for the asset CDN (pwa-kit docs/one-site.md "Asset CDN").
+    secrets: inherit
 
   # What only this app has: every signed-in browser flow, run against the Auth and Firestore
   # emulators with the household's real rules from huishouden/rules main. (e2e/signed-in.spec.ts runs
