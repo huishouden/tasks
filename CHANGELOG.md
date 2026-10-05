@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.0](https://github.com/huishouden/tasks/compare/v2.6.0...v2.7.0) (2026-10-05)
+
+### Features
+
+* hashed assets from the suite's asset CDN (pwa-kit 0.100.0) ([5755c0b](https://github.com/huishouden/tasks/commit/5755c0b14b0e42f5a89f4e066c24fd2da68a452c))
+
 ## [2.6.0](https://github.com/huishouden/tasks/compare/v2.5.4...v2.6.0) (2026-10-05)
 
 ### Features
