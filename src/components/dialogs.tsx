@@ -550,7 +550,7 @@ function WhereField({
           {richT('where.setHome', {
             portal: (
               // i18n-ignore: the suite's name
-              <a href="/#household" className="font-medium text-link underline underline-offset-2">
+              <a href="/apps#household" className="font-medium text-link underline underline-offset-2">
                 Huishouden
               </a>
             ),

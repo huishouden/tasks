@@ -77,5 +77,5 @@ test('with neither location nor a home, it points to setting a home', async ({ p
   await expect(dialog.getByRole('list', { name: 'Nearby places' })).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Find nearby' }).click();
   await expect(dialog.getByText('Location is off for this app')).toBeVisible();
-  await expect(dialog.getByRole('link', { name: 'Huishouden' })).toHaveAttribute('href', '/#household');
+  await expect(dialog.getByRole('link', { name: 'Huishouden' })).toHaveAttribute('href', '/apps#household');
 });
