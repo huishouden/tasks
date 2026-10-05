@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.1](https://github.com/huishouden/tasks/compare/v2.7.0...v2.7.1) (2026-10-05)
+
+### Other
+
+* Maintenance
+
 ## [2.7.0](https://github.com/huishouden/tasks/compare/v2.6.0...v2.7.0) (2026-10-05)
 
 ### Features
