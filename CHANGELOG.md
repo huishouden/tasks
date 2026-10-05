@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.6.0](https://github.com/huishouden/tasks/compare/v2.5.4...v2.6.0) (2026-10-05)
+
+### Features
+
+* **reminders:** each item reminder names its item, so ticking it elsewhere stops it ([f01ac4a](https://github.com/huishouden/tasks/commit/f01ac4a27770d094b1d3706a3f198cf2a0f2a2a9))
+
+### Bug Fixes
+
+* **e2e:** honour hh's emulator ports (HH_EMULATOR_*, VITE_EMULATOR_*) ([1e26560](https://github.com/huishouden/tasks/commit/1e265608cec2188b750f1c5dd539b0f151200f04))
+
+### Other
+
+* docs, review: reminders that stop once done elsewhere ([3a7ded6](https://github.com/huishouden/tasks/commit/3a7ded64211ecd685fd360424b2116f4be1c623f))
+
 ## [2.5.4](https://github.com/huishouden/tasks/compare/v2.5.3...v2.5.4) (2026-10-05)
 
 ### Tests

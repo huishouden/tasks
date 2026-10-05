@@ -12,17 +12,18 @@ import { fileURLToPath } from 'node:url';
  * `VITE_AUTH_EMULATOR_PORT` and `VITE_FIRESTORE_EMULATOR_PORT`, which `playwright.config.ts` sets.
  */
 const offset = Number(process.env.E2E_PORT_OFFSET) || 0;
-const port = (name: string, fallback: number): number => {
-  const set = Number(process.env[name]);
+const port = (name: string, fallback: number, alias?: string): number => {
+  const set = Number(process.env[name] ?? (alias ? process.env[alias] : undefined));
   return Number.isInteger(set) && set > 0 ? set : fallback + offset;
 };
 
-const firestore = port('E2E_FIRESTORE_PORT', 8080);
+// `hh dev verify` starts the emulators on free ports and names them HH_EMULATOR_*_PORT.
+const firestore = port('E2E_FIRESTORE_PORT', 8080, 'HH_EMULATOR_FIRESTORE_PORT');
 const hub = port('E2E_HUB_PORT', 4400);
 
 export const PORTS = {
   app: port('E2E_APP_PORT', 5173),
-  auth: port('E2E_AUTH_PORT', 9099),
+  auth: port('E2E_AUTH_PORT', 9099, 'HH_EMULATOR_AUTH_PORT'),
   firestore,
   firestoreWs: port('E2E_FIRESTORE_WS_PORT', firestore + 1 - offset),
   hub,
