@@ -1,5 +1,5 @@
 import { allDayStart, type AgendaEdit, type AgendaInput } from '@huishouden/pwa-kit/agenda';
-import type { ReminderInput } from '@huishouden/pwa-kit/reminders';
+import type { ReminderInput, ReminderSource } from '@huishouden/pwa-kit/reminders';
 import type { Role } from '@huishouden/pwa-kit/roles';
 import type { TodoAction, TodoInput } from '@huishouden/pwa-kit/todos';
 import { formatTime, toYmd } from '@huishouden/pwa-kit/time';
@@ -93,6 +93,15 @@ export const LEAD_MS = 60 * 60 * 1000;
 export const MORNING_HOUR = 9;
 
 /**
+ * What an item's reminder is about, for the shared sender to check before sending: the item, while
+ * not ticked off (or cancelled) and still due when it was. Ticked from the portal's To-do list,
+ * moved in a calendar or removed, its reminder is deleted unsent.
+ */
+export const itemSource = (item: Pick<ListItem, 'id' | 'dueAt'>): ReminderSource => ({
+  checks: [{ doc: `${ITEMS}/${item.id}`, due: [{ field: 'completed', notIn: [true] }, { field: 'dueAt', in: [item.dueAt ?? null] }] }],
+});
+
+/**
  * The push reminder for a dated, unfinished item: an hour before a time ("Drop off dry cleaning",
  * "By 6:00 PM"), or 9 in the morning of a day ("Due today"). None once it is done.
  */
@@ -104,10 +113,10 @@ export function itemReminder(item: ListItem, app = APP_URL): ReminderInput | nul
     const morning = new Date(item.dueAt);
     morning.setHours(MORNING_HOUR, 0, 0, 0);
     const body = [item.dueBy ? t('publish.dueToday') : t('due.today'), item.location?.trim(), steps].filter(Boolean).join(' · ');
-    return { app: APP, ref, title: item.name.trim(), body, at: morning.getTime(), url: itemUrl(item, app) };
+    return { app: APP, ref, title: item.name.trim(), body, at: morning.getTime(), url: itemUrl(item, app), source: itemSource(item) };
   }
   const body = [item.dueBy ? t('publish.byTime', { time: clock(item.dueAt) }) : t('publish.atTime', { time: clock(item.dueAt) }), item.location?.trim(), steps].filter(Boolean).join(' · ');
-  return { app: APP, ref, title: item.name.trim(), body, at: item.dueAt - LEAD_MS, url: itemUrl(item, app) };
+  return { app: APP, ref, title: item.name.trim(), body, at: item.dueAt - LEAD_MS, url: itemUrl(item, app), source: itemSource(item) };
 }
 
 /** Every reminder Tasks wants scheduled; the kit drops the ones already past. */

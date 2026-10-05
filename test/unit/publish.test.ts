@@ -3,7 +3,9 @@ import { allDayStart } from '@huishouden/pwa-kit/agenda';
 import { applyOps } from '@huishouden/pwa-kit/store';
 import { resolveOps, todoOpsAllowed } from '@huishouden/pwa-kit/todos';
 import { agendaDoc, agendaOpsAllowed, canEdit, fillEditOps } from '@huishouden/pwa-kit/agenda';
-import { agendaItems, cancelAction, doneAction, itemAgenda, itemEdit, itemReminder, itemTodo, itemUrl, reminderItems, todoItems, LEAD_MS } from '../../src/data/publish';
+import { agendaItems, cancelAction, doneAction, itemAgenda, itemEdit, itemReminder, itemSource, itemTodo, itemUrl, reminderItems, todoItems, LEAD_MS } from '../../src/data/publish';
+import { readSource, sourceAllowed, stillDue } from '@huishouden/pwa-kit/reminder-source';
+import { reminderDoc } from '@huishouden/pwa-kit/reminders';
 import { CATEGORIES, URGENCY, isCancelled, type ListItem, type ShoppingList } from '../../src/data/model';
 import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
 
@@ -76,7 +78,7 @@ describe('itemReminder', () => {
   it('an hour before a time, with what kind of time it is', () => {
     expect(itemReminder(item({ dueAt: at(2031, 1, 6, 18), dueBy: true, location: 'Example Cleaners' }))).toEqual({
       app: 'tasks', ref: 'tasks:item:i1', title: 'Drop off dry cleaning', body: expect.stringMatching(/^By 6:00\s?PM · Example Cleaners$/),
-      at: at(2031, 1, 6, 18) - LEAD_MS, url: itemUrl({ id: 'i1', listId: 'chores' }),
+      at: at(2031, 1, 6, 18) - LEAD_MS, url: itemUrl({ id: 'i1', listId: 'chores' }), source: itemSource({ id: 'i1', dueAt: at(2031, 1, 6, 18) }),
     });
     expect(itemReminder(item({ dueAt: at(2031, 1, 6, 15) }))?.body).toMatch(/^At 3:00\s?PM$/);
   });
@@ -89,6 +91,29 @@ describe('itemReminder', () => {
   it('none once done or without a date', () => {
     expect(itemReminder(item({ dueAt: at(2031, 1, 6, 15), completed: true }))).toBeNull();
     expect(reminderItems([item({}), item({ id: 'i2', dueAt: at(2031, 1, 6, 15) })]).map((r) => r.ref)).toEqual(['tasks:item:i2']);
+  });
+});
+
+describe('the sender drops a reminder once its item is done elsewhere', () => {
+  const due = at(2031, 1, 6, 18);
+  const stored = (it: ListItem) => readSource('tasks', reminderDoc(itemReminder(it)!, 'sam@example.com', 0).source)!;
+  // The item as the sender reads it after an action's ops, placeholders resolved.
+  const after = (it: ListItem, ops: Parameters<typeof resolveOps>[0]) => ({ ...it, ...resolveOps(ops, { now: 5, me: 'kim@example.com' })[0].data });
+  const check = (it: ListItem, fields: Record<string, unknown> | null) => stillDue(stored(it), new Map([['items/i1', fields]]));
+
+  it('names its item, and a helper may use it', () => {
+    const it = item({ dueAt: due });
+    expect(stored(it)).toEqual(itemSource(it));
+    expect(sourceAllowed('tasks', stored(it), 'helen@example.com', 'helper', new Map())).toBe(true);
+  });
+
+  it("open: still due. Done or cancelled from the portal's To-do list, moved, or removed: not", () => {
+    const it = item({ dueAt: due });
+    expect(check(it, { ...it })).toBe(true);
+    expect(check(it, after(it, doneAction('i1').ops))).toBe(false);
+    expect(check(it, after(it, cancelAction('i1').ops))).toBe(false);
+    expect(check(it, { ...it, dueAt: at(2031, 1, 7, 9) })).toBe(false);
+    expect(check(it, null)).toBe(false);
   });
 });
 
