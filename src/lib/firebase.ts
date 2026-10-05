@@ -52,10 +52,13 @@ export function getFirebase(): Promise<FirebaseHandles> {
     // Persistent cache; writes from @huishouden/pwa-kit/firestore, so one made just before the app closes is kept.
     const db = initFirestore(app, { auth });
     if (useEmulators) {
-      // The browser tests may move the emulators (e2e/ports.ts); Firebase's ports otherwise. The host as the kit's initApp.
+      // The browser tests may move the emulators (e2e/ports.ts; `hh dev verify` builds with the kit's
+      // VITE_EMULATOR_*_PORT); Firebase's ports otherwise. The host as the kit's initApp.
       const host = import.meta.env.VITE_EMULATOR_HOST || '127.0.0.1';
-      connectAuthEmulator(auth, `http://${host}:${Number(import.meta.env.VITE_AUTH_EMULATOR_PORT) || 9099}`, { disableWarnings: true });
-      connectFirestoreEmulator(db, host, Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT) || 8080);
+      const authPort = Number(import.meta.env.VITE_AUTH_EMULATOR_PORT || import.meta.env.VITE_EMULATOR_AUTH_PORT) || 9099;
+      const firestorePort = Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT || import.meta.env.VITE_EMULATOR_FIRESTORE_PORT) || 8080;
+      connectAuthEmulator(auth, `http://${host}:${authPort}`, { disableWarnings: true });
+      connectFirestoreEmulator(db, host, firestorePort);
       // Browser tests sign in with an emulator-only Google credential instead of driving the popup.
       Object.assign(window, {
         __testSignIn: (email: string, name: string) =>
