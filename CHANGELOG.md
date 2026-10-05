@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.2](https://github.com/huishouden/tasks/compare/v2.5.1...v2.5.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **todos:** the portal's to-do button says what it does, "Mark done" not "Done" ([#80](https://github.com/huishouden/tasks/issues/80)) ([69fdf54](https://github.com/huishouden/tasks/commit/69fdf5468724e2f2f6ae8a770aa1ca9355ac663a))
+
 ## [2.5.1](https://github.com/huishouden/tasks/compare/v2.5.0...v2.5.1) (2026-10-05)
 
 
