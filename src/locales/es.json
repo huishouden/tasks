@@ -61,7 +61,7 @@
   "publish.byTime": "Antes de las {time}",
   "publish.atTime": "A las {time}",
   "publish.dueToday": "Vence hoy",
-  "publish.done": "Listo",
+  "publish.done": "Marcar como hecho",
   "publish.cancel": "Cancelar",
   "demo.banner": "Un hogar inventado; no se guarda nada. Inicia sesión para usar el tuyo.",
   "onboarding.suggestedName": "Hogar de {name}",

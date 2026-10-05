@@ -61,7 +61,7 @@
   "publish.byTime": "By {time}",
   "publish.atTime": "At {time}",
   "publish.dueToday": "Due today",
-  "publish.done": "Done",
+  "publish.done": "Mark done",
   "publish.cancel": "Cancel",
   "demo.banner": "An invented household; nothing is saved. Sign in for your own.",
   "onboarding.suggestedName": "{name}'s household",

@@ -135,7 +135,7 @@ describe('todoItems', () => {
 
   it('Done ticks it off for anyone; Cancel is for admins, members and whoever added it', () => {
     expect(doneAction('i1')).toEqual({
-      label: 'Done', roles: ['admin', 'member', 'helper', 'kid'],
+      label: 'Mark done', roles: ['admin', 'member', 'helper', 'kid'],
       ops: [{ col: 'items', id: 'i1', data: { completed: true, completedAt: '$now', updatedAt: '$now' }, merge: true }],
     });
     expect(cancelAction('i1')).toEqual({
