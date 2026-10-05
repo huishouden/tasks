@@ -14,6 +14,8 @@ export default defineConfig({
     // Vitest serves from `/` whatever the base; links the app builds expect its path on the site.
     env: { BASE_URL: BASE },
   },
+  // `bun run preview` for screenshots against a build; E2E_PREVIEW_PORT or E2E_PORT_OFFSET (e2e/ports.ts) moves it.
+  preview: { port: Number(process.env.E2E_PREVIEW_PORT) || 4173 + (Number(process.env.E2E_PORT_OFFSET) || 0) },
   server: {
     // Against the real project in development, Firebase's config comes from the deployed site.
     proxy: { '/__/firebase': { target: SUITE_ORIGIN, changeOrigin: true } },

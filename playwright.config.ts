@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
+import { APP_URL, PORTS, emulatorConfig } from './e2e/ports';
 
 // The kit's CI passes the live site as BASE_URL; by default production, Tasks' path on the suite's
 // one site. Specs use relative paths (`./`, `./?mode=x`): a leading `/` would open the portal.
@@ -21,7 +22,7 @@ export default defineConfig({
       name: 'local',
       testMatch: /.*\.spec\.ts/,
       testIgnore: /(live|screenshots|signed-in)\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173/tasks/', viewport: { width: 1280, height: 800 } },
+      use: { ...devices['Desktop Chrome'], baseURL: APP_URL, viewport: { width: 1280, height: 800 } },
     },
     {
       // README images and CI's before/after: the signed-out sample household at BASE_URL; `bun run screenshots`.
@@ -48,16 +49,24 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: 'sh e2e/emulators/fetch-rules.sh && bunx firebase emulators:start --config e2e/emulators/firebase.json --only auth,firestore --project demo-huishouden-tasks',
-          url: 'http://127.0.0.1:4400/emulators',
+          // Ports from the environment (e2e/ports.ts): E2E_PORT_OFFSET=100 for a second run alongside.
+          command: `sh e2e/emulators/fetch-rules.sh && bunx firebase emulators:start --config ${emulatorConfig()} --only auth,firestore --project demo-huishouden-tasks`,
+          url: `http://127.0.0.1:${PORTS.hub}/emulators`,
+          // A clean stop, or the Firestore emulator's Java process outlives the run and holds its port.
+          gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 },
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
         },
         {
-          command: 'bunx vite --port 5173 --strictPort',
+          command: `bunx vite --port ${PORTS.app} --strictPort`,
           // A stand-in OAuth client, so Google API flows reach the kit's Google Identity Services stub.
-          env: { VITE_USE_EMULATORS: 'true', VITE_GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com' },
-          url: 'http://localhost:5173/tasks/',
+          env: {
+            VITE_USE_EMULATORS: 'true',
+            VITE_AUTH_EMULATOR_PORT: String(PORTS.auth),
+            VITE_FIRESTORE_EMULATOR_PORT: String(PORTS.firestore),
+            VITE_GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com',
+          },
+          url: APP_URL,
           reuseExistingServer: !process.env.CI,
           timeout: 60_000,
         },

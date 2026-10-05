@@ -56,6 +56,7 @@ sh e2e/emulators/fetch-rules.sh && bunx firebase emulators:start --config e2e/em
 VITE_USE_EMULATORS=true bun run dev                                                     # terminal 2
 bun run verify       # types, design check, unit tests, build
 bun run e2e:local    # signed-in browser flows against the emulators (starts them itself)
+E2E_PORT_OFFSET=100 bun run e2e:local   # the same alongside another run: every port moved (steps of 10; e2e/ports.ts)
 bun run e2e          # smoke tests of the deployed site (read-only)
 BASE_URL=http://localhost:5173/tasks/ bun run screenshots   # the README scenes of the signed-out sample household
 ```

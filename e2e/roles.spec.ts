@@ -1,4 +1,5 @@
 import { addItem, createHousehold, expect, signIn, test, watchErrors } from './fixtures';
+import { APP_URL } from './ports';
 import { openAppSettings } from '@huishouden/pwa-kit/e2e';
 
 // Against the household's real rules (fetched from huishouden/rules): what the app hides, the rules
@@ -18,7 +19,7 @@ test('a helper ticks off anyone’s items and changes only their own; settings a
   if (shots) await page.screenshot({ path: `${shots}/tasks-settings-admin.png` });
   await page.getByRole('button', { name: 'Close' }).click();
 
-  const tablet = await browser.newContext({ baseURL: 'http://localhost:5173/tasks/', viewport: { width: 1280, height: 800 } });
+  const tablet = await browser.newContext({ baseURL: APP_URL, viewport: { width: 1280, height: 800 } });
   const helen = await tablet.newPage();
   const errors = watchErrors(helen);
   await signIn(helen, 'helen@example.com', 'Helen Example');

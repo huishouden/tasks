@@ -1,4 +1,5 @@
 import { expect, test as base, type BrowserContext, type Page } from '@playwright/test';
+import { AUTH_EMULATOR, FIRESTORE_EMULATOR } from './ports';
 
 const PROJECT = 'demo-huishouden-tasks';
 
@@ -25,11 +26,11 @@ async function emulatorRequest(url: string, init: RequestInit): Promise<void> {
 
 /** Wipes emulator data so every test starts with no users and no households. */
 export async function resetEmulators(): Promise<void> {
-  await emulatorRequest(`http://127.0.0.1:8080/emulator/v1/projects/${PROJECT}/databases/(default)/documents`, { method: 'DELETE' });
-  await emulatorRequest(`http://127.0.0.1:9099/emulator/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
+  await emulatorRequest(`${FIRESTORE_EMULATOR}/emulator/v1/projects/${PROJECT}/databases/(default)/documents`, { method: 'DELETE' });
+  await emulatorRequest(`${AUTH_EMULATOR}/emulator/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
 }
 
-const REST = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`;
+const REST = `${FIRESTORE_EMULATOR}/v1/projects/${PROJECT}/databases/(default)/documents`;
 const ADMIN = { Authorization: 'Bearer owner' };
 
 /** The id of the one household in the emulator, read with admin access. */

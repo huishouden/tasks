@@ -13,3 +13,5 @@ playwright-report
 .DS_Store
 .twapp-asks.json
 e2e/emulators/firestore.rules
+e2e/emulators/firebase.*.json
+e2e/emulators/firestore.rules.*
