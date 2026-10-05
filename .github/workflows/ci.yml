@@ -31,8 +31,9 @@ jobs:
       staging-ref: ${{ inputs.staging-ref }}
 
   # What only this app has: every signed-in browser flow, run against the Auth and Firestore
-  # emulators with the household's real rules from huishouden/rules main. (The kit's staging job runs
-  # the key flows against the staging project too: e2e/signed-in.spec.ts.)
+  # emulators with the household's real rules from huishouden/rules main. (e2e/signed-in.spec.ts runs
+  # on the kit's emulators on the author's machine, `bun run e2e:emulator`, and its @staging flows
+  # in a staging run.)
   app-tests:
     if: ${{ !inputs.staging-ref }}
     runs-on: ubuntu-latest

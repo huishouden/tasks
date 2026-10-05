@@ -57,6 +57,7 @@ VITE_USE_EMULATORS=true bun run dev                                             
 bun run verify       # types, design check, unit tests, build
 bun run e2e:local    # signed-in browser flows against the emulators (starts them itself)
 E2E_PORT_OFFSET=100 bun run e2e:local   # the same alongside another run: every port moved (steps of 10; e2e/ports.ts)
+HH_E2E_TARGET=emulator BASE_URL=http://localhost:4173/tasks/ bun run e2e:emulator   # e2e/signed-in.spec.ts on running emulators, against an emulator build (VITE_FIREBASE_PROJECT_ID=demo-huishouden) in vite preview
 bun run e2e          # smoke tests of the deployed site (read-only)
 BASE_URL=http://localhost:5173/tasks/ bun run screenshots   # the README scenes of the signed-out sample household
 ```
@@ -65,7 +66,7 @@ Against the emulators, the app exposes `window.__testSignIn(email, name)`, which
 
 ## CI/CD and releases
 
-`.github/workflows/ci.yml` calls the kit's shared pipeline (`pwa.yml`): leak scan, design check, lint, unit tests and build on every pull request and push; on `main`, a keyless deploy of Hosting and smoke tests against the live site. This repo adds `app-tests`: the signed-in browser flows against the Auth and Firestore emulators, using the current rules from huishouden/rules main (`RULES_REF=<branch>` tries a rules PR). Releases come from the kit's `release.yml` (release-please): Conventional Commit PR titles become `CHANGELOG.md` and tagged versions, and Settings shows the running version and build.
+`.github/workflows/ci.yml` calls the kit's shared pipeline (`pwa.yml`) on every push to `main`: leak scan, design check, lint, unit tests and build, a keyless deploy of Hosting and smoke tests against the live site. Pull requests run no hosted CI: their author verifies them locally and on staging. `e2e:emulator` runs e2e/signed-in.spec.ts (each run in a household of its own) on the kit's emulators, before a PR is ready; a staging run (a manual `ci` run with `staging-ref`, or `bunx pwa-staging run`) runs only its `@staging` flows. This repo adds `app-tests` on `main`: the other signed-in browser flows against the Auth and Firestore emulators, using the current rules from huishouden/rules main (`RULES_REF=<branch>` tries a rules PR). Releases come from the kit's `release.yml` (release-please): Conventional Commit PR titles become `CHANGELOG.md` and tagged versions, and Settings shows the running version and build.
 
 Deploys authenticate through Workload Identity Federation (no stored keys) with the repo variables `GCP_WIF_PROVIDER` and `GCP_DEPLOY_SA`, set by the kit's `infra/bootstrap.sh`.
 
