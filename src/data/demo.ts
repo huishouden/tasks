@@ -5,7 +5,7 @@ import { collection, disableNetwork, doc, initializeFirestore, memoryLocalCache,
 import { writeBatch } from '@huishouden/pwa-kit/firestore';
 import { DAY, HOUR, startOfDay } from '@huishouden/pwa-kit/time';
 import type { HouseholdHome } from '@huishouden/pwa-kit/home';
-import { CATEGORIES, DEFAULT_LISTS, URGENCY, type Household, type ListItem, type ShoppingList, type Subtask, type Urgency } from './model';
+import { CATEGORIES, newItemPosition, DEFAULT_LISTS, URGENCY, type Household, type ListItem, type ShoppingList, type Subtask, type Urgency } from './model';
 
 // Signed out, Tasks shows an invented household so it can be tried and screenshotted (CI's
 // before/after and README images). It is the real app on a Firestore that never goes online: an
@@ -51,7 +51,7 @@ function item(listId: string, name: string, now: number, extra: Partial<ListItem
     addedBy: seq % 3 === 0 ? 'Sam' : 'Alex',
     completed: false,
     urgency: URGENCY.NORMAL as Urgency,
-    position: created,
+    position: newItemPosition(extra.urgency === URGENCY.URGENT, created),
     createdAt: created,
     updatedAt: created,
     completedAt: null,
@@ -86,7 +86,7 @@ export function demoItems(now: number): ListItem[] {
     item('chores', 'Return library books', now, { dueAt: at(now, 3, 0), allDay: true, dueBy: true }),
     item('chores', 'Garage clean-out', now, { subtasks: steps(['Sort the tools', 'Sweep the floor', 'Fix the light'], 1) }),
     item('chores', 'Cancel streaming trial', now, { dueAt: at(now, 9, 0), allDay: true, dueBy: true }),
-    item('chores', 'Renew the car registration', now, { urgency: URGENCY.URGENT as Urgency, position: -now }),
+    item('chores', 'Renew the car registration', now, { urgency: URGENCY.URGENT as Urgency }),
     item('chores', 'Water the plants', now, done(0, now)),
     item('projects', 'Paint the guest room', now, {
       dueAt: at(now, 5, 9),

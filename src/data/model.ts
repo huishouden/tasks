@@ -191,12 +191,13 @@ export const GROCERIES_PATH = '/groceries/';
 /** The suite's muted categorical set (DESIGN.md), in its order. */
 export const LIST_COLORS = ['#2d6a4f', '#c86d51', '#b08d57', '#5b7a99', '#8a6f9e', '#6f8f72', '#a8735a', '#78716c'];
 
+const URGENT_POSITION_STEP = 1e13;
+
 /**
  * Where a new item lands: the top of the open items, newest first. Timestamps negated sort before the
  * small renumbered positions dragging leaves behind and before older (positive) timestamps; urgent
  * items sit a fixed step above every ordinary one.
  */
-export const URGENT_POSITION_STEP = 1e13;
 export function newItemPosition(urgent: boolean, now: number): number {
   return urgent ? -now - URGENT_POSITION_STEP : -now;
 }

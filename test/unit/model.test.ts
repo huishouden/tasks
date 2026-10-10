@@ -13,6 +13,7 @@ import {
   sortItems,
   type ListItem,
 } from '../../src/data/model';
+import { demoItems } from '../../src/data/demo';
 import { groceriesRedirect } from '../../src/lib/groceriesLink';
 
 function item(overrides: Partial<ListItem>): ListItem {
@@ -55,6 +56,15 @@ describe('newItemPosition', () => {
       item({ name: 'urgent', position: newItemPosition(true, 1_780_000_000_000) }),
     ]);
     expect(sorted.map((i) => i.name)).toEqual(['urgent', 'second added', 'first added', 'dragged', 'old']);
+  });
+});
+
+describe('the sample household', () => {
+  it('lists the urgent item first and the rest newest first', () => {
+    const open = sortItems(demoItems(1_790_000_000_000).filter((i) => !i.completed));
+    expect(open[0].urgency).toBe(URGENCY.URGENT);
+    const rest = open.slice(1);
+    expect(rest.map((i) => i.createdAt)).toEqual(rest.map((i) => i.createdAt).sort((a, b) => b - a));
   });
 });
 
