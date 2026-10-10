@@ -5,7 +5,7 @@ import { addItem, createHousehold, expect, signIn, test } from './fixtures';
 test('open and done items carry different names and a done line', async ({ page }) => {
   await signIn(page, 'alice@example.com', 'Alice Example');
   await createHousehold(page);
-  for (const item of ['Apples', 'Bread']) await addItem(page, item);
+  for (const item of ['Bread', 'Apples']) await addItem(page, item);
 
   const markDone = page.getByRole('button', { name: 'Mark Apples done' });
   const markNotDone = page.getByRole('button', { name: 'Mark Apples not done' });

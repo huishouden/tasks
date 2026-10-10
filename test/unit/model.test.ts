@@ -8,6 +8,7 @@ import {
   isCancelled,
   isTaskList,
   moveInOrder,
+  newItemPosition,
   positionBetween,
   sortItems,
   type ListItem,
@@ -41,6 +42,19 @@ describe('sortItems', () => {
       item({ name: 'urgent', position: -5 }),
     ]);
     expect(sorted.map((i) => i.name)).toEqual(['urgent', 'first', 'legacy', 'second']);
+  });
+});
+
+describe('newItemPosition', () => {
+  it('puts the newest item first, above older timestamps and dragged positions, below urgent ones', () => {
+    const sorted = sortItems([
+      item({ name: 'old', position: 1_780_000_000_000 }),
+      item({ name: 'dragged', position: 1000 }),
+      item({ name: 'first added', position: newItemPosition(false, 1_790_000_000_000) }),
+      item({ name: 'second added', position: newItemPosition(false, 1_790_000_005_000) }),
+      item({ name: 'urgent', position: newItemPosition(true, 1_780_000_000_000) }),
+    ]);
+    expect(sorted.map((i) => i.name)).toEqual(['urgent', 'second added', 'first added', 'dragged', 'old']);
   });
 });
 
