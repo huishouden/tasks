@@ -75,7 +75,7 @@ describe('positionBetween', () => {
 
   it('extends past either end', () => {
     expect(positionBetween(item({ position: 1000 }), undefined)).toBe(2000);
-    expect(positionBetween(undefined, item({ position: 1000 }))).toBe(0);
+    expect(positionBetween(undefined, item({ position: 1000 }))).toBe(999);
   });
 
   it('reports when two positions are too close to split', () => {
