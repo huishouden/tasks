@@ -38,7 +38,8 @@ async function moveWithKeyboard(page: Page, item: string, rows: number): Promise
 test.beforeEach(async ({ page }) => {
   await signIn(page, 'alice@example.com', 'Alice Example');
   await createHousehold(page);
-  for (const item of ['Apples', 'Bread', 'Cheese']) await addItem(page, item);
+  // New items land at the top, so adding bottom-first reads Apples, Bread, Cheese.
+  for (const item of ['Cheese', 'Bread', 'Apples']) await addItem(page, item);
   await expect.poll(() => names(page)).toEqual(['Apples', 'Bread', 'Cheese']);
 });
 
@@ -57,13 +58,25 @@ test('the grip also moves items from the keyboard', async ({ page }) => {
   await expect.poll(() => names(page)).toEqual(['Bread', 'Apples', 'Cheese']);
 });
 
-test('new urgent items go to the top, other new items to the bottom', async ({ page }) => {
+test('new items go to the top, newest first; urgent ones above them', async ({ page }) => {
   await addItem(page, 'Dates');
+  await addItem(page, 'Figs');
+  await expect.poll(() => names(page)).toEqual(['Figs', 'Dates', 'Apples', 'Bread', 'Cheese']);
   await page.getByLabel('New item').fill('Eggs');
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByRole('button', { name: /Need Today/ }).click();
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect.poll(() => names(page)).toEqual(['Eggs', 'Apples', 'Bread', 'Cheese', 'Dates']);
+  await expect.poll(() => names(page)).toEqual(['Eggs', 'Figs', 'Dates', 'Apples', 'Bread', 'Cheese']);
+});
+
+test('dragging still works among new items and a later add lands above the dragged order', async ({ page }) => {
+  await addItem(page, 'Dates');
+  await drag(page, 'Cheese', 'Dates');
+  await expect.poll(() => names(page)).toEqual(['Cheese', 'Dates', 'Apples', 'Bread']);
+  await addItem(page, 'Figs');
+  await expect.poll(() => names(page)).toEqual(['Figs', 'Cheese', 'Dates', 'Apples', 'Bread']);
+  await page.reload();
+  await expect.poll(() => names(page)).toEqual(['Figs', 'Cheese', 'Dates', 'Apples', 'Bread']);
 });
 
 test('reordering is off while searching', async ({ page }) => {

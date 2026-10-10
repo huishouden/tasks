@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   errors = watchErrors(page);
   await signIn(page, 'alice@example.com', 'Alice Example');
   await createHousehold(page);
-  for (const item of ['Apples', 'Bread', 'Cheese']) await addItem(page, item);
+  for (const item of ['Cheese', 'Bread', 'Apples']) await addItem(page, item);
   await expect.poll(() => names(page)).toEqual(['Apples', 'Bread', 'Cheese']);
 });
 

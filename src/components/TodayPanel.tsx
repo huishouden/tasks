@@ -54,8 +54,8 @@ export function TodayPanel({
                 className="h-7 w-7 shrink-0 rounded-full border-2 border-stone-300 hover:border-forest-500 dark:border-forest-500"
               />
               <button onClick={() => onOpen(item)} className="min-w-0 flex-1 py-1 text-left">
-                <span className="block truncate font-medium" translate="no">{item.name}</span>
-                <span className={`block truncate text-sm ${overdue ? 'font-medium text-attention' : 'text-muted'}`}>
+                <span className="block font-medium [overflow-wrap:anywhere]" translate="no">{item.name}</span>
+                <span className={`block text-sm [overflow-wrap:anywhere] ${overdue ? 'font-medium text-attention' : 'text-muted'}`}>
                   {overdue ? t('today.overdue', { due: formatDue(item, now) }) : formatDue(item, now)} · {listName(item.listId)}
                 </span>
               </button>
@@ -77,7 +77,7 @@ export function TodayPanel({
               <Zap size={14} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium" translate="no">{names.join(', ')}</span>
+              <span className="block font-medium [overflow-wrap:anywhere]" translate="no">{names.join(', ')}</span>
               <span className="block text-sm text-muted">{t('today.needToday', { list: shownName(list) })}</span>
             </span>
           </button>

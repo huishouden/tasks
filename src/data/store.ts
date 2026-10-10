@@ -38,6 +38,7 @@ import {
   itemData,
   moveInOrder,
   toggleSubtask,
+  newItemPosition,
   positionBetween,
   type Household,
   type ListIcon,
@@ -306,7 +307,7 @@ export class HouseholdRepo {
       ...(input.by ? { by: input.by } : {}),
       completed: false,
       urgency,
-      position: urgency === URGENCY.URGENT ? -now : now,
+      position: newItemPosition(urgency === URGENCY.URGENT, now),
       ...(when ? { dueAt: when.dueAt, allDay: when.allDay, dueBy: when.by } : input.due ? { dueAt: input.due, allDay: true, dueBy: false } : {}),
       ...(input.googleTaskId ? { googleTaskId: input.googleTaskId } : {}),
       createdAt: now,
@@ -370,7 +371,7 @@ export class HouseholdRepo {
       void updateDoc(doc(this.col('items'), ordered[from].id), { position, updatedAt: Date.now() });
       return;
     }
-    // Small numbers keep new items (positioned by timestamp) after the list and urgent ones before it.
+    // Small numbers keep new items (negated timestamps) before the list and urgent ones before those.
     const batch = writeBatch(this.db);
     next.forEach((item, i) => batch.update(doc(this.col('items'), item.id), { position: (i + 1) * 1000 }));
     void batch.commit();
