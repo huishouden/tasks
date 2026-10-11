@@ -218,7 +218,8 @@ export function positionBetween(before: ListItem | undefined, after: ListItem | 
     return mid > itemPosition(before) && mid < itemPosition(after) ? mid : null;
   }
   if (before) return itemPosition(before) + 1000;
-  if (after) return itemPosition(after) - 1000;
+  // One millisecond above the first: an item added after the drag still lands above it.
+  if (after) return itemPosition(after) - 1;
   return Date.now();
 }
 
