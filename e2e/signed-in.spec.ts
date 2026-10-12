@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { runPortalTodo, useTestHousehold } from '@huishouden/pwa-kit/e2e';
+import { expectPageReads, runPortalTodo, useTestHousehold } from '@huishouden/pwa-kit/e2e';
 
 // Signed in as the invented people of a household of this run's own (pwa-kit STANDARD.md
 // "Staging"), against the real rules: on the emulators (`bun run e2e:emulator`), and on
@@ -79,4 +79,15 @@ test('Done and Cancel on the portal’s To-do list close the item in Tasks', { t
   await expect(page.locator('main li', { hasText: done })).not.toContainText('Cancelled');
   await expect(page.getByRole('button', { name: `Restore ${cancelled}` })).toBeVisible({ timeout: 20_000 });
   await expect(page.locator('main li', { hasText: cancelled })).toContainText('Cancelled');
+});
+
+// Read budget (pwa-kit STANDARD.md "Read budgets"): what a member's first open of Tasks costs in
+// Firestore reads, with the default lists and five items in the household, on the emulators with a
+// build that counts them. A change that raises the ceiling says why in its PR.
+test('opening Tasks: the household, its lists and items, within its read budget', async ({ browser }) => {
+  const admin = await hh.open(browser, 'admin');
+  await openChores(admin);
+  for (const name of ['Water the plants', 'Fix the gate', 'Clean the gutters', 'Sort the mail', 'Call the plumber']) await addItem(admin, name);
+  const page = await hh.open(browser, 'member');
+  await expectPageReads(page, () => openChores(page), { max: 16, label: 'Tasks, first open' });
 });
