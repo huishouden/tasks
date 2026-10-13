@@ -7,7 +7,9 @@ import { setRole } from '@huishouden/pwa-kit/roles';
 import { RoleNote, useRole } from '@huishouden/pwa-kit/react/roles';
 import { AppBar } from '@huishouden/pwa-kit/react/app-bar';
 import { NotificationsCard } from '@huishouden/pwa-kit/react/push';
-import { SampleBanner, cardClass } from '@huishouden/pwa-kit/react/ui';
+import { SampleBanner, ScreenSkeleton, cardClass } from '@huishouden/pwa-kit/react/ui';
+import { useUrlParam } from '@huishouden/pwa-kit/react/url-state';
+import { setUrlParams } from '@huishouden/pwa-kit/url-state';
 import { CloudOff, Loader2 } from 'lucide-react';
 import type { AddRequest } from './components/AddBar';
 import { ErrorNotice } from './components/ErrorNotice';
@@ -68,8 +70,18 @@ function Centered({ children }: { children: ReactNode }) {
   return <div className="flex min-h-0 flex-1 items-center justify-center p-6">{children}</div>;
 }
 
-function Spinner() {
-  return <Loader2 className="animate-spin text-forest-500" size={36} aria-label={t('common.loading')} />;
+/**
+ * While the app opens (the session restoring, the household or its lists loading): the frame over
+ * the kit's placeholder, so nothing flashes or jumps before the lists arrive.
+ */
+function Opening() {
+  return (
+    <main className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
+        <ScreenSkeleton />
+      </div>
+    </main>
+  );
 }
 
 function LoadFailure({ error }: { error: FriendlyError }) {
@@ -106,9 +118,7 @@ export default function App() {
   if (auth.status === 'loading') {
     return (
       <Frame {...frame}>
-        <Centered>
-          <Spinner />
-        </Centered>
+        <Opening />
       </Frame>
     );
   }
@@ -137,9 +147,7 @@ function DemoApp({ frame, signInError }: { frame: FrameProps; signInError: Frien
   if (!db) {
     return (
       <Frame {...frame}>
-        <Centered>
-          <Spinner />
-        </Centered>
+        <Opening />
       </Frame>
     );
   }
@@ -168,9 +176,7 @@ function SignedIn({ db, auth, email, user, frame }: { db: Firestore; auth: Auth;
   if (household.status === 'loading') {
     return (
       <Frame {...frame}>
-        <Centered>
-          <Spinner />
-        </Centered>
+        <Opening />
       </Frame>
     );
   }
@@ -276,13 +282,18 @@ function HouseholdApp({
   const canSetUp = role.can('change-settings');
   usePublish(db, household.id, email, data, !demo, role.restricted);
   const repo = useMemo(() => new HouseholdRepo(db, household.id, demo), [db, household.id, demo]);
-  const [selectedId, setSelectedId] = usePref<string>('list', 'chores');
-  const [link, setLink] = useState(linkedItem);
+  // The list on screen lives in the address (`?list=`), so a reload (an update) and Back return to it;
+  // a bare address opens the list this device last showed.
+  const [savedId, setSavedId] = usePref<string>('list', 'chores');
+  const [urlList, setUrlList] = useUrlParam('list');
+  const selectedId = urlList ?? savedId;
+  const setSelectedId = useCallback((id: string) => setUrlList(id), [setUrlList]);
   useEffect(() => {
-    if (link.list) setSelectedId(link.list);
-    // Only on open: the link chose the list once, and the person moves on from there.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (urlList) setSavedId(urlList);
+    // A bare address names the list it shows, so Back from another list returns to this one.
+    else setUrlList(savedId, { replace: true });
+  }, [urlList, savedId, setSavedId, setUrlList]);
+  const [link, setLink] = useState(linkedItem);
   const [addedAs, setAddedAs] = usePref<string>('addedAs', firstName(displayName, email));
   const [editing, setEditing] = useState<ListItem | null>(null);
   useEffect(() => {
@@ -296,7 +307,8 @@ function HouseholdApp({
     const item = link.item ? data.items.find((i) => i.id === link.item) : undefined;
     if (item && mayChangeItem(item, role.role, email)) setEditing(item);
     setLink({ list: null, item: null });
-    window.history.replaceState(null, '', window.location.pathname);
+    // The item opened once; the list stays in the address.
+    setUrlParams({ item: null }, { replace: true });
   }, [data.loaded, data.items, data.otherLists, link]);
   const [newList, setNewList] = useState(false);
   const [reorderLists, setReorderLists] = useState(false);
@@ -406,17 +418,15 @@ function HouseholdApp({
       <main className={`min-h-0 flex-1 overflow-y-auto ${undoAction ? 'pb-20' : ''}`}>
         {banner}
         {!data.loaded ? (
-          <Centered>
-            <div className="grid justify-items-center gap-3 text-center">
-              <Loader2 className="animate-spin text-forest-500" size={36} />
-              {data.error && (
-                <p className="max-w-sm text-sm text-muted" role="status">
-                  {t('status.connecting')}
-                  <span className="mt-1 block text-xs text-muted">{data.error}</span>
-                </p>
-              )}
-            </div>
-          </Centered>
+          <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
+            <ScreenSkeleton />
+            {data.error && (
+              <p className="mt-3 max-w-sm text-sm text-muted" role="status">
+                {t('status.connecting')}
+                <span className="mt-1 block text-xs text-muted">{data.error}</span>
+              </p>
+            )}
+          </div>
         ) : !selectedList ? (
           <Centered>
             <div className="grid max-w-sm justify-items-center gap-3 text-center">

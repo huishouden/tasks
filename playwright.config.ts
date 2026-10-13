@@ -36,6 +36,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: LIVE_URL },
     },
     {
+      // A reload and Back return to the list in the address (kit STANDARD.md "Updates"): the
+      // signed-out sample at BASE_URL. Runs in `e2e:local` and in `bun run e2e:emulator` against
+      // the emulator build's preview (`hh dev evidence`).
+      name: 'updates',
+      testMatch: /updates\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], baseURL: LIVE_URL, viewport: { width: 1280, height: 800 } },
+    },
+    {
       // Key flows signed in as the invented people of a household of the run's own: on the emulators
       // (`bun run e2e:emulator`, against an emulator build at BASE_URL) and,
       // for the @staging ones, on the staging site (`bun run e2e:signed-in`, the kit's staging job).
