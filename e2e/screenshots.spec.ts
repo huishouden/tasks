@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { captureScreenshot } from '@huishouden/pwa-kit/e2e';
+import { captureOpening, captureScreenshot } from '@huishouden/pwa-kit/e2e';
 
 // README images and CI's before/after evidence: the signed-out app's invented household (src/data/demo.ts)
 // on the site at BASE_URL. The clock is frozen on an obviously invented Monday morning so every run
@@ -7,6 +7,9 @@ import { captureScreenshot } from '@huishouden/pwa-kit/e2e';
 const fixedTime = '2031-01-06T10:00:00';
 
 const ready = (p: Page) => expect(p.getByText('Sample data')).toBeVisible({ timeout: 15_000 });
+// The frame while the app opens (the session restoring), held there: the kit's AppOpening.
+test('opening', ({ page }) => captureOpening(page, 'opening', { fixedTime }));
+
 test('lists', ({ page }) =>
   captureScreenshot(page, 'lists', { fixedTime, prepare: async (p) => {
     await ready(p);
