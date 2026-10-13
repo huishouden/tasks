@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
+import { startUpdates } from '@huishouden/pwa-kit/update';
 import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { groceriesRedirect } from './lib/groceriesLink';
@@ -11,14 +11,9 @@ import './index.css';
 const moved = groceriesRedirect(window.location.search);
 if (moved) window.location.replace(moved);
 
-// Checks for a new deploy hourly so installed copies pick up updates without anyone reinstalling;
-// autoUpdate reloads the page once the new worker activates.
-registerSW({
-  immediate: true,
-  onRegisteredSW(_url, registration) {
-    if (registration) setInterval(() => void registration.update(), 60 * 60 * 1000);
-  },
-});
+// New versions install in the background (checked hourly) and apply without reloading the page in
+// use (kit ./update).
+if (import.meta.env.PROD && !moved) startUpdates({ base: import.meta.env.BASE_URL });
 
 // The language's messages load before the first render, so no English flashes.
 if (!moved)

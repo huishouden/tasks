@@ -16,7 +16,7 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "icons": "pwa-logo check public/icon.svg && pwa-icons --background=#1b4332",
     "e2e:signed-in": "PW_LIVE_ONLY=1 playwright test --project=signed-in",
-    "e2e:emulator": "PW_LIVE_ONLY=1 playwright test --project=signed-in --grep-invert @staging",
+    "e2e:emulator": "PW_LIVE_ONLY=1 playwright test --project=signed-in --project=updates --grep-invert @staging",
     "screenshots": "PW_LIVE_ONLY=1 playwright test --project=screenshots"
   },
   "dependencies": {
@@ -29,7 +29,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@huishouden/pwa-kit": "https://github.com/huishouden/pwa-kit/releases/download/v0.118.1/pwa-kit-0.118.1.tgz",
+    "@huishouden/pwa-kit": "https://github.com/huishouden/pwa-kit/releases/download/v0.119.0/pwa-kit-0.119.0.tgz",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.14.0",

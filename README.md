@@ -30,7 +30,7 @@ Signed out, Tasks opens on an invented household (`src/data/demo.ts`): the real 
 - **Writes:** through the kit's outbox (`@huishouden/pwa-kit/firestore`), so an item added just before the app closes is not lost.
 - **Hosting:** `/tasks/` on the suite's one site (`huishouden-piekstra`, pwa-kit docs/one-site.md), with the other Huishouden apps.
 - **Config:** CI builds read the Firebase web config from the repo's `VITE_FIREBASE_*` variables (public by design); local previews fall back to `/__/firebase/init.json`, which Hosting serves.
-- **Updates:** every push to `main` runs the checks and deploys. Installed copies pick up a new version on their next launch, and check hourly while open.
+- **Updates:** every push to `main` runs the checks and deploys. Installed copies check for a new version hourly and on return, and apply it at the next safe moment (`@huishouden/pwa-kit/update`): before the first touch at launch, when the page is hidden with nothing open or typed, or from the app bar's Update button. The list on screen is in the address (`?list=`), so a reload and Back return to it.
 
 ## Privacy
 
@@ -66,7 +66,7 @@ Against the emulators, the app exposes `window.__testSignIn(email, name)`, which
 
 ## CI/CD and releases
 
-`.github/workflows/ci.yml` calls the kit's shared pipeline (`pwa.yml`) on every push to `main`: leak scan, design check, lint, unit tests and build, a keyless deploy of Hosting and smoke tests against the live site. Pull requests run no hosted CI: their author verifies them locally and on staging. `e2e:emulator` runs e2e/signed-in.spec.ts (each run in a household of its own) on the kit's emulators, before a PR is ready; a staging run (a manual `ci` run with `staging-ref`, or `bunx pwa-staging run`) runs only its `@staging` flows. This repo adds `app-tests` on `main`: the other signed-in browser flows against the Auth and Firestore emulators, using the current rules from huishouden/rules main (`RULES_REF=<branch>` tries a rules PR). Releases: CI tags and releases the version on merge from the Conventional Commit titles (no version or CHANGELOG in a PR); the build embeds the tag, and Settings shows the running version and build.
+`.github/workflows/ci.yml` calls the kit's shared pipeline (`pwa.yml`) on every push to `main`: leak scan, design check, lint, unit tests and build, a keyless deploy of Hosting and smoke tests against the live site. Pull requests run no hosted CI: their author verifies them locally and on staging. `e2e:emulator` runs e2e/signed-in.spec.ts (each run in a household of its own) and e2e/updates.spec.ts (a reload and Back return to the list in the address) on the kit's emulators, before a PR is ready; a staging run (a manual `ci` run with `staging-ref`, or `bunx pwa-staging run`) runs only its `@staging` flows. This repo adds `app-tests` on `main`: the other signed-in browser flows against the Auth and Firestore emulators, using the current rules from huishouden/rules main (`RULES_REF=<branch>` tries a rules PR). Releases: CI tags and releases the version on merge from the Conventional Commit titles (no version or CHANGELOG in a PR); the build embeds the tag, and Settings shows the running version and build.
 
 Deploys authenticate through Workload Identity Federation (no stored keys) with the repo variables `GCP_WIF_PROVIDER` and `GCP_DEPLOY_SA`, set by the kit's `infra/bootstrap.sh`.
 
