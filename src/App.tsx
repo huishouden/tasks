@@ -450,7 +450,7 @@ function HouseholdApp({
       bar={
         <span slot="actions" className="flex items-center gap-1">
           {demo ? null : !online ? (
-            <CloudOff size={20} className="text-terracotta" aria-label={t('status.offline')} role="img" />
+            <CloudOff size={20} className="text-attention" aria-label={t('status.offline')} role="img" />
           ) : data.pendingWrites ? (
             <Loader2 size={18} className="animate-spin text-muted" aria-label={t('status.syncing')} role="img" />
           ) : null}
