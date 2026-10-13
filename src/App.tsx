@@ -8,7 +8,6 @@ import { RoleNote, useRole } from '@huishouden/pwa-kit/react/roles';
 import { AppBar } from '@huishouden/pwa-kit/react/app-bar';
 import { NotificationsCard } from '@huishouden/pwa-kit/react/push';
 import { SampleBanner, ScreenSkeleton, cardClass } from '@huishouden/pwa-kit/react/ui';
-import { useUrlParam } from '@huishouden/pwa-kit/react/url-state';
 import { setUrlParams } from '@huishouden/pwa-kit/url-state';
 import { CloudOff, Loader2 } from 'lucide-react';
 import type { AddRequest } from './components/AddBar';
@@ -35,7 +34,7 @@ import { GoogleTasksSettings } from './components/GoogleTasksSettings';
 import { GoogleTasksSuggestions, useGoogleTasksSuggestions } from '@huishouden/pwa-kit/react/google-tasks';
 import type { GoogleTask } from '@huishouden/pwa-kit/google-tasks';
 import { getFirebase, googleClientId, useEmulators } from './lib/firebase';
-import { PrefScope, useInstallPrompt, useOnline, usePref } from './lib/prefs';
+import { PrefScope, useInstallPrompt, useOnline, usePref, useSelectedList } from './lib/prefs';
 import { ListsView } from './views/ListsView';
 import { NearbyErrand } from './components/NearbyErrand';
 import { groceriesRedirect } from './lib/groceriesLink';
@@ -284,22 +283,16 @@ function HouseholdApp({
   const repo = useMemo(() => new HouseholdRepo(db, household.id, demo), [db, household.id, demo]);
   // The list on screen lives in the address (`?list=`), so a reload (an update) and Back return to it;
   // a bare address opens the list this device last showed.
-  const [savedId, setSavedId] = usePref<string>('list', 'chores');
-  const [urlList, setUrlList] = useUrlParam('list');
-  const selectedId = urlList ?? savedId;
-  const setSelectedId = useCallback((id: string) => setUrlList(id), [setUrlList]);
-  useEffect(() => {
-    if (urlList) setSavedId(urlList);
-    // A bare address names the list it shows, so Back from another list returns to this one.
-    else setUrlList(savedId, { replace: true });
-  }, [urlList, savedId, setSavedId, setUrlList]);
+  const [selectedId, setSelectedId] = useSelectedList(data.loaded ? data.lists : null, 'chores');
   const [link, setLink] = useState(linkedItem);
+  // The address as opened: the list in it may be corrected before the lists arrive.
+  const [openedWith] = useState(() => window.location.search);
   const [addedAs, setAddedAs] = usePref<string>('addedAs', firstName(displayName, email));
   const [editing, setEditing] = useState<ListItem | null>(null);
   useEffect(() => {
     if (!data.loaded || (!link.list && !link.item)) return;
     // An old link to a shopping list or one of its items (from before Groceries had them) opens there.
-    const moved = groceriesRedirect(window.location.search, new Set(data.otherLists.map((l) => l.id)));
+    const moved = groceriesRedirect(openedWith, new Set(data.otherLists.map((l) => l.id)));
     if (moved) {
       window.location.replace(moved);
       return;

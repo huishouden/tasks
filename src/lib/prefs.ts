@@ -1,4 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useUrlParam } from '@huishouden/pwa-kit/react/url-state';
+import { listChoice } from './listChoice';
 
 /**
  * Where preferences are kept: the signed-out sample household uses its own keys, so trying it
@@ -23,6 +25,30 @@ export function usePref<T>(key: string, initial: T): [T, (value: T) => void] {
     localStorage.setItem(storageKey, JSON.stringify(value));
   }, [storageKey, value]);
   return [value, setValue];
+}
+
+/**
+ * The list on screen: in the address (`?list=`), so a reload (an update) and Back return to it, and
+ * remembered per device (`usePref('list')`, scoped like every pref) for a bare address. `lists` is
+ * null until they load; see `listChoice` for stale ids. Choosing a list pushes a history entry.
+ */
+export function useSelectedList(lists: readonly { id: string }[] | null, fallback: string): [string, (id: string) => void] {
+  const [saved, setSaved] = usePref<string>('list', fallback);
+  const [url, setUrl] = useUrlParam('list');
+  const chosen = useRef<string | null>(null);
+  const { shown, save, address } = listChoice(url, saved, lists?.map((l) => l.id) ?? null, chosen.current);
+  useEffect(() => {
+    if (save) setSaved(save);
+    if (address) setUrl(address, { replace: true });
+  }, [save, address, setSaved, setUrl]);
+  const choose = useCallback(
+    (id: string) => {
+      chosen.current = id;
+      setUrl(id);
+    },
+    [setUrl],
+  );
+  return [shown, choose];
 }
 
 interface BeforeInstallPromptEvent extends Event {
