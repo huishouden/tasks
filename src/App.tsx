@@ -5,9 +5,9 @@ import { signInSilently } from '@huishouden/pwa-kit/auth';
 import { inviteMember, markJoined, removeMember, saveMyProfile } from '@huishouden/pwa-kit/household';
 import { setRole } from '@huishouden/pwa-kit/roles';
 import { RoleNote, useRole } from '@huishouden/pwa-kit/react/roles';
-import { AppFrame, AppOpening, listColumn, type AppFrameProps } from '@huishouden/pwa-kit/react/frame';
+import { AppFrame, AppOpening, type AppFrameProps } from '@huishouden/pwa-kit/react/frame';
 import { NotificationsCard } from '@huishouden/pwa-kit/react/push';
-import { SampleBanner, ScreenSkeleton, cardClass } from '@huishouden/pwa-kit/react/ui';
+import { SampleBanner, cardClass } from '@huishouden/pwa-kit/react/ui';
 import { setUrlParams } from '@huishouden/pwa-kit/url-state';
 import { CloudOff, Loader2 } from 'lucide-react';
 import type { AddRequest } from './components/AddBar';
@@ -370,8 +370,16 @@ function HouseholdApp({
   };
   const clearCompleted = (items: ListItem[]) => offerUndo(repo.clearCompleted(items.filter(mayChange)), 'cleared');
 
-  // The lists still on their way: the opening frame. Trouble reaching them shows under the placeholder in the app's frame.
-  if (!data.loaded && !data.error) return <AppOpening {...tasksFrame(t, frame)} phase="data" />;
+  // The lists still on their way: the opening frame; trouble reaching them is its note.
+  if (!data.loaded) {
+    const note = data.error ? (
+      <>
+        {t('status.connecting')}
+        <span className="mt-1 block text-xs text-muted">{friendlyError(new Error(data.error), 'save').message}</span>
+      </>
+    ) : undefined;
+    return <AppOpening {...tasksFrame(t, frame)} phase="data" note={note} />;
+  }
 
   const dialogs = (
     <>
@@ -459,17 +467,7 @@ function HouseholdApp({
       after={dialogs}
     >
         {banner}
-        {!data.loaded ? (
-          <div className={listColumn}>
-            <ScreenSkeleton />
-            {data.error && (
-              <p className="mt-3 max-w-sm text-sm text-muted" role="status">
-                {t('status.connecting')}
-                <span className="mt-1 block text-xs text-muted">{data.error}</span>
-              </p>
-            )}
-          </div>
-        ) : !selectedList ? (
+        {!selectedList ? (
           <Centered>
             <div className="grid max-w-sm justify-items-center gap-3 text-center">
               <p className="text-muted">{t('lists.none')}</p>
