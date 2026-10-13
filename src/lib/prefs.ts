@@ -36,17 +36,24 @@ export function useSelectedList(lists: readonly { id: string }[] | null, fallbac
   const [saved, setSaved] = usePref<string>('list', fallback);
   const [url, setUrl] = useUrlParam('list');
   const chosen = useRef<string | null>(null);
-  const { shown, save, address } = listChoice(url, saved, lists?.map((l) => l.id) ?? null, chosen.current);
+  const pinnedAt = useRef<string | undefined>(undefined);
+  // The pin on a chosen list covers only the moment before its snapshot arrives: the next lists
+  // (which carry it, Firestore applying local writes at once) end it, so a list deleted later is
+  // corrected in the address like any other stale id. Decided here, before the choice below.
+  const ids = lists?.map((l) => l.id);
+  if (chosen.current && ids?.join('\n') !== pinnedAt.current) chosen.current = null;
+  const { shown, save, address } = listChoice(url, saved, ids ?? null, chosen.current);
   useEffect(() => {
     if (save) setSaved(save);
     if (address) setUrl(address, { replace: true });
   }, [save, address, setSaved, setUrl]);
   const choose = useCallback(
     (id: string) => {
-      chosen.current = id;
+      chosen.current = lists?.some((l) => l.id === id) ? null : id;
+      pinnedAt.current = lists?.map((l) => l.id).join('\n');
       setUrl(id);
     },
-    [setUrl],
+    [setUrl, lists],
   );
   return [shown, choose];
 }
