@@ -375,7 +375,7 @@ function HouseholdApp({
     const note = data.error ? (
       <>
         {t('status.connecting')}
-        <span className="mt-1 block text-xs text-muted">{data.error}</span>
+        <span className="mt-1 block text-xs text-muted">{friendlyError(new Error(data.error), 'save').message}</span>
       </>
     ) : undefined;
     return <AppOpening {...tasksFrame(t, frame)} phase="data" note={note} />;
