@@ -12,6 +12,10 @@ Shopping lists, store mode and meal ideas are [Huishouden Groceries](https://hui
 | --- | --- |
 | ![Chores & Notes with Today on top: a dry cleaning drop-off due by 6 PM and a Need today item](docs/screenshots/lists.png) | ![Weekend Projects with a 7-step checklist, 2 steps done](docs/screenshots/tasks-checklist.png) |
 
+| Opening |
+|---|
+| ![While Tasks opens: the app bar already in place over a placeholder in the list column](docs/screenshots/opening.png) |
+
 <img src="docs/screenshots/phone-lists.png" alt="Lists on a phone, Today above Chores & Notes" width="260" align="right">
 
 **Lists** opens on **Today**: what is overdue or due today from every list, and anything marked Need today, each one tap from done. Typing "drop off dry cleaning before 6" or "cancel the trial by October 4th" sets the due time; a task can have steps, a place (Find nearby, from OpenStreetMap, with the place's opening hours: near you when location is allowed, otherwise near the household's home set in the portal) and a link, and "Find in my calendar" fills them from a Google Calendar event. Near the place of an unfinished errand, a one-line note says so. A task no longer needed can be cancelled from its details (admins, members, and whoever added it): it moves to Done marked Cancelled, and ticking it restores it.
