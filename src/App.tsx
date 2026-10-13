@@ -5,7 +5,7 @@ import { signInSilently } from '@huishouden/pwa-kit/auth';
 import { inviteMember, markJoined, removeMember, saveMyProfile } from '@huishouden/pwa-kit/household';
 import { setRole } from '@huishouden/pwa-kit/roles';
 import { RoleNote, useRole } from '@huishouden/pwa-kit/react/roles';
-import { AppBar } from '@huishouden/pwa-kit/react/app-bar';
+import { AppFrame, AppOpening, listColumn, type AppFrameProps } from '@huishouden/pwa-kit/react/frame';
 import { NotificationsCard } from '@huishouden/pwa-kit/react/push';
 import { SampleBanner, ScreenSkeleton, cardClass } from '@huishouden/pwa-kit/react/ui';
 import { setUrlParams } from '@huishouden/pwa-kit/url-state';
@@ -38,7 +38,7 @@ import { PrefScope, useInstallPrompt, useOnline, usePref, useSelectedList } from
 import { ListsView } from './views/ListsView';
 import { NearbyErrand } from './components/NearbyErrand';
 import { groceriesRedirect } from './lib/groceriesLink';
-import { t, useT } from './i18n';
+import { useT } from './i18n';
 import { richT } from './lib/rich';
 
 /** The Huishouden portal, at the root of the site Tasks shares (pwa-kit docs/one-site.md). */
@@ -52,35 +52,26 @@ interface FrameProps {
   onSignOut: () => void;
 }
 
-/** The Huishouden frame (DESIGN.md "Frame"): the kit's app bar over the page. */
-function Frame({ user, signingIn, onSignIn, onSignOut, onSettings, actions, children }: FrameProps & { onSettings?: () => void; actions?: ReactNode; children: ReactNode }) {
+/**
+ * Tasks' frame (the kit's `AppFrame`, DESIGN.md "Frame"): the same props while the app opens and once
+ * the lists are here, so nothing moves between them. A scrolling `<main>` with the list column inside.
+ */
+function tasksFrame(t: ReturnType<typeof useT>, frame: FrameProps): AppFrameProps {
+  return { app: t('app.name'), glyph: 'check', portalUrl: PORTAL_URL, version: VERSION, ...frame, layout: 'list' };
+}
+
+/** A note in the frame instead of the lists (a failure, starting a household), centred in the page. */
+function Plain({ frame, children }: { frame: FrameProps; children: ReactNode }) {
   const t = useT();
   return (
-    <div className="flex h-full flex-col">
-      <AppBar app={t('app.name')} glyph="check" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut} onSettings={onSettings} settingsLabel={t('settings.open')}>
-        {actions}
-      </AppBar>
+    <AppFrame {...tasksFrame(t, frame)} mainClassName="flex flex-col">
       {children}
-    </div>
+    </AppFrame>
   );
 }
 
 function Centered({ children }: { children: ReactNode }) {
   return <div className="flex min-h-0 flex-1 items-center justify-center p-6">{children}</div>;
-}
-
-/**
- * While the app opens (the session restoring, the household or its lists loading): the frame over
- * the kit's placeholder, so nothing flashes or jumps before the lists arrive.
- */
-function Opening() {
-  return (
-    <main className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
-        <ScreenSkeleton />
-      </div>
-    </main>
-  );
 }
 
 function LoadFailure({ error }: { error: FriendlyError }) {
@@ -92,6 +83,7 @@ function LoadFailure({ error }: { error: FriendlyError }) {
 }
 
 export default function App() {
+  const t = useT();
   const auth = useAuth();
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<FriendlyError | null>(null);
@@ -114,20 +106,14 @@ export default function App() {
   const user = auth.status === 'signed-in' ? auth.user : auth.status === 'loading' ? undefined : null;
   const frame: FrameProps = { user, signingIn, onSignIn, onSignOut };
 
-  if (auth.status === 'loading') {
-    return (
-      <Frame {...frame}>
-        <Opening />
-      </Frame>
-    );
-  }
+  if (auth.status === 'loading') return <AppOpening {...tasksFrame(t, frame)} phase="session" />;
   if (auth.status === 'error') {
     return (
-      <Frame {...frame}>
+      <Plain frame={frame}>
         <Centered>
           <LoadFailure error={friendlyError(new Error(auth.message), 'save')} />
         </Centered>
-      </Frame>
+      </Plain>
     );
   }
   if (auth.status === 'signed-out') return <DemoApp frame={frame} signInError={signInError} />;
@@ -136,6 +122,7 @@ export default function App() {
 
 /** Signed out: the app on an invented household, so it can be tried (and screenshotted) before signing in. */
 function DemoApp({ frame, signInError }: { frame: FrameProps; signInError: FriendlyError | null }) {
+  const t = useT();
   const [db, setDb] = useState<Firestore | null>(null);
   useEffect(() => {
     void openDemo().then(setDb);
@@ -143,13 +130,7 @@ function DemoApp({ frame, signInError }: { frame: FrameProps; signInError: Frien
     setHome(DEMO_HOME);
     return () => setHome(undefined);
   }, []);
-  if (!db) {
-    return (
-      <Frame {...frame}>
-        <Opening />
-      </Frame>
-    );
-  }
+  if (!db) return <AppOpening {...tasksFrame(t, frame)} phase="data" />;
   const banner = (
     <SampleBanner
       text={t('demo.banner')}
@@ -172,27 +153,22 @@ function SignedIn({ db, auth, email, user, frame }: { db: Firestore; auth: Auth;
     if (householdId) saveMyProfile(db, householdId, user).catch(() => {});
   }, [db, householdId, user]);
 
-  if (household.status === 'loading') {
-    return (
-      <Frame {...frame}>
-        <Opening />
-      </Frame>
-    );
-  }
+  const t = useT();
+  if (household.status === 'loading') return <AppOpening {...tasksFrame(t, frame)} phase="household" />;
   if (household.status === 'error') {
     return (
-      <Frame {...frame}>
+      <Plain frame={frame}>
         <Centered>
           <LoadFailure error={friendlyError(new Error(household.message), 'save')} />
         </Centered>
-      </Frame>
+      </Plain>
     );
   }
   if (household.status === 'none') {
     return (
-      <Frame {...frame}>
+      <Plain frame={frame}>
         <Onboarding db={db} email={email} displayName={user.displayName} />
-      </Frame>
+      </Plain>
     );
   }
   return <HouseholdApp db={db} email={email} displayName={user.displayName} household={household.household} frame={frame} auth={auth} />;
@@ -394,80 +370,11 @@ function HouseholdApp({
   };
   const clearCompleted = (items: ListItem[]) => offerUndo(repo.clearCompleted(items.filter(mayChange)), 'cleared');
 
-  return (
-    <Frame
-      {...frame}
-      onSettings={() => setSettings(true)}
-      actions={
-        <span slot="actions" className="flex items-center gap-1">
-          {demo ? null : !online ? (
-            <CloudOff size={20} className="text-terracotta" aria-label={t('status.offline')} role="img" />
-          ) : data.pendingWrites ? (
-            <Loader2 size={18} className="animate-spin text-muted" aria-label={t('status.syncing')} role="img" />
-          ) : null}
-        </span>
-      }
-    >
-      <main className={`min-h-0 flex-1 overflow-y-auto ${undoAction ? 'pb-20' : ''}`}>
-        {banner}
-        {!data.loaded ? (
-          <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
-            <ScreenSkeleton />
-            {data.error && (
-              <p className="mt-3 max-w-sm text-sm text-muted" role="status">
-                {t('status.connecting')}
-                <span className="mt-1 block text-xs text-muted">{data.error}</span>
-              </p>
-            )}
-          </div>
-        ) : !selectedList ? (
-          <Centered>
-            <div className="grid max-w-sm justify-items-center gap-3 text-center">
-              <p className="text-muted">{t('lists.none')}</p>
-              {canSetUp ? (
-                <>
-                  <button onClick={() => repo.restoreDefaultLists()} className={primaryButton}>
-                    {t('lists.addDefaults')}
-                  </button>
-                  <button onClick={() => setNewList(true)} className="text-sm text-muted underline">
-                    {t('lists.createOwn')}
-                  </button>
-                </>
-              ) : (
-                <RoleNote action="change-settings" />
-              )}
-              <a href={GROCERIES_PATH} className="text-sm font-medium text-link underline underline-offset-2">
-                {t('lists.shoppingInGroceries')}
-              </a>
-            </div>
-          </Centered>
-        ) : (
-          <ListsView
-            lists={data.lists}
-            items={data.items}
-            selectedList={selectedList}
-            onSelectList={setSelectedId}
-            onNewList={() => setNewList(true)}
-            onReorderLists={() => setReorderLists(true)}
-            banner={
-              <>
-                {googleTasksCard}
-                {errandBanner}
-              </>
-            }
-            onDeleteList={(l) => void repo.deleteList(l.id)}
-            canSetUp={canSetUp}
-            mayChange={mayChange}
-            onAdd={add}
-            onToggle={toggle}
-            onToggleSubtask={(i, id) => repo.toggleSubtask(i, id, mayChange(i))}
-            onEdit={(item) => mayChange(item) && setEditing(item)}
-            onDelete={deleteItem}
-            onClearCompleted={clearCompleted}
-            onMove={(ordered, from, to) => repo.moveItem(ordered, from, to)}
-          />
-        )}
-      </main>
+  // The lists still on their way: the opening frame. Trouble reaching them shows under the placeholder in the app's frame.
+  if (!data.loaded && !data.error) return <AppOpening {...tasksFrame(t, frame)} phase="data" />;
+
+  const dialogs = (
+    <>
 
       {editing && (
         <EditItemDialog
@@ -531,6 +438,84 @@ function HouseholdApp({
           onClose={() => setSettings(false)}
         />
       )}
-    </Frame>
+    </>
+  );
+
+  return (
+    <AppFrame
+      {...tasksFrame(t, frame)}
+      onSettings={() => setSettings(true)}
+      settingsLabel={t('settings.open')}
+      mainClassName={undoAction ? 'pb-20' : undefined}
+      bar={
+        <span slot="actions" className="flex items-center gap-1">
+          {demo ? null : !online ? (
+            <CloudOff size={20} className="text-terracotta" aria-label={t('status.offline')} role="img" />
+          ) : data.pendingWrites ? (
+            <Loader2 size={18} className="animate-spin text-muted" aria-label={t('status.syncing')} role="img" />
+          ) : null}
+        </span>
+      }
+      after={dialogs}
+    >
+        {banner}
+        {!data.loaded ? (
+          <div className={listColumn}>
+            <ScreenSkeleton />
+            {data.error && (
+              <p className="mt-3 max-w-sm text-sm text-muted" role="status">
+                {t('status.connecting')}
+                <span className="mt-1 block text-xs text-muted">{data.error}</span>
+              </p>
+            )}
+          </div>
+        ) : !selectedList ? (
+          <Centered>
+            <div className="grid max-w-sm justify-items-center gap-3 text-center">
+              <p className="text-muted">{t('lists.none')}</p>
+              {canSetUp ? (
+                <>
+                  <button onClick={() => repo.restoreDefaultLists()} className={primaryButton}>
+                    {t('lists.addDefaults')}
+                  </button>
+                  <button onClick={() => setNewList(true)} className="text-sm text-muted underline">
+                    {t('lists.createOwn')}
+                  </button>
+                </>
+              ) : (
+                <RoleNote action="change-settings" />
+              )}
+              <a href={GROCERIES_PATH} className="text-sm font-medium text-link underline underline-offset-2">
+                {t('lists.shoppingInGroceries')}
+              </a>
+            </div>
+          </Centered>
+        ) : (
+          <ListsView
+            lists={data.lists}
+            items={data.items}
+            selectedList={selectedList}
+            onSelectList={setSelectedId}
+            onNewList={() => setNewList(true)}
+            onReorderLists={() => setReorderLists(true)}
+            banner={
+              <>
+                {googleTasksCard}
+                {errandBanner}
+              </>
+            }
+            onDeleteList={(l) => void repo.deleteList(l.id)}
+            canSetUp={canSetUp}
+            mayChange={mayChange}
+            onAdd={add}
+            onToggle={toggle}
+            onToggleSubtask={(i, id) => repo.toggleSubtask(i, id, mayChange(i))}
+            onEdit={(item) => mayChange(item) && setEditing(item)}
+            onDelete={deleteItem}
+            onClearCompleted={clearCompleted}
+            onMove={(ordered, from, to) => repo.moveItem(ordered, from, to)}
+          />
+        )}
+    </AppFrame>
   );
 }

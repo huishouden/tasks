@@ -20,7 +20,7 @@ export default defineConfig({
       // Full app flows against the Auth and Firestore emulators.
       name: 'local',
       testMatch: /.*\.spec\.ts/,
-      testIgnore: /(live|screenshots|signed-in)\.spec\.ts/,
+      testIgnore: /(live|screenshots|signed-in|opening)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], baseURL: APP_URL, viewport: { width: 1280, height: 800 } },
     },
     {
@@ -42,6 +42,13 @@ export default defineConfig({
       name: 'updates',
       testMatch: /updates\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], baseURL: LIVE_URL, viewport: { width: 1280, height: 800 } },
+    },
+    {
+      // The opening frame lines up with the loaded app (kit STANDARD.md "Updates"): the signed-out
+      // sample at BASE_URL, phone and tablet, light and dark. Runs in `bun run e2e:emulator`.
+      name: 'opening',
+      testMatch: /opening\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], baseURL: LIVE_URL },
     },
     {
       // Key flows signed in as the invented people of a household of the run's own: on the emulators
