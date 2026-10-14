@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectPageReads, runPortalTodo, useTestHousehold } from '@huishouden/pwa-kit/e2e';
+import { expectPageReads, expectShareHuishouden, runPortalTodo, useTestHousehold } from '@huishouden/pwa-kit/e2e';
 
 // Signed in as the invented people of a household of this run's own (pwa-kit STANDARD.md
 // "Staging"), against the real rules: on the emulators (`bun run e2e:emulator`), and on
@@ -34,6 +34,13 @@ test('a to-do one member adds shows for the other, and checking it off syncs bac
   await expect(theirs.locator('main li', { hasText: name })).toBeVisible({ timeout: 20_000 });
   await theirs.getByRole('button', { name: `Mark ${name} done` }).click();
   await expect(page.getByRole('button', { name: `Mark ${name} not done` })).toBeVisible({ timeout: 20_000 });
+});
+
+// Share Huishouden from Tasks' account menu (the kit's app bar): the share sheet (stubbed), the copy
+// fallback and the QR code, all of the bare site address, never the household.
+test('a member shares Huishouden itself from the account menu', async ({ page }) => {
+  await hh.signIn(page, 'member');
+  await expectShareHuishouden(page);
 });
 
 test('a helper ticks off a member’s item and adds their own, but can’t delete the member’s or set up lists', async ({ browser }) => {
