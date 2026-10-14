@@ -24,7 +24,7 @@ jobs:
   # The suite's shared pipeline: leak scan, design check, lint, unit tests, build, keyless deploy
   # of Hosting on main, smoke tests against the live site.
   pwa:
-    uses: huishouden/pwa-kit/.github/workflows/pwa.yml@1db33330ffe89b536d1a8b21cb86355d78edd3a7 # v0.121.0
+    uses: huishouden/pwa-kit/.github/workflows/pwa.yml@c17c1fd5232ac124b75eab89e028d59adfda2c12 # v0.122.0
     permissions:
       contents: write # the hosting release asset, the version's tag and release
       id-token: write
